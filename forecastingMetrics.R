@@ -100,7 +100,20 @@ forecastingMetrics <- function(crude.data.input, horizon.input,
     location <- strsplit(indexedQuantileName, "[-]")[[1]][2]
     
     # Forecast period
-    forecastPeriod <- sub(paste0(".*", location, "-"), "", indexedQuantileName) 
+    
+    # Forecast period for weekly or daily data 
+    if(date.Type.input.FM %in% c("week", "day")){
+      
+      # Determining the forecast period from the name
+      forecastPeriod <- substring(indexedQuantileName, regexpr("-", indexedQuantileName) + (nchar(location) + 2))
+      
+      # Forecast period for yearly or time index data 
+    }else{
+      
+      # Determining the forecast period from the name
+      forecastPeriod <- strsplit(indexedQuantileName, "[-]")[[1]][3]
+      
+    }
     
     ############################################
     # Determining the calibration period dates #

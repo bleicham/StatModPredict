@@ -119,7 +119,20 @@ for(q in 1:length(quantile.forecast.input.MF)){
   location <- strsplit(indexedQuantileName, "[-]")[[1]][2]
   
   # Forecast period
-  forecastPeriod <- sub(paste0(".*", location, "-"), "", indexedQuantileName) 
+  
+  # Forecast period for weekly or daily data 
+  if(date.Type.input.MF %in% c("week", "day")){
+    
+    # Determining the forecast period from the name
+    forecastPeriod <- substring(indexedQuantileName, regexpr("-", indexedQuantileName) + (nchar(location) + 2))
+    
+    # Forecast period for yearly or time index data 
+  }else{
+    
+    # Determining the forecast period from the name
+    forecastPeriod <- strsplit(indexedQuantileName, "[-]")[[1]][3]
+    
+  }
   
   ##################################################
   # Determining if the model fit can be determined #

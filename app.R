@@ -49,7 +49,8 @@ source("timeseries.Panel.AverageMetrics.R")
 #------------------------------------------------------------------------------#
 pacman::p_load(MASS, shiny, shinydashboard, shinyWidgets, bslib, plotly, anytime,
                shinyalert, shinyjs, shinybusy, editData, shinyBS, DT, stringr,
-               tidyverse, forstringr, mgcv, processx, ggpubr, shinyalert)
+               tidyverse, forstringr, mgcv, processx, ggpubr, shinyalert, forecast, 
+               prophet)
 
 #------------------------------------------------------------------------------#
 #                            User Interface                                    #
@@ -4167,7 +4168,7 @@ server <- function(input, output, session) {
            ########################################
            # Function to produce forecast metrics #
            ########################################
-           forecastMetricsList <- forecastingMetrics(crude.data.input = file(), # Crude data 
+           forecastMetricsList <<- forecastingMetrics(crude.data.input = file(), # Crude data 
                                                      horizon.input = input$forecastHorizon, # Horizon 
                                                      date.Type.input = dateValues$dates, # Date type 
                                                      quantile.list.input = c(ARIMAInfo$arima, GAMList$GAM, GLMList$GLM, ProphetList$prophet)) # Quantile list
