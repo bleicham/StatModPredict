@@ -146,7 +146,7 @@ for(i in 1:length(formatted.forecast.Figure)){
   ##########################################
   # Combining list of data frames into one #
   ##########################################
-  allData <- na.omit(as.data.frame(do.call(rbind, listData)))
+  allData <- as.data.frame(do.call(rbind, listData))
   
     
 
@@ -212,8 +212,7 @@ for(i in 1:length(formatted.forecast.Figure)){
       if(date.Figure %in% c("week", "day")){
         
         # Dates on x-axis
-        dataFilteredFinal <- dataFilteredFinal %>%
-          mutate(dates = anytime::anydate(Date)) # Handling dates if working with weekly and daily data
+        dataFilteredFinal <- dataFilteredFinal 
         
         # Vertical line
         breakLine <- anytime::anydate(indexedForecastPeriod)
@@ -234,8 +233,7 @@ for(i in 1:length(formatted.forecast.Figure)){
       }else{
         
         # Dates on x-axis
-        dataFilteredFinal <- dataFilteredFinal %>%
-          mutate(dates = as.numeric(Date)) # Changing years and time index to numeric 
+        dataFilteredFinal <- dataFilteredFinal 
         
         # Vertical line
         breakLine <- as.numeric(indexedForecastPeriod)
@@ -249,7 +247,7 @@ for(i in 1:length(formatted.forecast.Figure)){
       # Plot title #
       ##############
       title2 <- paste0(indexedLocation, "-", indexedForecastPeriod)
-      
+    
       ###########################
       # Creating the plot panel #
       ###########################
@@ -264,11 +262,11 @@ for(i in 1:length(formatted.forecast.Figure)){
         xAxisBreaks + # X axis breaks (i.e., dates)
         scale_y_continuous(breaks = seq(0, maxValue + breaks.graph, by = breaks.graph), # Y-axis breaks
                            limits = c(0, maxValue)) + # Y-axis limits
-        labs(title = title2, # Title
+        labs(title = "", # Title
              y = "Counts") + # Y-axis labels
         theme_classic() + # Base theme
         theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1), # Switching x-axis labels horizontal
-              plot.title = element_text(hjust = 0.5, face = "bold", size = 10), # Plot title
+              plot.title = element_text(hjust = 0.5, face = "bold", size = 10, margin = 15), # Plot title
               axis.title.y = element_text(size = 10), # Y-axis label
               axis.title.x=element_blank(), # Removing the x-axis label
               panel.grid.major = element_line(color = "grey95"))
@@ -291,6 +289,7 @@ for(i in 1:length(formatted.forecast.Figure)){
   ############################
   # Returning the final list #
   ############################
+
   return(finalList)
   
 } # End of function
