@@ -4528,9 +4528,21 @@ server <- function(input, output, session) {
        ########################################
        }else{
          
-         # Using forecast metrics 
-         metrics <- forecastMetricsListCrude$forecastMetrics
+         # Handling when forecasting methods can not be evaluated
+         if(length(forecastMetricsListCrude$forecastMetrics) == 0){
+           
+           shinyalert("Not enough data to evaluate forecasting performance." , type = "error")
+           metrics <- NULL
+           finalList <- NULL
+           modelMetricsCrude$metricsList <- NULL
+           
+         }else{
          
+           # Using forecast metrics 
+           metrics <- forecastMetricsListCrude$forecastMetrics
+           
+         }
+        
        }
 
        # Creating the empty list for forecasts
@@ -5288,7 +5300,27 @@ server <- function(input, output, session) {
        #####################################################
        # Saving the list of of avg. metrics under new name #
        #####################################################
-       avgMetrics <- avgMetrics$metricsList
+       
+       if(input$metricsToShow == "Model Fit"){
+         
+         avgMetrics <- avgMetrics$metricsList
+         
+       }else{
+       
+         # Handling when forecasting methods can not be evaluated
+         if(length(avgMetrics$metricsList) == 0){
+           
+           avgMetrics <- NULL
+           modelMetricsAvg$metricsList <- NULL
+           
+         }else{
+           
+           # Using forecast metrics 
+           avgMetrics <- avgMetrics$metricsList
+           
+         }
+         
+       }
 
        # Empty list to save data sets in
        allDataFiles <- list()
