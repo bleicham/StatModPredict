@@ -4408,7 +4408,7 @@ server <- function(input, output, session) {
        #################################################
        # Running the function to get model fit metrics #
        #################################################
-       modelFitOutput <<- modelFitMetrics(crude.data.input = file(), # Crude data 
+       modelFitOutput <- modelFitMetrics(crude.data.input = file(), # Crude data 
                                          calibration.input = input$calibrationPeriod, # Calibration period 
                                          date.Type.input = dateValues$dates, # Date type 
                                          quantile.list.input = c(ARIMAInfo$arima, GAMList$GAM, GLMList$GLM, ProphetList$prophet)) # List of quantile forecasts
@@ -4466,7 +4466,7 @@ server <- function(input, output, session) {
            ########################################
            # Function to produce forecast metrics #
            ########################################
-           forecastMetricsList <<- forecastingMetrics(crude.data.input = file(), # Crude data 
+           forecastMetricsList <- forecastingMetrics(crude.data.input = file(), # Crude data 
                                                      horizon.input = input$forecastHorizon, # Horizon 
                                                      date.Type.input = dateValues$dates, # Date type 
                                                      quantile.list.input = c(ARIMAInfo$arima, GAMList$GAM, GLMList$GLM, ProphetList$prophet)) # Quantile list
@@ -4749,50 +4749,6 @@ server <- function(input, output, session) {
      
    }) # End of rendering the title 
    
-   
-
-   
-
-   
-   
-#------------------------------------------------------------------------------#
-# Creating a list of crude forecast file names ---------------------------------
-#------------------------------------------------------------------------------#
-# About: This section creates a list of file names containing crude metric     #
-# files based on the user select locations and models. The list of file        #
-# names is then used when saving the crude metrics via the "download" button.  #                                                                     #
-#------------------------------------------------------------------------------#
-   
-   namesSavingCrudeMetrics <- reactive({
-     
-     #############################################
-     # Creating an empty vector to save names in #
-     #############################################
-     list.crudeMetrics.name <- c()
-     
-     ###################################################
-     # Looping through the list of formatted forecasts #
-     ###################################################
-     for(i in 1:length(modelMetricsCrude$metricsList)){
-       
-       # Pulling the crude metric file name 
-       nameFormatted <- names(modelMetricsCrude$metricsList)[[i]]
-       
-       # Removing the '/' symbols when necessary
-       namesCleaned <- gsub("/", "-", nameFormatted)
-       
-       # Saving it in the vector
-       list.crudeMetrics.name[i] <- paste0(namesCleaned, ".csv")
-       
-     } # End of loop through crude metrics
-     
-     ###################################################
-     # Returning the vector of the crude metrics names #
-     ###################################################
-     return(list.crudeMetrics.name)
-     
-   }) # End of 'reactive' statement 
-   
 
 #------------------------------------------------------------------------------#
 # Downloading the crude metrics as a 'zip' file --------------------------------
@@ -4803,55 +4759,62 @@ server <- function(input, output, session) {
 #------------------------------------------------------------------------------#
    
    output$download_metrics <- downloadHandler(
-     
-     ###############################################
-     # Setting up the file name for the zip folder #
-     ###############################################
-     filename = function() {
        
-       # Pulling the name of the downloaded data
-       fileName <- gsub('.csv', '', input$dataset)
-       
-       # Folder name 
-       paste(fileName, "-Crude-Metrics.zip", sep = "")
-       
-     },
-     
-     #############################################
-     # Setting up the contents of the zip folder #
-     #############################################
-     content = function(file) {
-       
-       # Naming the 'zip' file 
-       zip_file <- file
-       
-       # Fixing issues with '/' in file names 
-       names_with_underscores <- gsub("/", "-", names(modelMetricsCrude$metricsList))
-       
-       # Creating the individual file names 
-       walk2(
+       ####################
+       # Filename for ZIP #
+       ####################
+       filename = function(){
          
-         # List to transform to file 
-         modelMetricsCrude$metricsList,
+         paste("Crude-Metrics.zip", sep = "")
          
-         # File names 
-         paste0(names_with_underscores),
+       },
+       
+       ############################################
+       # Determining what should be in the folder #
+       ############################################
+       content = function(file){
          
-         # Saving as '.csv' files 
-         ~write.csv(.x, file = paste0(.y, ".csv"), row.names = FALSE)
-       )
+         # Removing the message
+         removeModal()
+         
+         # Creating a temp directory for files 
+         temp_directory <- file.path(tempdir(), as.integer(Sys.time()))
+         
+         # Physically creating the directory 
+         dir.create(temp_directory)
+         
+         # Saving the ggplots 
+         for (plot_name in names(modelMetricsCrude$metricsList)) {
+           
+           # Plot 
+           plot_obj <- data.frame(modelMetricsCrude$metricsList[[plot_name]])
+           
+           # If plot is found 
+           if (!is.null(plot_obj)) {
+             
+             # File name 
+             file_name <- glue("{plot_name}.csv")
+             
+             # Saving the csv
+             write_csv(plot_obj, file.path(temp_directory, file_name))
+             
+           }
+           
+         }
+         
+         #####################
+         # Create a zip file #
+         #####################
+         zip::zip(
+           zipfile = file,
+           files = dir(temp_directory),
+           root = temp_directory
+         )
+         
+       },
        
-       ###########################
-       # Zipping the '.csv' file #
-       ###########################
+       contentType = "application/zip"
        
-       # Setting up the folder 
-       utils::zip(zip_file, file = c(namesSavingCrudeMetrics()))
-       
-       # Removing the '.csv' files from the working directory 
-       file.remove(c(namesSavingCrudeMetrics()))
-       
-     } # End of filling the folder 
      
    ) # End of 'downloadHandler'
    
@@ -5060,45 +5023,7 @@ server <- function(input, output, session) {
      }) # End of 'isolate' statement 
      
    }) # End of 'observeEvent' statement
-   
-#------------------------------------------------------------------------------#
-# Creating a list of file names for crude metrics figures  ---------------------
-#------------------------------------------------------------------------------#
-# About: This section handles possible '/' characters in file names. It looks  #
-# for '/' symbols and then replaces them with '-' if found. Finally, this      #
-# section updates the figure names in the figure list that is saved.           #
-#------------------------------------------------------------------------------#
-   
-   namesSavingCrudeMetricsFolder <- reactive({
-     
-     #############################################
-     # Creating an empty vector to save names in #
-     #############################################
-     list.figureMetrics.name <- c()
-     
-     ##################################################
-     # Looping through the list of forecast figures #
-     ##################################################
-     for(i in 1:length(modelCrudePlot$figures)){
-       
-       # Pulling the crude metric file name 
-       nameFormatted <- names(modelCrudePlot$figures)[[i]]
-       
-       # Removing the '/' symbols when necessary
-       namesCleaned <- gsub("/", "-", nameFormatted)
-       
-       # Saving it in the vector
-       list.figureMetrics.name[i] <- paste0(namesCleaned, ".", input$extFig)
-       
-     }
-     
-     ##############################################
-     # Returning the vector of the quantile names #
-     ##############################################
-     return(list.figureMetrics.name)
-     
-   }) # End of 'reactive' statement 
-   
+  
    
 #------------------------------------------------------------------------------#
 # Downloading the figure(s) ----------------------------------------------------
@@ -5112,82 +5037,86 @@ server <- function(input, output, session) {
    ##############################################
    output$downloadCrudeMetrics <- downloadHandler(
      
-     ####################################
-     # Function to create the file-name #
-     ####################################
-     filename = function() {
+     ####################
+     # Filename for ZIP #
+     ####################
+     filename = function(){
        
-       # Closing the figure specification 
-       removeModal()
-       
-       # Pulling the name of the downloaded data
-       fileName <- gsub('.csv', '', input$dataset)
-       
-       # Folder name 
-       paste(fileName, "-Crude-Metrics-Figures.zip", sep = "")
+       paste("Crude-Metrics-Figures.zip", sep = "")
        
      },
      
-     #############################
-     # Function to save the file #
-     #############################
-     content = function(file) {
+     ############################################
+     # Determining what should be in the folder #
+     ############################################
+     content = function(file){
        
-       # Naming the 'zip' file 
-       zip_file <- file
+       # Removing the message
+       removeModal()
        
-       # Fixing issues with '/' in file names 
-       names_with_underscores <- gsub("/", "-", names(modelCrudePlot$figures))
+       # Creating a temp directory for files 
+       temp_directory <- file.path(tempdir(), as.integer(Sys.time()))
        
-       # Adding units to the file name 
-       names_with_underscores <- paste0(names_with_underscores, ".", input$extFig)
+       # Physically creating the directory 
+       dir.create(temp_directory)
        
-       # Creating the individual file names 
-       walk2(
+       # Saving the ggplots 
+       for (plot_name in names(modelCrudePlot$figures)) {
          
-         # List to transform to file 
-         modelCrudePlot$figures,
+         # Plot 
+         plot_obj <- modelCrudePlot$figures[[plot_name]]
          
-         # File names 
-         paste0(names_with_underscores),
-         
-         # Running with compression if using a '.tiff'
-         if(input$extFig == 'tiff'){
+         # If plot is found 
+         if (!is.null(plot_obj)) {
            
-           # Saving the file
-           ~ggsave(.y, plot = .x, 
-                   dpi = input$dpi,
-                   width = input$width, 
-                   height = input$height, 
-                   units = input$units,
-                   compression = "lzw")
+           # File name 
+           file_name <- glue("{plot_name}.{input$extFig}")
            
-         # Running without compression if not using a '.tiff'
-         }else{
+           # TIFF file 
+           if(input$extFig == ".tiff"){
+             ggsave(
+               file.path(temp_directory, file_name),
+               plot = plot_obj,
+               dpi = input$dpi,
+               width = input$width,
+               height = input$height,
+               units = input$units,
+               device = input$extFig,
+               compression = "lzw")
+             
+           }else{
+             
+             # All other image types
+             ggsave(
+               file.path(temp_directory, file_name),
+               plot = plot_obj,
+               dpi = input$dpi,
+               width = input$width,
+               height = input$height,
+               units = input$units,
+               device = input$extFig)
+             
+           }
            
-          
-           # Saving the file
-           ~ggsave(.y, plot = .x, 
-                   dpi = input$dpi,
-                   width = input$width, 
-                   height = input$height, 
-                   units = input$units)
-           
-          
          }
+         
+       }
+       
+       #####################
+       # Create a zip file #
+       #####################
+       zip::zip(
+         zipfile = file,
+         files = dir(temp_directory),
+         root = temp_directory
        )
        
-       ###########################
-       # Zipping the '.csv' file #
-       ###########################
+     },
+     
+     contentType = "application/zip"
+      
+     )
        
-       # Setting up the folder 
-       utils::zip(zip_file, file = c(namesSavingCrudeMetricsFolder()))
-       
-       # Removing the '.csv' files from the working directory 
-       file.remove(c(namesSavingCrudeMetricsFolder()))
-       
-     }) # End of saving the figure 
    
    
 #------------------------------------------------------------------------------#
@@ -5585,45 +5514,6 @@ server <- function(input, output, session) {
 
 
 #------------------------------------------------------------------------------#
-# Creating a list of average forecast file names -------------------------------
-#------------------------------------------------------------------------------#
-# About: This section creates a list of file names containing average metric   #
-# files based on the user select locations and models. The list of file        #
-# names is then used when saving the average metrics via the "download" button.#                                                                     #
-#------------------------------------------------------------------------------#
-
-   namesSavingAverageMetrics <- reactive({
-
-     #############################################
-     # Creating an empty vector to save names in #
-     #############################################
-     list.AvgMetrics.name <- c()
-
-     ###################################################
-     # Looping through the list of formatted forecasts #
-     ###################################################
-     for(i in 1:length(modelMetricsAvg$metricsList)){
-
-       # Pulling the average metric file name
-       nameFormatted <- names(modelMetricsAvg$metricsList)[[i]]
-
-       # Removing the '/' symbols when necessary
-       namesCleaned <- gsub("/", "-", nameFormatted)
-
-       # Saving it in the vector
-       list.AvgMetrics.name[i] <- paste0(namesCleaned, ".csv")
-
-     } # End of loop through crude metrics
-
-     ###################################################
-     # Returning the vector of the crude metrics names #
-     ###################################################
-     return(list.AvgMetrics.name)
-
-   }) # End of 'reactive' statement
-
-
-#------------------------------------------------------------------------------#
 # Downloading the average metrics as a 'zip' file ------------------------------
 #------------------------------------------------------------------------------#
 # About: This section uses the list of names from above and the list of shown  #
@@ -5633,54 +5523,60 @@ server <- function(input, output, session) {
 
    output$download_AvgMetrics <- downloadHandler(
 
-     ###############################################
-     # Setting up the file name for the zip folder #
-     ###############################################
-     filename = function() {
-
-       # Pulling the name of the downloaded data
-       fileName <- gsub('.csv', '', input$dataset)
-
-       # Folder name
-       paste(fileName, "-Avg-Metrics.zip", sep = "")
-
+     ####################
+     # Filename for ZIP #
+     ####################
+     filename = function(){
+       
+       paste("Average-Metrics.zip", sep = "")
+       
      },
-
-     #############################################
-     # Setting up the contents of the zip folder #
-     #############################################
-     content = function(file) {
-
-       # Naming the 'zip' file
-       zip_file <- file
-
-       # Fixing issues with '/' in file names
-       names_with_underscores <- gsub("/", "-", names(modelMetricsAvg$metricsList))
-
-       # Creating the individual file names
-       walk2(
-
-         # List to transform to file
-         modelMetricsAvg$metricsList,
-
-         # File names
-         paste0(names_with_underscores),
-
-         # Saving as '.csv' files
-         ~write.csv(.x, file = paste0(.y, ".csv"), row.names = FALSE)
+     
+     ############################################
+     # Determining what should be in the folder #
+     ############################################
+     content = function(file){
+       
+       # Removing the message
+       removeModal()
+       
+       # Creating a temp directory for files 
+       temp_directory <- file.path(tempdir(), as.integer(Sys.time()))
+       
+       # Physically creating the directory 
+       dir.create(temp_directory)
+       
+       # Saving the ggplots 
+       for (plot_name in names(modelMetricsAvg$metricsList)) {
+         
+         # Plot 
+         plot_obj <- data.frame(modelMetricsAvg$metricsList[[plot_name]])
+         
+         # If plot is found 
+         if (!is.null(plot_obj)) {
+           
+           # File name 
+           file_name <- glue("{plot_name}.csv")
+           
+           # Saving the csv
+           write_csv(plot_obj, file.path(temp_directory, file_name))
+           
+         }
+         
+       }
+       
+       #####################
+       # Create a zip file #
+       #####################
+       zip::zip(
+         zipfile = file,
+         files = dir(temp_directory),
+         root = temp_directory
        )
-
-       ###########################
-       # Zipping the '.csv' file #
-       ###########################
-
-       # Setting up the folder
-       utils::zip(zip_file, file = c(namesSavingAverageMetrics()))
-
-       # Removing the '.csv' files from the working directory
-       file.remove(c(namesSavingAverageMetrics()))
-
-     } # End of filling the folder
+       
+     },
+     
+     contentType = "application/zip"
 
    ) # End of 'downloadHandler'
 
@@ -6040,20 +5936,8 @@ server <- function(input, output, session) {
   
   # Try to run it 
   tryCatch({
-    
-    ############################
-    # If-else for missing data #
-    ############################
-      
-    if(is.character(individualOtherPlots$figures)){
-      
-      output$otherModelFigure <- NULL
-      
-    }else{
-      
-      output$otherModelFigure <- renderPlotly({ggplotly(individualOtherPlots$figures[[current_index_otherModels()]], tooltip = "text")})
-      
-    }
+  
+    output$otherModelFigure <- renderPlotly({ggplotly(individualOtherPlots$figures[[current_index_otherModels()]], tooltip = "text")})
     
     # Runs if error occurs 
     }, error = function(e){
