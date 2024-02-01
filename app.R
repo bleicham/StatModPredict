@@ -43,6 +43,7 @@ source("timeseries.Panel.Metrics.R")
 source("forecastingMetrics.R")
 source("averageMetrics.R")
 source("timeseries.Panel.AverageMetrics.R")
+source("Otherforecast.figures.R")
 
 #------------------------------------------------------------------------------#
 #                             Needed Packages                                  #
@@ -50,7 +51,7 @@ source("timeseries.Panel.AverageMetrics.R")
 pacman::p_load(MASS, shiny, shinydashboard, shinyWidgets, bslib, plotly, anytime,
                shinyalert, shinyjs, shinybusy, editData, shinyBS, DT, stringr,
                tidyverse, forstringr, mgcv, processx, ggpubr, shinyalert, forecast, 
-               prophet)
+               prophet, zip, glue, shinyjqui)
 
 #------------------------------------------------------------------------------#
 #                            User Interface                                    #
@@ -93,7 +94,7 @@ dashboardSidebar(
   pickerInput(
     "my_picker",
     label = "Page: ", 
-    choices = c("Forecasting", "Model Metrics"),
+    choices = c("Forecasting", "Model Metrics", "Model Comparison"),
     width = "200px"  # Adjust the width as needed
   ),
   
@@ -169,6 +170,11 @@ menuItem("Forecasting Specifications",
          # Icon to show for tab 
          icon = icon("chart-line"),
          
+         ####################################
+         # Choosing the forecasting periods #
+         ####################################
+         uiOutput("forecast.period"),
+         
          #########################################
          # Choosing the model calibration period #
          #########################################
@@ -197,11 +203,7 @@ menuItem("Forecasting Specifications",
                      choices = c(seq(10, 90, by = 10), 95, 98), # Adding the choices
                      selected = 95, # Pre-selected choices
                      multiple = F), # Allowing for multiple locations/groups to be selected
-         
-         ####################################
-         # Choosing the forecasting periods #
-         ####################################
-         uiOutput("forecast.period"),
+        
          
          # Starting with the menu closed 
          startExpanded = F
@@ -392,21 +394,41 @@ conditionalPanel(
               ),
               selected = "Model Fit",
               choices = c("Model Fit", "Forecasts"),
-              multiple = F), # Allowing only one choice
+              multiple = F) # Allowing only one choice
   
-  #############################
-  # Creating the 'Run' button #
-  #############################
-  column(
-    width = 1, 
-    shiny::actionButton("runMetrics",
-                        label = "Run Metrics",
-                        icon = icon("play", class="fa-regular fa-play"),
-                        width = 170)
+  
+  ), # End of conditional panel for page 2
+
+###############################
+# Page Two - Model Comparison #
+###############################
+conditionalPanel(
+  
+  # Condition that must be met to produce the sidebar menu for page 1
+  condition = "input.my_picker == 'Model Comparison'", 
+  
+  ######################
+  # Producing sidebars #
+  ######################
+  sidebarMenu(id = "sidebar",
+              
+              ############################
+              # Reading in the Forecasts #
+              ############################
+              fileInput("dataset2", # ID of UI input
+                        label = tags$span("Upload time-series data file", # Shown label
+                                          # Creating the info circle 
+                                          tags$i(class = "glyphicon glyphicon-info-sign",
+                                                 style = "color:#FFFFFF;",
+                                                 title = "Upload a '.csv' file of your data.")
+                        ),
+                        
+                        multiple = TRUE)
+              
   )
   
-  ) # End of conditional panel for page 2
-
+)
+              
 ), # End of sidebar menu 
 
 
@@ -454,8 +476,42 @@ conditionalPanel(
            ######################################################
            box(
              
+             # Title of box
+             title = "Formatted Forecasts",
+             
              # Width of box 
              width = 12, 
+             
+             ########################################
+             # Creating a title for the panel plots #
+             ########################################
+             fluidRow(
+               
+               # Width of row
+               width = 12,
+               
+               # Alignment column 
+               column(
+                 
+                 # Width 
+                 width = 12, 
+               
+                 ################################################
+                 # Conditiona Panel: Rendering title for panels #
+                 ################################################
+                 conditionalPanel(
+                   
+                   # Condition
+                   condition = "input.panelModelsForecasts",
+                 
+                   # Rendering the title 
+                   textOutput("panelForecastTitle")
+                   
+                 ) # End of conditional panel
+                 
+               ) # End of column 
+                 
+             ), # End of title row
              
              ###################################
              # Creating the forecast figure(s) #
@@ -478,76 +534,90 @@ conditionalPanel(
                
                ), # First row that always shows up
              
-             ###############################################################################
-             # Creating the download button and filtering options for the forecast figures #
-             ###############################################################################
+             #############################################################
+             # Row of user-buttons for manipulating the data and figures #
+             #############################################################
              fluidRow(
                
                # Width of row
                width = 12,
                
-               # Creating the forecast figures download button
-               column(2, 
-                      div(style = "margin-right: 10px;",
-                          actionButton("forecastFigure", "Download Forecast Figure(s)", icon = icon("download")))),
-               
-               # Creating the locations drop down
-               column(2,
-                      div(style = "margin-left: 10px;",
-                          uiOutput("locationsForecastFigs"))),
-               
-               ######################################################
-               # Conditional panel - Shows only if check is not hit #
-               ######################################################
-               conditionalPanel(
+               ################################################
+               # Column to keep the non-arrow buttons aligned #
+               ################################################
+               column(
                  
-                 # Condition
-                 condition = "!input.panelModelsForecasts", 
+                 # Width of column
+                 width = 10,
                  
-                 # Creating the locations drop down
-                 column(2,
-                        div(style = "margin-left: -10px;",
-                            uiOutput("modelsForecastFigs")))
+                 # Main DIV style for the left-hand buttons
+                 div(style = "display:flex; vertical-aline: top",
+                     
+                     ################################
+                     # Creating the download button #
+                     ################################
+                     div(actionButton("forecastFigure", "Download Forecast Figure(s)", icon = icon("download"), style = "margin-right: 10px;")),
+                     
+                     #################################
+                     # Creating the locations button #
+                     #################################
+                     div(uiOutput("locationsForecastFigs")), 
+                     
+                     ###################################
+                     # Conditional panel: Model Filter #
+                     ###################################
+                     conditionalPanel(
+                       
+                       # Condition
+                       condition = "!input.panelModelsForecasts",
+                       
+                       # Creating the models
+                       div(style = "margin-left: 10px;", uiOutput("modelsForecastFigs"))
+                       
+                     ), # End of conditional panel
+                     
+                     #################################
+                     # Creating the panel check mark #
+                     #################################
+                     div(style = "margin-left: 10px;",
+                         checkboxInput("panelModelsForecasts", "See Panels", value = F, width = NULL)),
+                     
+                     ###################################################
+                     # Conditional Panel: Creating the See Data Button #
+                     ###################################################
+                     conditionalPanel(
+                       
+                       # Condition
+                       condition = "!input.panelModelsForecasts",
+                       
+                       # Creating the underlying data check box
+                       
+                       div(style = "margin-left: 10px;",
+                           checkboxInput("foremattedForecastCheck", "See Data", value = F, width = NULL))
+                       
+                     )
+                     
+                 ) # End of left-hand button style 
                  
-               ), # End of conditional panel 
+               ), # End of the first column of the bottom row 
                
-               
-               # Creating the panel check box 
-               column(2, 
-                      div(style = "margin-left: -20px; display: flex; justify-content: flex-start; align-items: center;",
-                          checkboxInput("panelModelsForecasts", "See 'All Models' Figures", value = F, width = NULL))), 
-               
-               ######################################################
-               # Conditional panel - Shows only if check is not hit #
-               ######################################################
-               conditionalPanel(
-                 
-                 # Condition
-                 condition = "!input.panelModelsForecasts", 
-                 
-                 # Creating the underlying data check box
-                 column(2, 
-                        div(style = "margin-left: -55px; display: flex; justify-content: flex-start; align-items: center;",
-                            checkboxInput("foremattedForecastCheck", "See Underlying Data", value = F, width = NULL)))
-                 
-               ), 
-               
-               # Creating the left and right arrows
+               ######################################
+               # Creating the left and right arrows #
+               ######################################
                column(2,
                       div(style = "display: flex; justify-content: flex-end; align-items: center;",
                           actionButton(inputId = "PreviousFigure", label = icon("arrow-left")),
                           actionButton(inputId = "NextFigure", label = icon("arrow-right"))))
                
-             ), # End of fluid row 
-      
+             ), # End of fluid-row for individual/panel figure related options 
              
-             #######################################################
-             # Conditional panel that shows up if the check is hit #
-             #######################################################
+             ###########################################
+             # Conditional Panel: Data related options #
+             ###########################################
              conditionalPanel(
                
                # Condition
-               condition = "input.foremattedForecastCheck & !input.panelModelsForecasts", 
+               condition = "input.foremattedForecastCheck & !input.panelModelsForecasts",
                
                ##############################################
                # Creating the table for formatted forecasts #
@@ -557,22 +627,22 @@ conditionalPanel(
                  # Width of row
                  width = 12,
                  
-                 # Creating a column to have everything aligned 
+                 # Creating a column to have everything aligned
                  column(
                    
-                   # Width of column 
-                   width = 12, 
+                   # Width of column
+                   width = 12,
                    
                    # Title for box
                    textOutput("Formatted.ForecastTitle"),
                    
-                   # Outputting the forecast table 
+                   # Outputting the forecast table
                    dataTableOutput("Formatted.Forecast")
                    
-                 ) # End of column 
+                 ) # End of column
                  
                ), # End of fluid row
-                 
+               
                ############################################################
                # Creating the download button for the formatted forecasts #
                ############################################################
@@ -581,163 +651,269 @@ conditionalPanel(
                  # With of row
                  width = 12,
                  
-                 # Creating the download button 
+                 # Creating the download button
                  column(
                    
-                   # Width of column 
+                   # Width of column
                    width = 12,
                    
-                   # Creating and formatting button 
+                   # Creating and formatting button
                    div(style = "display: flex; justify-content: flex-start; align-items: center;",
-                       downloadButton("download_FormatttedForecasts", "Download Forecast(s)"))
+                       downloadButton("download_FormatttedForecasts", "Download Forecast Data"))
                    
-                 ) # End of column 
+                 ) # End of button column
                  
-               ) # End of fluid row 
+               ) # End of fluid row for buttons 
                
-               ), # End of conditional panel 
+             ) # End of conditional panel for data options 
              
-             ) # End of top row box
+           ) # End of top row box
            
            ) # End of main column 
     
     ), # End of fluid row 
-      
 
-  ###########################################
-  # Second Row - Box for quantile forecasts #
-  ###########################################
-  box(
+
+#------------------------------------------------------------------------------#
+# Second Row: Quantile Forecasts ----------------------------------------------
+#------------------------------------------------------------------------------#
+
+###############################
+# Row Two: Quantile Forecasts #
+###############################
+fluidRow(
+  
+  # Width of row 
+  width = 12, 
+  
+  # Setting a column to keep everything align
+  column(width = 12, 
+         
+         ############################################
+         # Box that contains the quantile forecasts #
+         ############################################
+         box(
+           
+           # Title
+           title = "Quantile Forecasts",
+           
+           # Width of box
+           width = 12,
+           
+           ################
+           # Row 1: Title #
+           ################
+           fluidRow(
+             
+             # Width of row
+             width = 12,
+             
+             ####################
+             # Alignment Column #
+             ####################
+             column(
+               
+               # Width 
+               width = 12, 
+               
+               # Rendering the title 
+               textOutput("quantileTitle")
+               
+             ) # End of column 
+             
+           ), # End of title row 
+           
+          ##############################################################
+          # Row 2: Creating the row to fill with the quantile data row #
+          ##############################################################
+          fluidRow(
+            
+            # Width of row
+            width = 12,
+            
+            ####################
+            # Alignment Column #
+            ####################
+            column(
+              
+              # Width of column 
+              width = 12,
+              
+              # Rendering the data 
+              style = "overflow-x: auto;", dataTableOutput("quantileForecasts")
+              
+              ) # End of alignment column 
+            
+            ), # End of row creating data 
+          
+          #################################################################
+          # Creating the options - Download button, locations, and arrows #
+          #################################################################
+          fluidRow(
+            
+            ####################
+            # Alignment column #
+            ####################
+            column(
+              
+              # Width of column 
+              width = 10,
+              
+              ########################
+              # Overall style of row #
+              ########################
+              div(style = "display:flex; vertical-aline: top",
+                  
+                  # Rendering the download button 
+                  div(downloadButton("download_quantile_forecasts", "Download Quantile Forecasts"), style = "margin-right:10px"),
+                  
+                  # Rendering the location button 
+                  div(uiOutput("locationsQuantile"), style = "margin-right:10px"),
+                  
+                  # Rendering the model button
+                  div(uiOutput("modelQuantile"), style = "margin-right:10px")
+                  
+              ) # End of main style
+              
+            ), # End of column for left-aligned buttons
+            
+            ##########################################
+            # Creating the previous and next buttons #
+            ##########################################
+            column(
+              
+              # Width 
+              width = 2,
+              
+              # Creating the buttons 
+              div(style = "display: flex; justify-content: flex-end; align-items: center;",
+                  actionButton(inputId = "PreviousQuan", label = icon("arrow-left")),
+                  actionButton(inputId = "NextQuan", label = icon("arrow-right"))))
+            
+          ) # End of 'fluidRow' creating the buttons 
+          
+         ) # End of box creating the quantile forecast
+         
+  ) # End of column
+  
+), # End of "quantile" row
+            
+#------------------------------------------------------------------------------#
+#  Row 3: Timeseries Plot ------------------------------------------------------
+#------------------------------------------------------------------------------#
+fluidRow(
+  
+  # Width
+  width = 12,
+  
+  # Alingment Column
+  column(
     
-    # Width of box
+    # Width 
     width = 12,
     
-    # Row with title 
-    fluidRow(
+    ##############################################################
+    # Row 1: Rendering the panel and individual forecast figures #
+    ##############################################################
+    box(
       
-      # Width of row
-      width = 12,
+      # Width of the box 
+      width = 12, 
       
-      # Column to keep things inline
-      column(
+      # Title
+      title = "Time-series", 
+      
+      #########################################
+      # Working with the time series plot row #
+      #########################################
+      fluidRow(
+        
+        # Width of row
+        width = 12,
+        
+        ####################
+        # Alignment column #
+        ####################
+        column(
+          
+          # Width 
+          width = 12, 
+          
+          # Plotting the time series plot 
+          plotlyOutput("timeseriesPlot")
+          
+        ) # End of alignment column 
+        
+      ), 
+      
+      ###########################################
+      # Row for Buttons: Download and CheckBoxs #
+      ###########################################
+      fluidRow(
         
         # Width 
-        width = 12, 
+        width = 12,
         
-        # Rendering the title 
-        textOutput("quantileTitle")
+        ####################
+        # Alignment column #
+        ####################
+        column(
+          
+          # Width
+          width = 12,
+          
+          ########################
+          # Overall style of row #
+          ########################
+          div(style = "display:flex; vertical-aline: top",
+              
+              # Download button for figure time-series
+              div(style = "margin-right: 10px", actionButton("figureTimeseries", "Download Timeseries Figure", icon = icon("download"))),
+              
+              # Check-mark to see data
+              div(style = "margin-right: 10px", checkboxInput("timeseriesCheckBox", "Show Underlying Data")),
+              
+              # Check mark for forecast lines
+              div(checkboxInput("forecastLines", "Show Forecast Dates"))
+              
+          ) # End of main style row
+          
+        ) # End of alignment column
         
-      ) # End of column 
+      ), # End of row for figure options
       
-    ), 
+      #####################################################
+      # Showing the data rather than the time series plot #
+      #####################################################
+      fluidRow(
+        
+        # Width of row
+        width = "100%",
+        
+        ####################
+        # Alignment column #
+        ####################
+        column(
+          
+          # Width
+          width = 12, 
+          
+          # Plotting the time series plot 
+          dataTableOutput("timeseries") , 
+          
+          div(style = "display: flex; justify-content: flex-start; align-items: center;",
+              uiOutput("downloadTimeseries")))
+        
+      ) # End of fluidRow
+      
+    ) # End of tabbed box
     
-    #######################################################
-    # Creating the row to fill with the quantile data row #
-    #######################################################
-    fluidRow(
-      
-      # Width of row
-      width = 12,
-      
-      # Rendering the data 
-      column(12, style = "overflow-x: auto;", dataTableOutput("quantileForecasts"))
-      
-    ),
-    
-    #################################################################
-    # Creating the options - Download button, locations, and arrows #
-    #################################################################
-    fluidRow(
-      
-      # Download button 
-      column(2,
-             div(style = "margin-right: 15px; display: flex; justify-content: flex-start; align-items: center;",
-                 downloadButton("download_quantile_forecasts", "Download Quantile Forecasts"))),
-      
-      # Location drop down 
-      column(2,
-             div(style = "margin-left: 18px; display: flex; justify-content: flex-start; align-items: center;",
-                 uiOutput("locationsQuantile"))),
-      
-      # Model drop down 
-      column(2,
-             div(style = "display: flex; justify-content: flex-start; align-items: center;",
-                 uiOutput("modelQuantile"))),
-      
-      # Left and right arrows 
-      column(6,  
-             div(style = "display: flex; justify-content: flex-end; align-items: center;",
-                 actionButton(inputId = "PreviousQuan", label = icon("arrow-left")),
-                 actionButton(inputId = "NextQuan", label = icon("arrow-right")))),
-      
-    ) # End of 'fluidRow' 
-    
-    ), # End of box creating the quantile forecast
+  ) # End of alignment column
   
-  #######################################################
-  # Row Three: Time-series for the selected location(s) #
-  #######################################################
-  box(
-    
-    # Setting the box width
-    width = 12, 
+) # End of fluidRow 3
       
-    # Creating column to keep it all aligned
-    column(width = 12, 
-           
-           #########################################
-           # Working with the time series plot row #
-           #########################################
-           fluidRow(
-             
-             # Width of row
-             width = 12,
-             
-             # Plotting the time series plot 
-             plotlyOutput("timeseriesPlot")
-             
-           ), 
-           
-           #####################################################################
-           # Adding a row for the download button and the timeseries check box #
-           #####################################################################
-           fluidRow(
-             
-             ################################
-             # Creating the download button #
-             ################################
-             column(8, 
-                    div(style = "display: flex; justify-content: flex-start; align-items: center;",
-                        actionButton("figureTimeseries", "Download Timeseries Figure", icon = icon("download")))), 
-             
-             ######################################################
-             # Check box for exported time series data for figure #
-             ######################################################
-             column(4, 
-                    div(style = "display: flex; justify-content: flex-end; align-items: center;",
-                        checkboxInput("timeseriesCheckBox", "Show Underlying Data")))
-             
-           ),
-           
-           #####################################################
-           # Showing the data rather than the time series plot #
-           #####################################################
-           fluidRow(
-             
-             # Width of row
-             width = 12,
-             
-             # Plotting the time series plot 
-             dataTableOutput("timeseries") , 
-             
-             div(style = "display: flex; justify-content: flex-start; align-items: center;",
-                 uiOutput("downloadTimeseries")))
-           
-    ) # End of column 
-    
-  ) # End of time series box 
-  
-), # End of conditional panel 
+
+), # End of conditional panel for page one 
 
       
 #------------------------------------------------------------------------------#
@@ -775,150 +951,188 @@ conditionalPanel(
 
         # Setting the box width
         width = 12,
-
-        # Creating column to keep it all aligned
-        column(width = 12,
-
-               ############################################
-               # First row of the box - Showing the Title #
-               ############################################
-               fluidRow(
-
-                 # Width of row
-                 width = 12,
-
-                 # Condition to show this only if check-box is NOT hit
-                 conditionalPanel(
-
-                   # Condition
-                   condition = "!input.AvgFigure",
-
-                   # Title for Box
-                   textOutput("AvgMetricsTitle")
-
-                 ), # End of conditional panel
-
-                 # Condition to show this only if check-box is NOT hit
-                 conditionalPanel(
-
-                   # Condition
-                   condition = "input.AvgFigure",
-                   
-                   # Title for Box
-                   textOutput("AvgFigTitle")
-
-
-                 ) # End of conditional panel
-
-               ), # End of 'fluidRow'
-
-               ########################################
-               # Second Row of the box - Plot or Data #
-               ########################################
-               fluidRow(
-
-                 # Creating the column to keep everything align
-                 column(
-
-                   # Width of column
-                   width = 12,
-
-                   # Condition to show this only if check-box is NOT hit
-                   conditionalPanel(
-
-                     # Condition
-                     condition = "!input.AvgFigure",
-
-                     # Outputting the forecast table
-                     dataTableOutput("AvgMetricsData"),
-
-                   ), # End of conditional panel - Check not hit
-
-                   # Condition to show this if check-box is hit
-                   conditionalPanel(
-
-                     # Condition
-                     condition = "input.AvgFigure",
-                     
-                     plotOutput("AvgMetricsFigure")
-                 
-
-                   ) # End of condition - Check hit
-
-                 ) # End of column
-
-               ), # End of fluid row
-
-               #################################
-               # Last row of the box - Options #
-               #################################
-               fluidRow(
-
-                 # Condition to show this if check-box is not hit
-                 conditionalPanel(
-
-                   # Condition
-                   condition = "!input.AvgFigure",
-
-                   # Download Button
-                   column(2,
-                          div(style = "display: flex; justify-content: flex-start; align-items: center;",
-                              downloadButton("download_AvgMetrics", "Download Average Metrics")))
-
-                 ), # End of condition
-
-
-                 # Condition to show this if check-box is hit
-                 conditionalPanel(
-
-                   # Condition
-                   condition = "input.AvgFigure", 
-
-                   #Download Button
-                   column(2,
-                          div(style = "display: flex; justify-content: flex-start; align-items: center;",
-                              actionButton("download_AvgmetricsFig", "Download Average Metrics Figure", icon = icon("download"))))
-
-                 ), # End of condition
-
-
-                 # Location drop down
-                 column(2,
-                        div(style = "margin-left: 5px; display: flex; justify-content: flex-start; align-items: center;",
-                            uiOutput("locationsAvgMetrics"))),
-
-                 # Model drop down
-                 column(2,
-                        div(style = "display: flex; justify-content: flex-start; align-items: center;",
-                            uiOutput("modelAvgMetrics"))),
-
-                 # Check box for figure/data
-                 column(3,
-                        div(style = "display: flex; justify-content: flex-start; align-items: center;",
-                            checkboxInput("AvgFigure", "Show Figure"))),
-
-
-                 # Condition to show this if check-box is not hit
-                 conditionalPanel(
-
-                   # Condition
-                   condition = "!input.AvgFigure",
-
-                   # Left and right arrows
-                   column(3,
-                          div(style = "margin-right: -10px; display: flex; justify-content: flex-end; align-items: center;",
-                              actionButton(inputId = "PreviousAvgMetric", label = icon("arrow-left")),
-                              actionButton(inputId = "NextAvgMetric", label = icon("arrow-right"))))
-
-                 ) # End of conditional panel
-
-               ) # End of 'fluidRow'
-
-        ) # End of 'column' for crude box
-
-      ) # End of crude metrics box
-
+        
+        ############################################
+        # First row of the box - Showing the Title #
+        ############################################
+        fluidRow(
+          
+          # Width of row
+          width = 12,
+          
+          ####################
+          # Alignment column #
+          ####################
+          column(
+            
+            # Width
+            width = 12, 
+          
+            ##################################################
+            # Conditional Panel: Show title for Average Data #
+            ##################################################
+            conditionalPanel(
+              
+              # Condition
+              condition = "!input.AvgFigure",
+              
+              # Title for Box
+              textOutput("AvgMetricsTitle")
+              
+            ), # End of conditional panel
+            
+            #####################################################
+            # Conditional Panel: Show title for Average Figures #
+            #####################################################
+            conditionalPanel(
+              
+              # Condition
+              condition = "input.AvgFigure",
+              
+              # Title for Box
+              textOutput("AvgFigTitle")
+              
+            ) # End of conditional panel
+            
+          ) # Column alignment 
+          
+        ), # End of 'fluidRow'
+        
+        ########################################
+        # Second Row of the box - Plot or Data #
+        ########################################
+        fluidRow(
+          
+          # Creating the column to keep everything align
+          column(
+            
+            # Width of column
+            width = 12,
+            
+            ################################################
+            # Conditional Panel: Show Average Metrics Data #
+            ################################################
+            conditionalPanel(
+              
+              # Condition
+              condition = "!input.AvgFigure",
+              
+              # Outputting the forecast table
+              dataTableOutput("AvgMetricsData"),
+              
+            ), # End of conditional panel - Check not hit
+            
+            ##################################################
+            # Conditional Panel: Show Average Metrics Figure #
+            ##################################################
+            conditionalPanel(
+              
+              # Condition
+              condition = "input.AvgFigure",
+              
+              plotOutput("AvgMetricsFigure")
+              
+            ) # End of condition - Check hit
+            
+          ) # End of column
+          
+        ), # End of fluid row
+        
+        ###################################
+        # Row 3: Showing the user options #
+        ###################################
+        fluidRow(
+          
+          # Width 
+          width = 12,
+          
+          ####################
+          # Alignment column #
+          ####################
+          column(
+            
+            # Width
+            width = 10,
+            
+            ########################
+            # Overall style of row #
+            ########################
+            div(style = "display:flex; vertical-aline: top",
+                
+                ####################################
+                # Conditional Panel: Download data #
+                ####################################
+                conditionalPanel(
+                  
+                  # Condition
+                  condition = "!input.AvgFigure",
+                  
+                  # Creating the download button 
+                  div(style = "margin-right: 10px",
+                      downloadButton("download_AvgMetrics", "Download Average Metrics"))
+                  
+                ), # End of condition
+                
+                ######################################
+                # Conditional Panel: Download Figure #
+                ######################################
+                conditionalPanel(
+                  
+                  # Condition
+                  condition = "input.AvgFigure", 
+                  
+                  #Download Button
+                  div(style = "margin-right: 10px",
+                      actionButton("download_AvgmetricsFig", "Download Average Metrics Figure", icon = icon("download")))
+                  
+                ), # End of condition
+                
+                ######################
+                # Location drop-down #
+                ######################
+                div(uiOutput("locationsAvgMetrics"), style = "margin-right:10px"),
+                
+                ####################
+                # Models drop-down #
+                ####################
+                div(uiOutput("modelAvgMetrics"), style = "margin-right:10px"),
+                
+                #########################
+                # Show figure check-box #
+                #########################
+                div(checkboxInput("AvgFigure", "Show Figure"))
+                
+            ) # End of main-style
+            
+          ), # End of alignment-column one 
+          
+          #############################
+          # Conditional Panel: Arrows #
+          #############################
+          conditionalPanel(
+            
+            # Condition
+            condition = "!input.AvgFigure",
+            
+            # Left and right arrows
+            column(2,
+                   div(style = "display: flex; justify-content: flex-end; align-items: center;",
+                       actionButton(inputId = "PreviousAvgMetric", label = icon("arrow-left")),
+                       actionButton(inputId = "NextAvgMetric", label = icon("arrow-right"))))
+            
+          ) # End of conditional panel
+          
+        ) # End of 'fluidRow' for buttons 
+        
+      ) # End of 'column' for average metrics box 
+      
     ), # End of fluid row for first row of page
+
+
+
+
+
+
 
              
     #####################################
@@ -933,6 +1147,8 @@ conditionalPanel(
 
         # Setting the box width
         width = 12,
+        
+        
 
         # Creating column to keep it all aligned
         column(width = 12,
@@ -1093,7 +1309,146 @@ conditionalPanel(
     
     ) # End of overall column 
   
-  ) # End of Page 2 conditional panel 
+  ), # End of Page 2 conditional panel 
+
+#------------------------------------------------------------------------------#
+# Page 3: Handling the other forecasts and metrics -----------------------------
+#------------------------------------------------------------------------------#
+# About: This section handles outside models and compares them against the     #
+# calculated dashboard metrics.                                                #
+#------------------------------------------------------------------------------#
+
+#####################################
+# Only runs if page two is selected #
+#####################################
+conditionalPanel(
+  
+  # Condition 
+  condition = "input.my_picker == 'Model Comparison'", 
+  
+
+  ##############################################################
+  # Row 1: Rendering the panel and individual forecast figures #
+  ##############################################################
+  tabBox(
+    
+    # Box title 
+    title = NULL, 
+    
+    # ID of the box 
+    id = "box1",
+    
+    # Width of the box 
+    width = 12, 
+    
+    ####################################
+    # Rendering the individual figures #
+    ####################################
+    tabPanel(id = "individualFigsOther",
+             
+             # Title of box 
+             title = "Individual Figures", 
+               
+               ###################################################
+               # Row 1: Rendering the individual figure forecast #
+               ###################################################
+               fluidRow(
+                 
+                 ####################
+                 # Alignment column #
+                 ####################
+                 column(
+                   
+                 width = 12, 
+        
+                   # Rendering the data frame
+                   plotlyOutput("otherModelFigure")
+                 
+                 )
+                
+              ),
+      
+              ####################################
+              # Row 2: Creating the user options #
+              ####################################
+              fluidRow(
+                
+                ####################
+                # Alignment column #
+                ####################
+                column( 
+                  
+                  # Column width 
+                  width = 12, 
+                  
+                  # Overall style for row 
+                  div(style = "display: flex; justify-content: space-between; align-items: center; width: 100%;",
+                      
+                      ################################
+                      # Creating the download button #
+                      ################################
+                      div(
+                        
+                        style = "display: flex; justify-content: flex-start; align-items: center;",
+                        actionButton("downloadOtherForecastsFigs", "Download Figures", style = "margin-right: 10px")
+                      
+                        ),
+                      
+                      #######################
+                      # Creating the arrows #
+                      #######################
+                      div(
+                        
+                            style = "display: flex; justify-content: flex-end; align-items: center;",
+                            actionButton(inputId = "otherFigsPrevious", label = icon("arrow-left")),
+                            actionButton(inputId = "otherFigstNext", label = icon("arrow-right"))
+                            
+                            )
+                      
+                      ) # End of overall row style 
+                  
+                  ) # End of alignment column 
+                
+                ) # End of options row
+             
+             ), # End of tab one - individual figures
+    
+    ############################################
+    # Rendering the individual forecast figure #
+    ############################################
+    tabPanel(id = "two",
+      title = "two",
+      #############################################
+      # Row 1: Rendering the data frame or figure #
+      #############################################
+      fluidRow(
+        
+        # Rendering the data frame
+        #dataTableOutput("otherForecasts")
+        
+      ),
+      
+      ####################################
+      # Row 2: Creating the user options #
+      ####################################
+      fluidRow(
+        
+        #div(style = "display: flex; justify-content: flex-start; align-items: center;",
+            #downloadButton("downloadOtherForecastsFigures", "Download Forecasts", style = "margin-right: 10px")),
+        
+        div(style = "display: flex; justify-content: flex-end; align-items: center;",
+            actionButton(inputId = "otherForecastPrevious2", label = icon("arrow-left")),
+            actionButton(inputId = "otherForecastNext2", label = icon("arrow-right")))
+        
+      )
+    )
+    )
+    )
+    
+  
+  
+
+  
 
 ) # End of dashboard body
 
@@ -1312,7 +1667,7 @@ server <- function(input, output, session) {
         ################################################
         # Runs if the 'Run Forecast' button is clicked #
         ################################################
-        observeEvent(input$run, {
+        observeEvent(input$run | input$forecastLines, {
           
           # Isolates the download unless the run button is clicked 
           isolate({
@@ -1402,7 +1757,7 @@ server <- function(input, output, session) {
         ################################
         # Updates if button is clicked #
         ################################
-        observeEvent(input$run, {
+        observeEvent(input$run | input$forecastLines, {
           
           # Isolating behaviors until the run button is clicked 
           isolate({
@@ -1432,7 +1787,7 @@ server <- function(input, output, session) {
             ########################################################
             # Error that runs if no locations or group is selected #
             ########################################################
-            if(length(input$locations) == 0){
+            if(length(input$locations) == 0 & input$run){
               
               # Produced error
               showModal(modalDialog(
@@ -1457,11 +1812,22 @@ server <- function(input, output, session) {
               #########################################
               timeseriesFigure <<- timeseries.figure.function(crude.data.input = file(), # Crude data 
                                                               location.input = c(input$locations), # Locations 
-                                                              dateType.input = dateValues$dates) # Type of data
+                                                              dateType.input = dateValues$dates, # Type of data
+                                                              forecastLineShow = input$forecastLines, # Show forecast lines 
+                                                              forecastDatesStart = input$forecast.period[1], # Start of slider 
+                                                              forecastDatesEnd = input$forecast.period[2]) # End of slider
               
-              # Ourputting the plot 
-              output$timeseriesPlot <- renderPlotly({ggplotly(timeseriesFigure, tooltip = "text")})
-              
+              if(length(timeseriesFigure) == 0 || is.null(timeseriesFigure) || is.character(timeseriesFigure)){
+                
+                output$timeseriesPlot <- NULL
+                
+              }else{
+                
+                # Ourputting the plot 
+                output$timeseriesPlot <- renderPlotly({ggplotly(timeseriesFigure, tooltip = "text")})
+                
+              }
+          
             }# End of else for rendering 
             
           }) # End of 'isolate' statement 
@@ -1551,12 +1917,11 @@ server <- function(input, output, session) {
       #########################################
     }, error = function(e){
       
-      NULL
+      output$timeseriesPlot <- NULL
       
     }) # End of 'tryCatch'
     
   }) # End of 'observe' statement 
-  
   
 
 #------------------------------------------------------------------------------#
@@ -1654,7 +2019,7 @@ server <- function(input, output, session) {
         # Create the sliderInput for the UI Side #
         ##########################################
         return(sliderInput("forecast.period",
-                           label = tags$span("Forecasting Period(s) ", # Input label
+                           label = tags$span("Forecasting Date(s) ", # Input label
                                              tags$i(class = "glyphicon glyphicon-info-sign",
                                                     style = "color:#FFFFFF;",
                                                     title = "The forecasting period corresponds the last week of data included in the calibration period (i.e., the week the forecast is conducted).")
@@ -1674,7 +2039,7 @@ server <- function(input, output, session) {
         data_max_date <- max(na.omit(anydate(file()[, 1])))
         
         return(sliderInput("forecast.period",
-                           label = tags$span("Forecasting Period(s) ", # Input label
+                           label = tags$span("Forecasting Date(s) ", # Input label
                                              tags$i(class = "glyphicon glyphicon-info-sign",
                                                     style = "color:#FFFFFF;",
                                                     title = "The forecasting period corresponds the last week of data included in the calibration period (i.e., the week the forecast is conducted).")
@@ -1706,7 +2071,7 @@ server <- function(input, output, session) {
     }) # End of 'tryCatch' statement 
     
   }) # End of 'renderUI' statement 
-  
+ 
 
 #------------------------------------------------------------------------------#
 # UI Input for the Calibration Period ------------------------------------------
@@ -2900,45 +3265,6 @@ server <- function(input, output, session) {
    
    
 #------------------------------------------------------------------------------#
-# Creating a list of file names for quantile forecasts -------------------------
-#------------------------------------------------------------------------------#
-# About: This section creates a list of file names containing quantile info    #
-# based on what the user selected. The list of file names is then used when    #
-# saving the forecasts via the 'download' button.                              #
-#------------------------------------------------------------------------------#
-   
-   namesSavingQuantiles <- reactive({
-     
-     #############################################
-     # Creating an empty vector to save names in #
-     #############################################
-     list.quantile.name <- c()
-     
-     ##################################################
-     # Looping through the list of quantile forecasts #
-     ##################################################
-     for(i in 1:length(quantileListToShow$listQuantiles)){
-       
-       # Pulling the quantile name 
-       nameQuantile <- names(quantileListToShow$listQuantiles)[[i]]
-       
-       # Removing the '/' symbols when necessary
-       namesCleaned <- gsub("/", "-", nameQuantile)
-       
-       # Saving it in the vector
-       list.quantile.name[i] <- paste0(namesCleaned, ".csv")
-       
-     }
-     
-     ##############################################
-     # Returning the vector of the quantile names #
-     ##############################################
-     return(list.quantile.name)
-     
-   }) # End of 'reactive' statement 
-   
-   
-#------------------------------------------------------------------------------#
 # Downloading the quantile forecasts as a zip ----------------------------------
 #------------------------------------------------------------------------------#
 # About: This section allows users to 'zip' the files that are loaded for      #
@@ -2947,54 +3273,60 @@ server <- function(input, output, session) {
    
    output$download_quantile_forecasts <- downloadHandler(
      
-     ###############################################
-     # Setting up the file name for the zip folder #
-     ###############################################
-     filename = function() {
+     ####################
+     # Filename for ZIP #
+     ####################
+     filename = function(){
        
-       # Pulling the name of the downloaded data
-       fileName <- gsub('.csv', '', input$dataset)
-       
-       # Folder name 
-       paste(fileName, "-Quantile-Forecasts.zip", sep = "")
+       paste("Quantile-Forecasts.zip", sep = "")
        
      },
      
-     #############################################
-     # Setting up the contents of the zip folder #
-     #############################################
-     content = function(file) {
+     ############################################
+     # Determining what should be in the folder #
+     ############################################
+     content = function(file){
        
-       # Naming the 'zip' file 
-       zip_file <- file
+       # Removing the message
+       removeModal()
        
-       # Fixing issues with '/' in file names 
-       names_with_underscores <- gsub("/", "-", names(quantileListToShow$listQuantiles))
+       # Creating a temp directory for files 
+       temp_directory <- file.path(tempdir(), as.integer(Sys.time()))
        
-       # Creating the individual file names 
-       walk2(
+       # Physically creating the directory 
+       dir.create(temp_directory)
+       
+       # Saving the ggplots 
+       for (plot_name in names(quantileListToShow$listQuantiles)) {
          
-         # List to transform to file 
-         quantileListToShow$listQuantiles,
+         # Plot 
+         plot_obj <- data.frame(quantileListToShow$listQuantiles[[plot_name]])
          
-         # File names 
-         names_with_underscores,
+         # If plot is found 
+         if (!is.null(plot_obj)) {
+           
+           # File name 
+           file_name <- glue("{plot_name}.csv")
+           
+           # Saving the csv
+           write_csv(plot_obj, file.path(temp_directory, file_name))
+           
+         }
          
-         # Saving as '.csv' files 
-         ~write.csv(.x, file = paste0(.y, ".csv"), row.names = FALSE)
+       }
+       
+       #####################
+       # Create a zip file #
+       #####################
+       zip::zip(
+         zipfile = file,
+         files = dir(temp_directory),
+         root = temp_directory
        )
        
-       ###########################
-       # Zipping the '.csv' file #
-       ###########################
-       
-       # Setting up the folder 
-       utils::zip(zip_file, file = c(namesSavingQuantiles()))
-       
-       # Removing the '.csv' files from the working directory 
-       file.remove(c(namesSavingQuantiles()))
-       
-     }
+     },
+     
+     contentType = "application/zip"
      
    ) # End of download handler 
    
@@ -3364,46 +3696,6 @@ server <- function(input, output, session) {
    
    
 #------------------------------------------------------------------------------#
-# Creating a list of file names for formatted forecasts ------------------------
-#------------------------------------------------------------------------------#
-# About: This section creates a list of file names containing formatted        #
-# forecasts based on the user select locations and models. The list of file    #
-# names is then used when saving the formatted forecasts via the "download"    #
-# button.                                                                      #
-#------------------------------------------------------------------------------#
-   
-   namesSavingFormatted <- reactive({
-     
-     #############################################
-     # Creating an empty vector to save names in #
-     #############################################
-     list.formatted.name <- c()
-     
-     ###################################################
-     # Looping through the list of formatted forecasts #
-     ###################################################
-     for(i in 1:length(FormattedForecastListToShow$listFormatted)){
-       
-       # Pulling the formatted forecast name 
-       nameFormatted <- names(FormattedForecastListToShow$listFormatted)[[i]]
-       
-       # Removing the '/' symbols when necessary
-       namesCleaned <- gsub("/", "-", nameFormatted)
-       
-       # Saving it in the vector
-       list.formatted.name[i] <- paste0(namesCleaned, "-Percentile-", input$quantileSelection, ".csv")
-       
-     } # End of loop through formatted forecasts
-     
-     ########################################################
-     # Returning the vector of the formatted forecast names #
-     ########################################################
-     return(list.formatted.name)
-     
-   }) # End of 'reactive' statement 
-   
-   
-#------------------------------------------------------------------------------#
 # Downloading the formatted forecasts as a 'zip' file --------------------------
 #------------------------------------------------------------------------------#
 # About: This section uses the list of names from above and the list of shown  #
@@ -3413,54 +3705,60 @@ server <- function(input, output, session) {
    
    output$download_FormatttedForecasts <- downloadHandler(
      
-     ###############################################
-     # Setting up the file name for the zip folder #
-     ###############################################
-     filename = function() {
+     ####################
+     # Filename for ZIP #
+     ####################
+     filename = function(){
        
-       # Pulling the name of the downloaded data
-       fileName <- gsub('.csv', '', input$dataset)
-       
-       # Folder name 
-       paste(fileName, "-Formatted-Forecasts.zip", sep = "")
+       paste("Formatted-Forecasts.zip", sep = "")
        
      },
      
-     #############################################
-     # Setting up the contents of the zip folder #
-     #############################################
-     content = function(file) {
+     ############################################
+     # Determining what should be in the folder #
+     ############################################
+     content = function(file){
        
-       # Naming the 'zip' file 
-       zip_file <- file
+       # Removing the message
+       removeModal()
        
-       # Fixing issues with '/' in file names 
-       names_with_underscores <- gsub("/", "-", names(FormattedForecastListToShow$listFormatted))
+       # Creating a temp directory for files 
+       temp_directory <- file.path(tempdir(), as.integer(Sys.time()))
        
-       # Creating the individual file names 
-       walk2(
+       # Physically creating the directory 
+       dir.create(temp_directory)
+       
+       # Saving the ggplots 
+       for (plot_name in names(FormattedForecastListToShow$listFormatted)) {
          
-         # List to transform to file 
-         FormattedForecastListToShow$listFormatted,
+         # Plot 
+         plot_obj <- FormattedForecastListToShow$listFormatted[[plot_name]]
          
-         # File names 
-         paste0(names_with_underscores, "-Percentile-", input$quantileSelection),
+         # If plot is found 
+         if (!is.null(plot_obj)) {
+           
+           # File name 
+           file_name <- glue("{plot_name}.csv")
+           
+           # Saving the csv
+           write_csv(plot_obj, file.path(temp_directory, file_name))
+           
+         }
          
-         # Saving as '.csv' files 
-         ~write.csv(.x, file = paste0(.y, ".csv"), row.names = FALSE)
+       }
+       
+       #####################
+       # Create a zip file #
+       #####################
+       zip::zip(
+         zipfile = file,
+         files = dir(temp_directory),
+         root = temp_directory
        )
        
-       ###########################
-       # Zipping the '.csv' file #
-       ###########################
-       
-       # Setting up the folder 
-       utils::zip(zip_file, file = c(namesSavingFormatted()))
-       
-       # Removing the '.csv' files from the working directory 
-       file.remove(c(namesSavingFormatted()))
-       
-     } # End of filling the folder 
+     },
+     
+     contentType = "application/zip"
      
    ) # End of 'downloadHandler'
    
@@ -3783,7 +4081,7 @@ server <- function(input, output, session) {
        # Saving the correct final list in a reactive value #
        #####################################################
        FiguresForecastListToShow$listFormatted <- finalList
-     
+
      ##############################
      # Runs if inputs are missing #
      ##############################
@@ -3796,6 +4094,42 @@ server <- function(input, output, session) {
      
    }) # End of observed statement
   
+#------------------------------------------------------------------------------#
+# Rendering a title for the panel plots ----------------------------------------
+#------------------------------------------------------------------------------#
+# About: This section renders a title for the panel forecast plots.            #
+#------------------------------------------------------------------------------#
+   
+   #######################
+   # Rendering the title #
+   #######################
+   output$panelForecastTitle <- renderText({
+     
+     #Runs if data is entered 
+     tryCatch({
+       
+       # Producing nothing if no locations are chosen
+       if(length(input$locationFigures) == 0 || length(FiguresForecastListToShow$listFormatted) == 0){
+         
+         NULL
+         
+         # Runs if at least one location is selected
+       }else{
+         
+         # Rendering the title
+         return(names(FiguresForecastListToShow$listFormatted[current_index_formatted()]))
+         
+       } # End of 'if-else'
+       
+       # Runs if no data is entered  
+     }, error = function(e){
+       
+       # Returning a NULL
+       NULL
+       
+     }) # End of 'tryCatch'
+     
+     })
     
 #------------------------------------------------------------------------------#  
 # Rendering the plots ----------------------------------------------------------
@@ -3873,130 +4207,94 @@ server <- function(input, output, session) {
    
    
 #------------------------------------------------------------------------------#
-# Creating a list of file names for forecast figures ---------------------------
-#------------------------------------------------------------------------------#
-# About: This section handles possible '/' characters in file names. It looks  #
-# for '/' symbols and then replaces them with '-' if found. Finally, this      #
-# section updates the figure names in the figure list that is saved.           #
-#------------------------------------------------------------------------------#
-   
-   namesSavingForecasts <- reactive({
-     
-     #############################################
-     # Creating an empty vector to save names in #
-     #############################################
-     list.figure.name <- c()
-     
-     ##################################################
-     # Looping through the list of forecast figures #
-     ##################################################
-     for(i in 1:length(FiguresForecastListToShow$listFormatted)){
-       
-       # Pulling the quantile name 
-       nameFigures <- names(FiguresForecastListToShow$listFormatted)[[i]]
-       
-       # Removing the '/' symbols when necessary
-       namesCleaned <- gsub("/", "-", nameFigures)
-       
-       # Saving it in the vector
-       list.figure.name[i] <- paste0(namesCleaned, ".", input$extFig)
-       
-     }
-     
-     ##############################################
-     # Returning the vector of the quantile names #
-     ##############################################
-     return(list.figure.name)
-     
-   }) # End of 'reactive' statement 
-   
-   
-#------------------------------------------------------------------------------#
 # Downloading the figure(s) ----------------------------------------------------
 #------------------------------------------------------------------------------#
 # About: This section uses the figure specifications from the menu pop-up to   #
 # save a '.zip' file of forecast figures or panels.                            #
 #------------------------------------------------------------------------------#
    
-   ##############################################
-   # Creating the option to download the figure #
-   ##############################################
-   output$downloadForecastFigure<- downloadHandler(
+   ##########################
+   # Downloading the images #
+   ##########################
+   output$downloadForecastFigure <- downloadHandler(
      
-     ####################################
-     # Function to create the file-name #
-     ####################################
-     filename = function() {
+     ####################
+     # Filename for ZIP #
+     ####################
+     filename = function(){
        
-       # Closing the figure specification 
-       removeModal()
-       
-       # Pulling the name of the downloaded data
-       fileName <- gsub('.csv', '', input$dataset)
-       
-       # Folder name 
-       paste(fileName, "-Forecast-Figures.zip", sep = "")
+       paste("Forecast-Figures.zip", sep = "")
        
      },
      
-     #############################
-     # Function to save the file #
-     #############################
-     content = function(file) {
+     ############################################
+     # Determining what should be in the folder #
+     ############################################
+     content = function(file){
        
-       # Naming the 'zip' file 
-       zip_file <- file
+       # Removing the message
+       removeModal()
        
-       # Fixing issues with '/' in file names 
-       names_with_underscores <- gsub("/", "-", names(FiguresForecastListToShow$listFormatted))
+       # Creating a temp directory for files 
+       temp_directory <- file.path(tempdir(), as.integer(Sys.time()))
        
-       # Adding units to the file name 
-       names_with_underscores <- paste0(names_with_underscores, ".", input$extFig)
-
-       # Creating the individual file names 
-       walk2(
+       # Physically creating the directory 
+       dir.create(temp_directory)
+       
+       # Saving the ggplots 
+       for (plot_name in names(FiguresForecastListToShow$listFormatted)) {
          
-         # List to transform to file 
-         FiguresForecastListToShow$listFormatted,
+         # Plot 
+         plot_obj <- FiguresForecastListToShow$listFormatted[[plot_name]]
          
-         # File names 
-         paste0(names_with_underscores),
-         
-         # Running with compression if using a '.tiff'
-         if(input$extFig == 'tiff'){
+         # If plot is found 
+         if (!is.null(plot_obj)) {
            
-           # Saving the file
-           ~ggsave(.y, plot = .x, 
-                  dpi = input$dpi,
-                  width = input$width, 
-                  height = input$height, 
-                  units = input$units,
-                  compression = "lzw")
+           # File name 
+           file_name <- glue("{plot_name}.{input$extFig}")
            
-         # Running without compression if not using a '.tiff'
-         }else{
+           # TIFF file 
+           if(input$extFig == ".tiff"){
+             ggsave(
+               file.path(temp_directory, file_name),
+               plot = plot_obj,
+               dpi = input$dpi,
+               width = input$width,
+               height = input$height,
+               units = input$units,
+               device = input$extFig,
+               compression = "lzw")
+             
+           }else{
+             
+             # All other image types
+             ggsave(
+               file.path(temp_directory, file_name),
+               plot = plot_obj,
+               dpi = input$dpi,
+               width = input$width,
+               height = input$height,
+               units = input$units,
+               device = input$extFig)
+             
+           }
            
-           # Saving the file
-           ~ggsave(.y, plot = .x, 
-                  dpi = input$dpi,
-                  width = input$width, 
-                  height = input$height, 
-                  units = input$units)
          }
+         
+       }
+       
+       #####################
+       # Create a zip file #
+       #####################
+       zip::zip(
+         zipfile = file,
+         files = dir(temp_directory),
+         root = temp_directory
        )
        
-       ###########################
-       # Zipping the '.csv' file #
-       ###########################
-       
-       # Setting up the folder 
-       utils::zip(zip_file, file = c(namesSavingForecasts()))
-       
-       # Removing the '.csv' files from the working directory 
-       file.remove(c(namesSavingForecasts()))
-       
-     }) # End of saving the figure 
-   
+     },
+     contentType = "application/zip"
+   )
 
    
    
@@ -5034,9 +5332,6 @@ server <- function(input, output, session) {
      
    }) # End of 'observe'
 
-
-
-
 #------------------------------------------------------------------------------#
 # Creating the list of average metrics to show ---------------------------------
 #------------------------------------------------------------------------------#
@@ -5580,14 +5875,357 @@ server <- function(input, output, session) {
      }) # End of saving the figure(s) 
 
 
+# Reading in additional models -------------------------------------------------
+   
+#------------------------------------------------------------------------------#
+# Reading in multiple files ----------------------------------------------------
+#------------------------------------------------------------------------------#
+# About: This section reads in multiple files unrelated to the benchmarking    #
+# models. This is the background behind reading in the multiple files.         #
+#------------------------------------------------------------------------------#
+   
+   filesOtherModels <- reactive({
+     
+     tryCatch({
+       
+       ####################################################
+       # Creating an empty list to fill in with data sets #
+       ####################################################
+       lst <- list()
+       
+       ######################################
+       # Looping through uploaded data sets #
+       ######################################
+       for (i in 1:length(input$dataset2[, 1])) {
+         
+         # Extract the extension of the file
+         ext <- tools::file_ext(input$dataset2[i,4])
+         
+         ######################################################
+         # Produces an error if a '.csv' file is not selected #
+         ######################################################
+         if (ext != "csv") {
+           
+           # Produced error
+           showModal(modalDialog(
+             title = "Error",
+             paste("File", nput$dataset2[i,1], "is not a '.csv' file. Please upload only '.csv' files."),
+             easyClose = TRUE
+           ))
+           
+           # Return null so the user has to re-upload
+           return(NULL)
+           
+         }
 
+         #######################
+         # Reading in the data #
+         #######################
+         lst[[i]] <- read.csv(input$dataset2[i,4], header = TRUE, check.names = FALSE)
+         
+         # Assigning a name to the list
+         names(lst)[i] <- input$dataset2[i,1]
+       }
 
+       ###################################
+       # Returning a list of data frames #
+       ###################################
+       return(lst)
+       
+       }, error = function(e) {
+       
+       NULL
+       
+     })
+     
+   })
+   
+#------------------------------------------------------------------------------#
+# Creating the individual forecast figures -------------------------------------
+#------------------------------------------------------------------------------#
+# About: This section creates the individual forecast figures for other models #
+# read into the dashboard.                                                     #
+#------------------------------------------------------------------------------#
+   
+   ####################################################
+   # Creating the reactive value to save the plots in #
+   ####################################################
+   individualOtherPlots <- reactiveValues()
+   
+   ###########################################
+   # Observing changes in reactive behaviors #
+   ###########################################
+   observe({
+     
+     tryCatch({
+       
+     #######################################################
+     # Function to produce the individual forecast figures #
+     #######################################################
+     otherIndividual <- Otherforecast.figures(formatted.forecast.input = filesOtherModels(),
+                                               date.type.input = dateValues$dates)
+     
+     # Saving the output to the reactive value list
+     individualOtherPlots$figures <- otherIndividual
 
+     }, error = function(e){
+       
+       NULL
+     })
+     
+   })
+   
+#------------------------------------------------------------------------------#
+# Creating the forward and backwards arrows for the other figures   ------------
+#------------------------------------------------------------------------------#
+# About: This section provides the functionality for the forward and back      #
+# arrows for going through the other model forecasts.                          #
+#------------------------------------------------------------------------------#
+  
+  ###################################################################
+  # Creating the reactive value to be used with the metrics buttons #
+  ###################################################################
+  current_index_otherModels <- reactiveVal(1)
+  
+  #################################################
+  # Going backwards if the previous button is hit #
+  #################################################
+  observeEvent(input$otherFigsPrevious, {
+    
+    # Isolating the action to only when the button is clicked
+    isolate({
+      
+      # Running if the current index is greater than one
+      if(current_index_otherModels() > 1){
+        
+        # Changing the index of the reactive value
+        current_index_otherModels(max(current_index_otherModels() - 1))
+        
+      }
+      
+    }) # End of 'isolate' statement
+    
+  }) # End of 'observeEvent' statement
+  
+  ############################################
+  # Going forwards if the next button is hit #
+  ############################################
+  observeEvent(input$otherFigstNext, {
+    
+    # Isolating the action to only when the button is clicked
+    isolate({
+      
+      # Run if the current index is less than the length of the list
+      if (current_index_otherModels() < length(individualOtherPlots$figures)) {
+        
+        # Changing the index of the reactive value
+        current_index_otherModels(min(current_index_otherModels() + 1))
+        
+      }
+      
+    }) # End of 'isolate' statement
+    
+  }) # End of 'observeEvent' statement   
 
+#------------------------------------------------------------------------------#
+# Rendering the individual forecast --------------------------------------------
+#------------------------------------------------------------------------------#
+# About: This section uses the information from above to create individual     #
+# forecast figures for each other model read into the dashboard.               #
+#------------------------------------------------------------------------------#
+  
+ ###############################
+ # Rendering the plotly figure #
+ ###############################
+  
+  # Try to run it 
+  tryCatch({
+    
+    ############################
+    # If-else for missing data #
+    ############################
+      
+    if(is.character(individualOtherPlots$figures)){
+      
+      output$otherModelFigure <- NULL
+      
+    }else{
+      
+      output$otherModelFigure <- renderPlotly({ggplotly(individualOtherPlots$figures[[current_index_otherModels()]], tooltip = "text")})
+      
+    }
+    
+    # Runs if error occurs 
+    }, error = function(e){
+      
+      output$otherModelFigure <- NULL
+      
+  })
+  
+#------------------------------------------------------------------------------#
+# Creating the download handler for the individual figures ---------------------
+#------------------------------------------------------------------------------#
+# About: This section enables the downloading of the forecast figures to the   #
+# folder of the user's choosing.                                               #
+#------------------------------------------------------------------------------#
 
-
-
-
+  #################################################
+  # Message that pops up with downloading options #
+  #################################################
+  
+  #################################
+  # Setting Figure Specifications #
+  #################################
+  observeEvent(input$downloadOtherForecastsFigs, {
+    
+    ################################
+    # Figure specification options #
+    ################################
+    isolate({
+      
+      showModal(modalDialog(
+        
+        title = "Figure Specifications",
+        numericInput("dpi", "Figure DPI:", value = 900),
+        numericInput("width", "Figure Width:", value = 9),
+        numericInput('height', 'Figure Height:', value = 5),
+        pickerInput("units", label = "Unit of Measurement:", choices = c("in", "cm", "mm", "px")),
+        pickerInput("extFig", label = "Figure Type:", choices = c("png", "eps", "pdf", "tiff", "jpeg", "svg")),
+        downloadButton("downloadOtherFigsIndividual", "Download Forecast Figures"),
+        easyClose = TRUE
+        
+      )) 
+    })
+    
+  })
+  
+  ##########################
+  # Downloading the images #
+  ##########################
+  output$downloadOtherFigsIndividual <- downloadHandler(
+    
+    ####################
+    # Filename for ZIP #
+    ####################
+    filename = function(){
+      
+      paste("other-individual-forecast-figures.zip", sep = "")
+      
+    },
+    
+    ############################################
+    # Determining what should be in the folder #
+    ############################################
+    content = function(file){
+      
+      # Removing the message
+      removeModal()
+      
+      # Creating a temp directory for files 
+      temp_directory <- file.path(tempdir(), as.integer(Sys.time()))
+      
+      # Physically creating the directory 
+      dir.create(temp_directory)
+      
+      # Saving the ggplots 
+      for (plot_name in names(individualOtherPlots$figures)) {
+        
+        # Plot 
+        plot_obj <- individualOtherPlots$figures[[plot_name]]
+        
+        # If plot is found 
+        if (!is.null(plot_obj)) {
+          
+          # File name 
+          file_name <- glue("{plot_name}.{input$extFig}")
+          
+          # TIFF file 
+          if(input$extFig == ".tiff"){
+            ggsave(
+              file.path(temp_directory, file_name),
+              plot = plot_obj,
+              dpi = input$dpi,
+              width = input$width,
+              height = input$height,
+              units = input$units,
+              device = input$extFig,
+              compression = "lzw")
+            
+          }else{
+            
+            # All other image types
+            ggsave(
+              file.path(temp_directory, file_name),
+              plot = plot_obj,
+              dpi = input$dpi,
+              width = input$width,
+              height = input$height,
+              units = input$units,
+              device = input$extFig)
+            
+          }
+          
+        }
+        
+      }
+      
+      #####################
+      # Create a zip file #
+      #####################
+      zip::zip(
+        zipfile = file,
+        files = dir(temp_directory),
+        root = temp_directory
+      )
+      
+    },
+    contentType = "application/zip"
+  )
+  
+  
+  
+#------------------------------------------------------------------------------#
+# Creating the panel forecast figures -----------------------------------------
+#------------------------------------------------------------------------------#
+# About: This section creates the panel forecast figures for other models      #
+# read into the dashboard.                                                     #
+#------------------------------------------------------------------------------#
+  
+  ####################################################
+  # Creating the reactive value to save the plots in #
+  ####################################################
+  PanelOtherPlots <- reactiveValues()
+  
+  ###########################################
+  # Observing changes in reactive behaviors #
+  ###########################################
+  observe({
+    
+    tryCatch({
+      
+      formatted.forecast.input <<- foremattedForecasts$forecasts # Formatted figures
+      data.type.input <<- dateValues$dates # Date type 
+      formatted.forecast.Other.input <<- filesOtherModels()
+      
+      #######################################################
+      # Function to produce the individual forecast figures #
+      #######################################################
+      # OtherpanelOutput <<- other.panel.forecast.figures(formatted.forecast.input <- foremattedForecasts$forecasts, # Formatted figures
+      #                                                  data.type.input = dateValues$dates, # Date type 
+      #                                                  formatted.forecast.input = filesOtherModels()) # Read in forecasts 
+      # 
+      # Saving the output to the reactive value list
+      PanelOtherPlots$figures <- OtherpanelOutput
+     
+     
+    }, error = function(e){
+      
+      NULL
+      
+    })
+    
+  })
+  
 }
 
 

@@ -11,7 +11,8 @@
 # Author: Amanda Bleichrodt                                                    #
 #------------------------------------------------------------------------------#
 timeseries.figure.function <- function(crude.data.input, location.input,
-                                       dateType.input){
+                                       dateType.input, forecastLineShow,
+                                       forecastDatesStart, forecastDatesEnd){
   
 #------------------------------------------------------------------------------#
 # Reading in the inputs --------------------------------------------------------
@@ -35,6 +36,21 @@ locations <- location.input
 ###################
 dateType <- dateType.input
 
+###############################################
+# Indicator if forecast lines should be shown #
+###############################################
+lineIndicator <- forecastLineShow
+
+#########################
+# Start forecast period #
+#########################
+startForecastPeriod <- forecastDatesStart
+
+#######################
+# End forecast period #
+#######################
+EndForecastPeriod <- forecastDatesEnd
+
 #------------------------------------------------------------------------------#
 # Built in error ---------------------------------------------------------------
 #------------------------------------------------------------------------------#
@@ -48,6 +64,7 @@ if(length(locations) == 0){
   return("No location has been selected. Please select at least one location prior to running forecasts.")
   
 }
+
 
 #------------------------------------------------------------------------------#
 # Filtering data based on selected locations -----------------------------------
@@ -105,6 +122,17 @@ if(dateType %in% c("week", "day")){
   # X-axis breaks 
   xAxisBreaks <- scale_x_continuous(breaks = seq.Date(min(data.for.plot$Dates), max(data.for.plot$Dates), by = 7))  # X-axis breaks
   
+  # Creating the vector of line breaks
+  if(dateType == "week"){
+    
+    lineBreaksVector <- seq.Date(anytime::anydate(startForecastPeriod), anytime::anydate(EndForecastPeriod), by = 7)
+    
+  }else{
+    
+    lineBreaksVector <- seq.Date(anytime::anydate(startForecastPeriod), anytime::anydate(EndForecastPeriod), by = 1)
+    
+  }
+  
   ##########################################
   # Handling dates - Years or Time Indexes #  
   ##########################################
@@ -117,7 +145,33 @@ if(dateType %in% c("week", "day")){
     # X-axis breaks 
     xAxisBreaks <- scale_x_continuous(breaks = seq(min(data.for.plot$Dates), max(data.for.plot$Dates), by = 1))  # X-axis breaks
     
+    # Creating the vector of line breaks
+    lineBreaksVector <- seq(as.numeric(startForecastPeriod), as.numeric(EndForecastPeriod), by = 1)
+    
   }
+
+#------------------------------------------------------------------------------#
+# Determining if the line breaks for forecast periods should be shown ----------
+#------------------------------------------------------------------------------#
+# About: This section determines if the line breaks should be shown on the     #
+# timeseries figure, based on the users input.                                 #
+#------------------------------------------------------------------------------#
+
+######################
+# Plotting the lines #
+######################
+if(lineIndicator == T){
+  
+  plottedLines <- geom_vline(xintercept  = lineBreaksVector, color = "black", linetype = "dashed") 
+  
+  ##########################
+  # Not plotting the lines #
+  ##########################
+  }else{
+  
+  plottedLines <- NULL
+  
+}
 
 #------------------------------------------------------------------------------#
 # Plotting the time series -----------------------------------------------------
@@ -125,10 +179,11 @@ if(dateType %in% c("week", "day")){
 # About: This section uses the data from above to plot the time series data    #
 # for the locations selected by the user.                                      #
 #------------------------------------------------------------------------------#
-return(ggplot(data.for.plot, aes(x = Dates, y = Count, color = Location, group=1,
-                                 text = paste('Date: ', Dates,
-                                              '<br>Count:', Count))) +
-  geom_line() +
+figure <- ggplot(data.for.plot, aes(x = Dates, y = Count, color = Location)) +
+  plottedLines + 
+  geom_line(aes(group= 1, text = paste('Date: ', Dates,
+                             '<br>Count:', Count))) +
+  
   xAxisBreaks + # X axis breaks (i.e., dates)
   scale_y_continuous(breaks = seq(0, maxValue + breaks.graph, by = breaks.graph), # Y-axis breaks
                      limits = c(0, maxValue)) + # Y-axis limits
@@ -137,8 +192,10 @@ return(ggplot(data.for.plot, aes(x = Dates, y = Count, color = Location, group=1
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1), # Switching x-axis labels horizontal
         plot.title = element_text(hjust = 0.5, face = "bold", size = 10), # Plot title
         axis.title.y = element_text(size = 10), # Y-axis label
-        axis.title.x=element_blank(), # Removing the x-axis label
-        panel.grid.major = element_line(color = "grey95")))
+        axis.title.x=element_blank()) # Removing the x-axis label
+
+# Returning the list
+return(figure)
 
 
 }

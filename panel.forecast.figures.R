@@ -223,7 +223,7 @@ for(i in 1:length(formatted.forecast.Figure)){
         # Checking for large number of dates
         if(length(xAxisBreaks) > 10){
           
-          xAxisBreaks <- scale_x_continuous(breaks = seq.Date(min(anydate(dataFilteredFinal$dates)), max(anydate(dataFilteredFinal$dates)), by = "3 weeks"))  # X-axis breaks
+          xAxisBreaks <- scale_x_continuous(breaks = seq.Date(min(anydate(dataFilteredFinal$dates)), max(anydate(dataFilteredFinal$dates)), by = "2 weeks"))  # X-axis breaks
           
         }
         
@@ -257,19 +257,20 @@ for(i in 1:length(formatted.forecast.Figure)){
         geom_line(aes(x = dates, y = UB, text = paste('Date: ', dates, '<br>UB:', round(as.numeric(UB), 2)), group = 1), linetype = "dashed", size = 0.65) + # UB
         geom_line(aes(x = dates, y = LB, text = paste('Date: ', dates, '<br>LB:', round(as.numeric(LB), 2)), group = 1), linetype = "dashed", size = 0.65) + # LB
         geom_line(color = "red", size = 0.9) + # Median line
-        geom_point(aes(x = dates, y = data, text = paste('Date: ', dates, '<br>Count:', data)), color = "black", shape = 1, size = 2) + # Data points
+        geom_point(aes(x = dates, y = data, text = paste('Date: ', dates, '<br>Count:', data)), color = "black", shape = 1, size = 2) +  # Data points
         geom_vline(xintercept = breakLine, linetype = "dashed") + # Vertical line
         xAxisBreaks + # X axis breaks (i.e., dates)
         scale_y_continuous(breaks = seq(0, maxValue + breaks.graph, by = breaks.graph), # Y-axis breaks
-                           limits = c(0, maxValue)) + # Y-axis limits
+                           limits = c(0, maxValue)) +  # Y-axis limits
         labs(title = "", # Title
-             y = "Counts") + # Y-axis labels
+             y = "Counts")  + # Y-axis labels
         theme_classic() + # Base theme
         theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1), # Switching x-axis labels horizontal
-              plot.title = element_text(hjust = 0.5, face = "bold", size = 10, margin = 15), # Plot title
+              plot.title = element_text(hjust = 0.5, face = "bold", size = 10), # Plot title
               axis.title.y = element_text(size = 10), # Y-axis label
               axis.title.x=element_blank(), # Removing the x-axis label
               panel.grid.major = element_line(color = "grey95"))
+
       
       ####################################
       # Saving the plot in the main list #
@@ -282,7 +283,7 @@ for(i in 1:length(formatted.forecast.Figure)){
     } # End of inner loop 
     
     # Final list to export 
-    finalList <- c(figureListLocationLoop,finalList)
+    finalList <- c(figureListLocationLoop, finalList)
     
   } # End of outer loop
   
@@ -293,25 +294,6 @@ for(i in 1:length(formatted.forecast.Figure)){
   return(finalList)
   
 } # End of function
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-
     
 
   
