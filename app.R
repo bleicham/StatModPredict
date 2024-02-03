@@ -1643,6 +1643,11 @@ server <- function(input, output, session) {
 # is completed with the help of a function. Additionally, users can download   #
 # both the outputted figure and data table to the folder of their choosing.    #
 #------------------------------------------------------------------------------#
+  
+  ##################################
+  # Reactive values for timeseries #
+  ##################################
+  timeseriesList <- reactiveValues()
 
   #####################################
   # Observing changings in the inputs #
@@ -1810,21 +1815,24 @@ server <- function(input, output, session) {
               #########################################
               # Function to produce time-series image #
               #########################################
-              timeseriesFigure <<- timeseries.figure.function(crude.data.input = file(), # Crude data 
+              timeseriesFigure <- timeseries.figure.function(crude.data.input = file(), # Crude data 
                                                               location.input = c(input$locations), # Locations 
                                                               dateType.input = dateValues$dates, # Type of data
                                                               forecastLineShow = input$forecastLines, # Show forecast lines 
                                                               forecastDatesStart = input$forecast.period[1], # Start of slider 
                                                               forecastDatesEnd = input$forecast.period[2]) # End of slider
               
-              if(length(timeseriesFigure) == 0 || is.null(timeseriesFigure) || is.character(timeseriesFigure)){
+              # Saving the figure to a reactive value
+              timeseriesList$figure <- timeseriesFigure
+              
+              if(length(timeseriesList$figure[[1]]) == 0 || is.null(timeseriesList$figure[[1]]) || is.character(timeseriesFigure[[1]])){
                 
                 output$timeseriesPlot <- NULL
                 
               }else{
                 
                 # Ourputting the plot 
-                output$timeseriesPlot <- renderPlotly({ggplotly(timeseriesFigure, tooltip = "text")})
+                output$timeseriesPlot <- renderPlotly({ggplotly(timeseriesList$figure[[1]], tooltip = "text")})
                 
               }
           
@@ -1890,7 +1898,7 @@ server <- function(input, output, session) {
             if(input$extFig == 'tiff'){
               
               # Saving the file
-              ggsave(file, plot = timeseriesFigure, 
+              ggsave(file, plot = timeseriesList$figure[[2]], 
                      dpi = input$dpi,
                      width = input$width, 
                      height = input$height, 
@@ -1901,7 +1909,7 @@ server <- function(input, output, session) {
             }else{
               
               # Saving the file
-              ggsave(file, plot = timeseriesFigure, 
+              ggsave(file, plot = timeseriesList$figure[[2]], 
                      dpi = input$dpi,
                      width = input$width, 
                      height = input$height, 

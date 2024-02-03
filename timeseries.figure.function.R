@@ -51,6 +51,11 @@ startForecastPeriod <- forecastDatesStart
 #######################
 EndForecastPeriod <- forecastDatesEnd
 
+####################
+# List for figures #
+####################
+TimseriesList <- list()
+
 #------------------------------------------------------------------------------#
 # Built in error ---------------------------------------------------------------
 #------------------------------------------------------------------------------#
@@ -194,8 +199,24 @@ figure <- ggplot(data.for.plot, aes(x = Dates, y = Count, color = Location)) +
         axis.title.y = element_text(size = 10), # Y-axis label
         axis.title.x=element_blank()) # Removing the x-axis label
 
+# GGPLOT version 
+figure1 <- ggplot(data.for.plot, aes(x = Dates, y = Count, color = Location)) +
+  plottedLines + 
+  geom_line() +
+  xAxisBreaks + # X axis breaks (i.e., dates)
+  scale_y_continuous(breaks = seq(0, maxValue + breaks.graph, by = breaks.graph), # Y-axis breaks
+                     limits = c(0, maxValue)) + # Y-axis limits
+  labs(color = "") + 
+  theme_classic() + # Base theme
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1), # Switching x-axis labels horizontal
+        plot.title = element_text(hjust = 0.5, face = "bold", size = 10), # Plot title
+        axis.title.y = element_text(size = 10), # Y-axis label
+        axis.title.x=element_blank()) # Removing the x-axis label
+
+TimseriesList <- list(figure, figure1)
+
 # Returning the list
-return(figure)
+return(TimseriesList)
 
 
 }
