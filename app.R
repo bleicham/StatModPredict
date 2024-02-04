@@ -1127,189 +1127,217 @@ conditionalPanel(
       ) # End of 'column' for average metrics box 
       
     ), # End of fluid row for first row of page
-
-
-
-
-
-
-
-             
+    
     #####################################
     # Second Row of Page: Crude Metrics #
     #####################################
     fluidRow(
-
+      
       ##############################################
       # Creating a box for crude model fit metrics #
       ##############################################
       box(
-
+        
         # Setting the box width
         width = 12,
         
+        ############################################
+        # First row of the box - Showing the Title #
+        ############################################
+        fluidRow(
+          
+          # Width of row
+          width = 12,
+          
+          ####################
+          # Alignment Column #
+          ####################
+          column(
+            
+            # Column width 
+            width = 12,
+            
+            #################################
+            # Conditional panel: Data title #
+            #################################
+            conditionalPanel(
+              
+              # Condition
+              condition = "!input.crudeFigure",
+              
+              # Title for Box
+              textOutput("CrudeMetricsTitle")
+              
+            ), # End of conditional panel
+            
+            ###################################
+            # Conditional panel: Figure title #
+            ###################################
+            conditionalPanel(
+              
+              # Condition
+              condition = "input.crudeFigure",
+              
+              # Title for Box
+              textOutput("crudeFigTitle")
+              
+            ) # End of conditional panel
+            
+          ) # End of alignment column 
+          
+          ), # End of 'fluidRow' for title 
         
-
-        # Creating column to keep it all aligned
-        column(width = 12,
-
-               ############################################
-               # First row of the box - Showing the Title #
-               ############################################
-               fluidRow(
-
-                 # Width of row
-                 width = 12,
-
-                 # Condition to show this only if check-box is NOT hit
-                 conditionalPanel(
-
-                   # Condition
-                   condition = "!input.crudeFigure",
-
-                   # Title for Box
-                   textOutput("CrudeMetricsTitle")
-
-                 ), # End of conditional panel
-
-                 # Condition to show this only if check-box is NOT hit
-                 conditionalPanel(
-
-                   # Condition
-                   condition = "input.crudeFigure",
-
-                   # Title for Box
-                   textOutput("crudeFigTitle")
-
-                 ) # End of conditional panel
-
-               ), # End of 'fluidRow'
-
-               ########################################
-               # Second Row of the box - Plot or Data #
-               ########################################
-               fluidRow(
-
-                 # Creating the column to keep everything align
-                 column(
-
-                   # Width of column
-                   width = 12,
-
-                   # Condition to show this only if check-box is NOT hit
-                   conditionalPanel(
-
-                     # Condition
-                     condition = "!input.crudeFigure",
-
-                     # Outputting the forecast table
-                     dataTableOutput("CrudeMetricsData"),
-
-                   ), # End of conditional panel - Check not hit
-
-                   # Condition to show this if check-box is hit
-                   conditionalPanel(
-
-                     # Condition
-                     condition = "input.crudeFigure",
-
-                     plotOutput("CrudeMetricsFigure")
-
-                   ) # End of condition - Check hit
-
-                 ) # End of column
-
-               ), # End of fluid row
-
-
-               #################################
-               # Last row of the box - Options #
-               #################################
-               fluidRow(
-
-                 # Condition to show this if check-box is not hit
-                 conditionalPanel(
-
-                   # Condition
-                   condition = "!input.crudeFigure",
-
-                 # Download Button
-                 column(2,
-                        div(style = "display: flex; justify-content: flex-start; align-items: center;",
-                            downloadButton("download_metrics", "Download Crude Metrics")))
-
-                 ), # End of condition
-
-
-                 # Condition to show this if check-box is hit
-                 conditionalPanel(
-
-                   # Condition
-                   condition = "input.crudeFigure",
-
-                   # Download Button
-                   column(2,
-                          div(style = "display: flex; justify-content: flex-start; align-items: center;",
-                              actionButton("download_metricsFig", "Download Crude Metrics Figure", icon = icon("download"))))
-
-                 ), # End of condition
-
-
-                 # Location drop down
-                 column(2,
-                        div(style = "margin-left: 5px; display: flex; justify-content: flex-start; align-items: center;",
-                            uiOutput("locationsMetrics"))),
-
-                 # Model drop down
-                 column(2,
-                        div(style = "display: flex; justify-content: flex-start; align-items: center;",
-                            uiOutput("modelMetrics"))),
-
-                 # Check box for figure/data
-                 column(3,
-                        div(style = "display: flex; justify-content: flex-start; align-items: center;",
-                            checkboxInput("crudeFigure", "Show Figure"))),
-
-
-                 # Condition to show this if check-box is not hit
-                 conditionalPanel(
-
-                   # Condition
-                   condition = "!input.crudeFigure",
-
-                   # Left and right arrows
-                   column(3,
-                          div(style = "margin-right: -10px; display: flex; justify-content: flex-end; align-items: center;",
-                              actionButton(inputId = "PreviousMetric", label = icon("arrow-left")),
-                              actionButton(inputId = "NextMetric", label = icon("arrow-right"))))
-
-                 ), # End of conditional panel
-
-                 # Condition to show this if check-box is hit
-                 conditionalPanel(
-
-                   # Condition
-                   condition = "input.crudeFigure",
-
-                   # Left and right arrows
-                   column(3,
-                          div(style = "margin-right: -10px; display: flex; justify-content: flex-end; align-items: center;",
-                              actionButton(inputId = "PreviousMetricFigure", label = icon("arrow-left")),
-                              actionButton(inputId = "NextMetricFigure", label = icon("arrow-right"))))
-
-                 ) # End of conditional panel
-
-               ) # End of 'fluidRow'
-
-               ) # End of 'column' for crude box
-
-        ) # End of crude metrics box
-
-      ) # End of fluid row for second row of page
+        ########################################
+        # Second Row of the box - Plot or Data #
+        ########################################
+        fluidRow(
+          
+          # Creating the column to keep everything align
+          column(
+            
+            # Width of column
+            width = 12,
+            
+            ################################
+            # Conditional Panel: Show Data #
+            ################################
+            conditionalPanel(
+              
+              # Condition
+              condition = "!input.crudeFigure",
+              
+              # Outputting the forecast table
+              dataTableOutput("CrudeMetricsData"),
+              
+            ), # End of conditional panel - Check not hit
+            
+            ##################################
+            # Conditional Panel: Show Figure #
+            ##################################
+            conditionalPanel(
+              
+              # Condition
+              condition = "input.crudeFigure",
+              
+              # Outputting the figure 
+              plotOutput("CrudeMetricsFigure")
+              
+            ) # End of condition - Check hit
+            
+          ) # End of column
+          
+        ), # End of fluid row
+        
+        ###################################
+        # Row 3: Showing the user options #
+        ###################################
+        fluidRow(
+          
+          # Width 
+          width = 12,
+          
+          ####################
+          # Alignment column #
+          ####################
+          column(
+            
+            # Width
+            width = 10,
+            
+            ########################
+            # Overall style of row #
+            ########################
+            div(style = "display:flex; vertical-aline: top",
+                
+                ############################################
+                # Condition: Show Download Button for Data #
+                ############################################
+                conditionalPanel(
+                  
+                  # Condition
+                  condition = "!input.crudeFigure",
+                  
+                  # Download Button
+                  div(style = "margin-right: 10px",
+                      downloadButton("download_metrics", "Download Crude Metrics"))
+                  
+                ), # End of condition
+                
+                ##############################################
+                # Condition: Show Download Button for Figure #
+                ##############################################
+                conditionalPanel(
+                  
+                  # Condition
+                  condition = "input.crudeFigure",
+                  
+                  # Download Button
+                  div(style = "margin-right: 10px",
+                      actionButton("download_metricsFig", "Download Crude Metrics Figure", icon = icon("download")))
+                  
+                ), # End of condition
+                
+                ######################
+                # Location drop-down #
+                ######################
+                div(uiOutput("locationsMetrics"), style = "margin-right:10px"),
+                
+                ####################
+                # Models drop-down #
+                ####################
+                div(uiOutput("modelMetrics"), style = "margin-right:10px"),
+                
+                #########################
+                # Show figure check-box #
+                #########################
+                div(checkboxInput("crudeFigure", "Show Figure"))
+                
+            ) # End of Main Style 
+            
+          ), # End of alignment for right-hand buttons
+          
+          ########################################
+          # Condition Panel: Data Metrics Arrows #
+          ########################################
+          conditionalPanel(
+            
+            # Condition
+            condition = "!input.crudeFigure",
+            
+            # Left and right arrows
+            column(2,
+                   div(style = "display: flex; justify-content: flex-end; align-items: center;",
+                       actionButton(inputId = "PreviousMetric", label = icon("arrow-left")),
+                       actionButton(inputId = "NextMetric", label = icon("arrow-right"))))
+            
+          ), # End of conditional panel
+          
+          ##########################################
+          # Condition Panel: Figure Metrics Arrows #
+          ##########################################
+          conditionalPanel(
+            
+            # Condition
+            condition = "input.crudeFigure",
+            
+            # Left and right arrows
+            column(2,
+                   div(style = "display: flex; justify-content: flex-end; align-items: center;",
+                       actionButton(inputId = "PreviousMetricFigure", label = icon("arrow-left")),
+                       actionButton(inputId = "NextMetricFigure", label = icon("arrow-right"))))
+            
+          ) # End of conditional panel
+          
+        ) # End of 'fluidRow'
+        
+      ) # End of 'column' for crude box
+      
+    ) # End of crude metrics box
     
-    ) # End of overall column 
-  
-  ), # End of Page 2 conditional panel 
+  ) # Column alignment overall
+
+), # End of Page 2 conditional panel 
+                
 
 #------------------------------------------------------------------------------#
 # Page 3: Handling the other forecasts and metrics -----------------------------

@@ -241,6 +241,13 @@ for(i in 1:length(formatted.forecast.Figure)){
         # X-axis breaks
         xAxisBreaks <- scale_x_continuous(breaks = seq(min(dataFilteredFinal$dates), max(dataFilteredFinal$dates), by = 1))  # X-axis breaks
         
+        # Checking for large number of dates
+        if(length(xAxisBreaks) > 10){
+          
+          xAxisBreaks <-  scale_x_continuous(breaks = seq(min(dataFilteredFinal$dates), max(dataFilteredFinal$dates), by = 2))  # X-axis breaks
+          
+        }
+        
       }
       
       ##############

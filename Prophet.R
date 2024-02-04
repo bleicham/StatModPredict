@@ -367,7 +367,30 @@ Prophet <- function(calibration.input, horizon.input, date.type.input,
       ####################################
       # Renaming and re-ordering columns #
       ####################################
-      all_forecast <- all_quantiles[,-1]
+      all_forecast <- all_quantiles[,-1] %>%
+        dplyr::select(prediction, 
+                      `lower.10%`,
+                      `lower.20%`,
+                      `lower.30%`,
+                      `lower.40%`,
+                      `lower.50%`,
+                      `lower.60%`,
+                      `lower.70%`,
+                      `lower.80%`,
+                      `lower.90%`,
+                      `lower.95%`,
+                      `lower.98%`,
+                      `upper.10%`,
+                      `upper.20%`,
+                      `upper.30%`,
+                      `upper.40%`,
+                      `upper.50%`,
+                      `upper.60%`,
+                      `upper.70%`,
+                      `upper.80%`,
+                      `upper.90%`,
+                      `upper.95%`,
+                      `upper.98%`)
       
       
 #------------------------------------------------------------------------------#
