@@ -98,9 +98,18 @@ GLM <- function(calibration.input, horizon.input, date.Type.input,
     # Location names
     location.names <- names(index.calibration.period)[-1]
     
-    # Determining the forecast period 
-    forecast.period.date <- max(index.calibration.period[,1])
     
+    # Determining the forecast period - Daily or Weekly
+    if(all(str_length(index.calibration.period[,1]) > 4)){
+      
+      forecast.period.date <- max(anytime::anydate(index.calibration.period[,1]))
+      
+    }else{
+      
+      forecast.period.date <- max(as.numeric(index.calibration.period[,1]))
+      
+    }
+
     ##################################
     # Removing the time-index column #
     ##################################

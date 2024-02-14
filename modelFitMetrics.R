@@ -79,7 +79,13 @@ quantile.forecast.input.MF <- quantile.list.input
 #######################################
 # Empty list to add model fit metrics #
 #######################################
-Model_Fits <- list()
+Model_Fits <- data.frame(Location = NA, 
+                         Model = NA, 
+                         Date = NA, 
+                         meanMSE = NA, 
+                         meanMAE = NA, 
+                         mean95PI = NA, 
+                         meanWIS = NA)
 
 ########################
 # Final list to export #
@@ -142,9 +148,6 @@ for(q in 1:length(quantile.forecast.input.MF)){
     # Switches to one if there is an ARIMA model in the list
     ARIMAIndicator <- 1
     
-    # Fixing the spot in the list
-    Model_Fits[[q]] <- NA
-    
     next
 
   }
@@ -162,9 +165,18 @@ for(q in 1:length(quantile.forecast.input.MF)){
   ###############################
   # Preparing the observed data #
   ###############################
+  if(date.Type.input.MF %in% c("day", "week")){
+    
   observedData <- data.input.MF %>%
-    dplyr::filter(data.input.MF[,1] %in% c(calibrationDates)) %>% # Filtering dates
+    dplyr::filter(anytime::anydate(data.input.MF[,1]) %in% c(calibrationDates)) %>% # Filtering dates
     dplyr::select(location) # Selecting the right group 
+  
+  }else{
+    
+    observedData <- data.input.MF %>%
+      dplyr::filter(as.numeric(data.input.MF[,1]) %in% c(calibrationDates)) %>% # Filtering dates
+      dplyr::select(location) # Selecting the right group 
+  }
   
   ########################################
   # Preparing the quantile forecast data #
@@ -304,15 +316,16 @@ for(q in 1:length(quantile.forecast.input.MF)){
   # Combining all metrics #
   #########################
   allMetrics <- PI_MSE_MAE %>%
-    dplyr::mutate(avgWIS = mean(WISF[,1]))
+    dplyr::mutate(meanWIS = mean(WISF[,1]),
+                  Model = modelName,
+                  Location = location,
+                  Date = forecastPeriod) %>%
+    dplyr::select(Location, Model, Date, meanMSE, meanMAE, mean95PI, meanWIS)
   
   ##################################
   # Adding the metrics to the list #
   ##################################
-  Model_Fits[[q]] <- allMetrics
-  
-  # Adding name to list element 
-  names(Model_Fits)[q] <- paste0(modelName, "-", location, "-", forecastPeriod)
+  Model_Fits <- rbind(Model_Fits, allMetrics)
 
   } # End of calibration loop
 
@@ -324,15 +337,16 @@ for(q in 1:length(quantile.forecast.input.MF)){
 # main shiny app.                                                              #
 #------------------------------------------------------------------------------#
 
-finalList <- c(Model_Fits, ARIMAIndicator)
+# Removing NA in Model_Fits data
+Model_Fits <- Model_Fits[-1,]
 
-# Removing NULL entries 
-listToExport <- finalList[!is.na(finalList)]
+# Adding it to the list
+finalList[[1]] <- Model_Fits
 
-# Adding the name for the ARIMA indicator
-names(listToExport)[[length(listToExport)]] <- "ARIMA-Indicator"
+finalList[[2]] <- ARIMAIndicator
+
 
 # Returning the list
-return(listToExport)
+return(finalList)
 
 }

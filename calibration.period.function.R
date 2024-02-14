@@ -14,7 +14,7 @@
 # Author: Amanda Bleichrodt                                                    #
 #------------------------------------------------------------------------------#
 calibration.period.function <- function(crude.data.input, calibration.period.input,
-                                        forecast.period.input, date.number.input){
+                                        forecast.period.input, date.input){
 #------------------------------------------------------------------------------#
 # Reading in inputs from the main script ---------------------------------------
 #------------------------------------------------------------------------------#
@@ -40,7 +40,9 @@ forecast.period.range <- forecast.period.input
 ##################
 # Date sequencer #
 ##################
-dateSeqNum <- date.number.input
+dateSeq <- date.input
+
+
 
 #------------------------------------------------------------------------------#
 # Preparing for calibration period loop ----------------------------------------
@@ -59,6 +61,13 @@ calibration.periods.list <- list()
 # Renaming columns of data #
 ############################
 names(data.input.C)[1] <- "date"
+
+############################################################
+# Determining the number that is the sequence for the date #
+############################################################
+dateType <- switch(as.character(dateSeq), # Calling the data type
+                  "week" = 7, # Sequence forecast periods by seven if weekly data
+                  1) # Sequence forecast periods by one if daily, yearly, or time index
 
 #------------------------------------------------------------------------------#
 # Forming the calibration periods ----------------------------------------------
@@ -81,23 +90,45 @@ for(i in 1:length(forecast.period.range)){
   #####################################################
   if(calibration.period == 1){
     
-    # If the calibration period is equal to one, the data is length one
+    # If the calibration period is equal to one, the data is length one - Daily or Weekly 
+    if(all(str_length(data.input.C$date) > 4)){
+      
     calibration.period.data <- data.input.C %>%
-      dplyr::filter(date == indexed.forecast.period) # Filtering the data
+      dplyr::filter(anytime::anydate(date) == anytime::anydate(indexed.forecast.period)) # Filtering the data
+    
+    # If the calibration period is equal to one, the data is length one - Yearly or Index
+    }else{
+      
+      calibration.period.data <- data.input.C %>%
+        dplyr::filter(as.numeric(date) == as.numeric(indexed.forecast.period)) # Filtering the data
+      
+    }
     
     }else{
       
       #########################################################
       # Determining the start date for the calibration period #
       #########################################################
-      first.date.calibration <- indexed.forecast.period - ((dateSeqNum*calibration.period) - dateSeqNum)
+      first.date.calibration <- indexed.forecast.period - ((dateType*calibration.period) - dateType)
       
-      ######################################################################
-      # Subsetting crude data to form the corresponding calibration period #
-      ######################################################################
-      calibration.period.data <- data.input.C %>%
-        dplyr::filter(date >= first.date.calibration & date <= indexed.forecast.period)
+      ########################################################################################
+      # Subsetting crude data to form the corresponding calibration period - Daily or Weekly #
+      ########################################################################################
+      if(all(str_length(data.input.C$date) > 4)){
+        
+        calibration.period.data <- data.input.C %>%
+          dplyr::filter(anytime::anydate(date) >= anytime::anydate(first.date.calibration) & anytime::anydate(date) <= anytime::anydate(indexed.forecast.period))
+      
+      ######################################################################################
+      # Subsetting crude data to form the corresponding calibration period - Year or Index #
+      ######################################################################################
+      }else{
+        
+        calibration.period.data <- data.input.C %>%
+          dplyr::filter(as.numeric(date) >= as.numeric(first.date.calibration) & as.numeric(date) <= as.numeric(indexed.forecast.period))
+        
       }
+    }
   
   ########################################################
   # Adding the calibration period to the list for export #

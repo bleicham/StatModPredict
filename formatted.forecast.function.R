@@ -32,32 +32,32 @@ formatted.forecast.function <- function(quantile.input, data.input,
   ####################
   # Crude data input #
   ####################
-  crude.data.FF <- data.input
+  crude.data.FF <<- data.input
   
   #############################
   # Calibration period length #
   #############################
-  calibration.FF <- calibration.input
+  calibration.FF <<- calibration.input
   
   #####################
   # Type of date data #
   #####################
-  dateType.FF <- dateType.input
+  dateType.FF <<- dateType.input
 
   ##############
   # Model type #
   ##############
-  model.FF <- model.input
+  model.FF <<- model.input
   
   #####################
   # Selected quantile #
   #####################
-  quantile.selected.FF <- quantile.selected.input
+  quantile.selected.FF <<- quantile.selected.input
   
   #######################
   # Forecasting horizon #
   #######################
-  horizon.input.FF <- horizon.input
+  horizon.input.FF <<- horizon.input
   
 #------------------------------------------------------------------------------#
 # Preparing for the formatted forecast list ------------------------------------
@@ -203,7 +203,7 @@ formatted.forecast.function <- function(quantile.input, data.input,
       
     # Observed data
     observedData <- filteredData %>%
-      dplyr::filter(Dates %in% c(allDates))
+      dplyr::filter(anytime::anydate(Dates) %in% c(allDates))
     
     # Handing dates in the observed data
     if(dateType.FF %in% c("day", "week")){

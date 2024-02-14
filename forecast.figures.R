@@ -116,7 +116,7 @@ for(i in 1:length(formatted.forecast.Figure)){
   ########################################################
   # Handling dates in the forecast files - weeks or days #
   ########################################################
-  if(date.Figure %in% c("week", "day")){
+  if(date.Figure %in% c("week")){
     
     # Dates on x-axis
     data.for.plot <- data.for.plot %>%
@@ -127,6 +127,19 @@ for(i in 1:length(formatted.forecast.Figure)){
     
     # X-axis breaks 
     xAxisBreaks <- scale_x_continuous(breaks = seq.Date(min(anydate(data.for.plot$dates)), max(anydate(data.for.plot$dates)), by = 7))  # X-axis breaks
+    
+  }else if(date.Figure == "day"){
+    
+    # Dates on x-axis
+    data.for.plot <- data.for.plot %>%
+      mutate(dates = anytime::anydate(Date)) # Handling dates if working with weekly and daily data
+    
+    # Vertical line
+    breakLine <- anytime::anydate(forecastPeriod)
+    
+    # X-axis breaks 
+    xAxisBreaks <- scale_x_continuous(breaks = seq.Date(min(anydate(data.for.plot$dates)), max(anydate(data.for.plot$dates)), by = 1))  # X-axis breaks
+    
     
     ##############################################################
     # Handling dates in the forecast files - years or time index #

@@ -13,17 +13,17 @@
 #------------------------------------------------------------------------------#
 # Author: Amanda Bleichrodt                                                    #
 #------------------------------------------------------------------------------#
-timeseries.Panel.Metrics <- function(crudeMetrics, dateType){
+CrudeMetricsFigure <- function(crudeMetrics, dateType){
   
   ########################################
   # Reading in the list of crude metrics #
   ########################################
-  crude.metric.input.TP <<- crudeMetrics
+  crude.metric.input.TP <- crudeMetrics
   
   ####################################
   # Reading in the type of date data #
   ####################################
-  dateType.TP <<- dateType 
+  dateType.TP <- dateType 
   
   ###############################
   # Empty data frame for graphs #
@@ -33,7 +33,7 @@ timeseries.Panel.Metrics <- function(crudeMetrics, dateType){
   #################################
   # Creating the list for figures #
   #################################
-  figureList <- list()
+  figureFinalList <- list()
   
 #------------------------------------------------------------------------------#
 # Creating the main data frame used in plotting --------------------------------
@@ -44,7 +44,7 @@ timeseries.Panel.Metrics <- function(crudeMetrics, dateType){
 #------------------------------------------------------------------------------#
 
   # Data for figure 
-  fullMetrics <<- crude.metric.input.TP
+  fullMetrics <- crude.metric.input.TP
   
   # Fixing names in the read-in data
   names(fullMetrics)[1] <- "Location"
@@ -71,46 +71,89 @@ timeseries.Panel.Metrics <- function(crudeMetrics, dateType){
 # in the data set.                                                             #
 #------------------------------------------------------------------------------#
   
-
-  MSEPlot <- ggplot(data = fullMetrics, aes(x = Date, y = Location, fill = logMSE)) +
-    geom_tile() +
-    scale_fill_gradient2() +
-    theme_bw() + 
-    coord_fixed() +
-    labs(title = bquote(bold("A")~"  Mean Squared Error (MSE)"),
-         y = "",
-         x = "")
+  #############################
+  # Looping through locations #
+  #############################
+  for(i in 1:length(unique(fullMetrics$Location))){
+    
+    # Creating a list of unique locations
+    uniqueLocations <- c(unique(fullMetrics$Location))
+    
+    ###################################
+    # Filtering the data for graphing #
+    ###################################
+    dataForGraph <- fullMetrics %>%
+      dplyr::filter(Location == uniqueLocations[i])
+    
+    ###############################
+    # Plotting Mean Squared Error #
+    ###############################
+    MSEPlot <- ggplot(data = dataForGraph, aes(x = Date, y = Model, fill = logMSE)) +
+      geom_tile(color = "white") +
+      scale_fill_gradient2() +
+      theme_bw() + 
+      coord_fixed() +
+      labs(title = bquote(bold("A")~"  MSE"),
+           y = "",
+           x = "",
+           fill = "Log10") +
+      theme(axis.text.x = element_blank())
+    
+    ################################
+    # Plotting Mean Absolute Error #
+    ################################
+    MAEPlot <- ggplot(data = dataForGraph, aes(x = Date, y = Model, fill = logMAE)) +
+      geom_tile(color = "white") +
+      scale_fill_gradient2() +
+      theme_bw() + 
+      coord_fixed() +
+      labs(title = bquote(bold("B")~"  MAE"),
+           y = "",
+           x = "",
+           fill = "Log10") +
+      theme(axis.text.x = element_blank())
   
-  MAEPlot <- ggplot(data = fullMetrics, aes(x = Date, y = Location, fill = logMAE)) +
-    geom_tile() +
-    scale_fill_gradient2() +
-    theme_bw() + 
-    coord_fixed() +
-    labs(title = bquote(bold("B")~"  Mean Absolute Error (MAE)"),
-         y = "",
-         x = "Transmission")
+    #####################################
+    # Plotting Weighted Interval Scores #
+    #####################################
+    WISPlot <- ggplot(data = dataForGraph, aes(x = Date, y = Model, fill = logWIS)) +
+      geom_tile(color = "white") +
+      scale_fill_gradient2() +
+      theme_bw() + 
+      coord_fixed() +
+      labs(title = bquote(bold("C")~"  WIS"),
+           y = "",
+           x = "",
+           fill = "Log 10")+
+      theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+    
+    ###################
+    # Plotting 95% PI #
+    ###################
+    PIPlot <- ggplot(data = dataForGraph, aes(x = Date, y = Model, fill = PI)) +
+      geom_tile(color = "white") +
+      scale_fill_gradient2() +
+      theme_bw() + 
+      coord_fixed() +
+      labs(title = bquote(bold("D")~"  95% PI Coverage"),
+           y = "",
+           x = "",
+           fill = "") +
+      theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+    
+    #####################################################
+    # Adding the figure for a single location to a list #
+    #####################################################
+    figureFinalList[[i]] <- MSEPlot + MAEPlot + WISPlot + PIPlot
+    
+    # Adding the location name
+    names(figureFinalList)[i] <- uniqueLocations[i]
+    
+  } # End of location loop
   
-  WISPlot <- ggplot(data = fullMetrics, aes(x = Date, y = Location, fill = logWIS)) +
-    geom_tile() +
-    scale_fill_gradient2() +
-    theme_bw() + 
-    coord_fixed() +
-    labs(title = bquote(bold("C")~"  Weighted Interval Scores (WIS)"),
-         y = "",
-         x = "")
-  
-  PIPlot <- ggplot(data = fullMetrics, aes(x = Date, y = Location, fill = PI)) +
-    geom_tile() +
-    scale_fill_gradient2() +
-    theme_bw() + 
-    coord_fixed() +
-    labs(title = bquote(bold("D")~"  95% Prediction Interval Coverage (95% PI)"),
-         y = "",
-         x = "")
-  
-  
-  
-  figureFinalList <- list(MSEPlot, MAEPlot, WISPlot, PIPlot)
+  #################################
+  # Returning the list of figures #
+  #################################
   
   return(figureFinalList)
   

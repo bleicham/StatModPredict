@@ -56,37 +56,37 @@ Prophet <- function(calibration.input, horizon.input, date.type.input,
   ######################################
   # Reading in the calibration periods #
   ######################################
-  calibration.input.P <- calibration.input
+  calibration.input.P <<- calibration.input
   
   ##################################
   # Saving the forecasting horizon #
   ##################################
-  horizon.input.P <- horizon.input
+  horizon.input.P <<- horizon.input
   
   #############
   # Date type #
   #############
-  date.Type.input.P <- date.type.input
+  date.Type.input.P <<- date.type.input
   
   #####################
   # Smoothing of data #
   #####################
-  smoothing.input.P <- smoother.input
+  smoothing.input.P <<- smoother.input
   
   ###############
   # Growth type #
   ###############
-  growth.input.P <- growthTrend.input
+  growth.input.P <<- growthTrend.input
   
   #######################
   # Seasonality Prophet #
   #######################
-  seasonality.input.P <- seasonalityProphet.input
+  seasonality.input.P <<- seasonalityProphet.input
   
   #################
   # Holiday dates #
   #################
-  holidayDates.input.P <- holidayDates.input
+  holidayDates.input.P <<- holidayDates.input
   
   ########################################
   # Creating an empty list for quantiles #
@@ -211,8 +211,16 @@ Prophet <- function(calibration.input, horizon.input, date.type.input,
       data1 <- data.input.P %>%
         dplyr::select(date, location.index)
       
-      # Determining the forecast period
-      forecast.period.date <- max(data1[,1])
+      # Determining the forecast period - Daily or Weekly
+      if(all(str_length(data1[,1]) > 4)){
+        
+        forecast.period.date <<- max(anytime::anydate(data1[,1]))
+        
+      }else{
+        
+        forecast.period.date <- max(as.numeric(data1[,1]))
+        
+      }
       
       # Re-naming columns for forecasting 
       names(data1) <- c("ds", "y")
@@ -226,21 +234,33 @@ Prophet <- function(calibration.input, horizon.input, date.type.input,
 # return a warning, and not implement the smoothing indicated by the user.     #
 #------------------------------------------------------------------------------#
       
-      ####################################################
-      # Applying (or not applying) smoothing to the data #
-      ####################################################
-      if(smoothing.input.P == 0 || is.null(smoothing.input.P)){
+      # ####################################################
+      # # Applying (or not applying) smoothing to the data #
+      # ####################################################
+      # if(smoothing.input.P == 0 || is.null(smoothing.input.P)){
+      #   
+      #   # Data to be used for the remainder of the code
+      #   data1 <- data1
+      #   
+      #   # Run if smoothing is indicated 
+      # }else{
+      #   
+      #   # Data w/smoothing employed 
+      #   data1 <- rollmean(data1[,2], smoothing.input.P) 
+      #   
+      # } 
+      
+      # Determining the forecast period - Daily or Weekly
+      if(all(str_length(data1$ds) > 4)){
+          
+        data1 <- data1 %>%
+          dplyr::mutate(ds = anytime::anydate(ds))
         
-        # Data to be used for the remainder of the code
-        data1 <- data1
-        
-        # Run if smoothing is indicated 
       }else{
         
-        # Data w/smoothing employed 
-        data1 <- rollmean(data1, smoothing.input.P) 
-        
-      } 
+        data1 <- data1 %>%
+          dplyr::mutate(ds = as.numeric(ds))
+      }
       
 #------------------------------------------------------------------------------#
 # Fitting from the Prophet Model -----------------------------------------------
@@ -323,7 +343,7 @@ Prophet <- function(calibration.input, horizon.input, date.type.input,
         ######################################
         # Predicting for the specified dates #
         ######################################
-        prophet_predictions <- stats::predict(prophet_object_current, dates_for_forecast) %>%
+        prophet_predictions <<- stats::predict(prophet_object_current, dates_for_forecast) %>%
           mutate(ds = dates_for_forecast[,1]) # Reformatting date
         
         #########################################################################

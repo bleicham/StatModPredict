@@ -39,10 +39,10 @@ source("GLM.R")
 source("panel.forecast.figures.R")
 source("Prophet.R")
 source("modelFitMetrics.R")
-source("timeseries.Panel.Metrics.R")
+source("CrudeMetricsFigure.R")
 source("forecastingMetrics.R")
 source("averageMetrics.R")
-source("timeseries.Panel.AverageMetrics.R")
+source("AverageMetricsPanel.R")
 source("Otherforecast.figures.R")
 
 #------------------------------------------------------------------------------#
@@ -51,7 +51,7 @@ source("Otherforecast.figures.R")
 pacman::p_load(MASS, shiny, shinydashboard, shinyWidgets, bslib, plotly, anytime,
                shinyalert, shinyjs, shinybusy, editData, shinyBS, DT, stringr,
                tidyverse, forstringr, mgcv, processx, ggpubr, shinyalert, forecast, 
-               prophet, zip, glue, shinyjqui)
+               prophet, zip, glue, shinyjqui, patchwork, ggplot2, zoo)
 
 #------------------------------------------------------------------------------#
 #                            User Interface                                    #
@@ -951,7 +951,7 @@ conditionalPanel(
 
         # Setting the box width
         width = 12,
-        
+    
         ############################################
         # First row of the box - Showing the Title #
         ############################################
@@ -1104,23 +1104,7 @@ conditionalPanel(
                 
             ) # End of main-style
             
-          ), # End of alignment-column one 
-          
-          #############################
-          # Conditional Panel: Arrows #
-          #############################
-          conditionalPanel(
-            
-            # Condition
-            condition = "!input.AvgFigure",
-            
-            # Left and right arrows
-            column(2,
-                   div(style = "display: flex; justify-content: flex-end; align-items: center;",
-                       actionButton(inputId = "PreviousAvgMetric", label = icon("arrow-left")),
-                       actionButton(inputId = "NextAvgMetric", label = icon("arrow-right"))))
-            
-          ) # End of conditional panel
+          ) # End of alignment-column one 
           
         ) # End of 'fluidRow' for buttons 
         
@@ -1137,6 +1121,9 @@ conditionalPanel(
       # Creating a box for crude model fit metrics #
       ##############################################
       box(
+        
+        # Title
+        title = "Crude Metrics",
         
         # Setting the box width
         width = 12,
@@ -1163,7 +1150,7 @@ conditionalPanel(
             conditionalPanel(
               
               # Condition
-              condition = "!input.crudeFigure",
+              condition = "input.crudeFigure",
               
               # Title for Box
               textOutput("CrudeMetricsTitle")
@@ -1295,22 +1282,6 @@ conditionalPanel(
             ) # End of Main Style 
             
           ), # End of alignment for right-hand buttons
-          
-          ########################################
-          # Condition Panel: Data Metrics Arrows #
-          ########################################
-          conditionalPanel(
-            
-            # Condition
-            condition = "!input.crudeFigure",
-            
-            # Left and right arrows
-            column(2,
-                   div(style = "display: flex; justify-content: flex-end; align-items: center;",
-                       actionButton(inputId = "PreviousMetric", label = icon("arrow-left")),
-                       actionButton(inputId = "NextMetric", label = icon("arrow-right"))))
-            
-          ), # End of conditional panel
           
           ##########################################
           # Condition Panel: Figure Metrics Arrows #
@@ -1555,7 +1526,7 @@ server <- function(input, output, session) {
 #------------------------------------------------------------------------------#
   
   output$location.selection <- renderUI({
-    
+      
     #########################################
     # Fixing issue when no data is selected #
     #########################################
@@ -1632,7 +1603,7 @@ server <- function(input, output, session) {
       
       # Saving the output of the function in the reactive value 
       dateValues$dates <- date.return[1]
-      
+   
       ############################################################
       # Showing an error message if there is an issue with dates #
       ############################################################
@@ -1691,7 +1662,7 @@ server <- function(input, output, session) {
       # Reading in the original data #
       ################################
       data <- file()
-      
+
       ##################################################
       # If-Else Statement to determined what to render #
       ##################################################
@@ -2037,7 +2008,7 @@ server <- function(input, output, session) {
       ############################################################
       dateSeq <- switch(as.character(dateValues$dates), # Calling the data type
                         "week" = 7, # Sequence forecast periods by seven if weekly data
-                        "day" = 7, # Sequence forecast periods by seven if daily data
+                        "day" = 1, # Sequence forecast periods by seven if daily data
                         1) # Sequence forecast periods by one if daily, yearly, or time index
       
       ########################################################
@@ -2069,10 +2040,10 @@ server <- function(input, output, session) {
       }else{
         
         # Earliest possible date
-        data_min_date <- min(na.omit(anydate(file()[, 1])))
+        data_min_date <- min(na.omit(anytime::anydate(file()[, 1])))
         
         # Latest possible date
-        data_max_date <- max(na.omit(anydate(file()[, 1])))
+        data_max_date <- max(na.omit(anytime::anydate(file()[, 1])))
         
         return(sliderInput("forecast.period",
                            label = tags$span("Forecasting Date(s) ", # Input label
@@ -2130,7 +2101,15 @@ server <- function(input, output, session) {
       data <- file()
       
       # Sub-setting the dates from the crude data 
-      crude.dates <- data[, 1]
+      if(dateValues$dates %in% c("day", "week")){
+        
+        crude.dates <- anytime::anydate(data[, 1])
+        
+      }else{
+        
+        crude.dates <- as.numeric(data[, 1])
+        
+      }
       
       ##############################################################################
       # Determining what the length of the last possible calibration period can be #
@@ -2224,7 +2203,7 @@ server <- function(input, output, session) {
         ############################################################
         dateSeq <- switch(as.character(dateValues$dates), # Calling the data type
                           "week" = 7, # Sequence forecast periods by seven if weekly data
-                          "day" = 7, # Sequence forecast periods by seven if daily data
+                          "day" = 7,
                           1) # Sequence forecast periods by one if daily, yearly, or time index
         
         
@@ -2242,7 +2221,7 @@ server <- function(input, output, session) {
         }else{
           
           # List of forecast period dates
-          forecastPeriodRange <- c(seq.Date(anydate(input$forecast.period[1]),  anydate(input$forecast.period[2]), by = 7)) # If working with daily or weekly data
+          forecastPeriodRange <- c(seq.Date(anytime::anydate(input$forecast.period[1]),  anytime::anydate(input$forecast.period[2]), by = 7)) # If working with daily or weekly data
           
         }
         
@@ -2255,7 +2234,7 @@ server <- function(input, output, session) {
           calibrationPeriod.return <- calibration.period.function(crude.data.input = data, 
                                                                   calibration.period.input = as.numeric(caliPeriod),
                                                                   forecast.period.input = c(forecastPeriodRange), 
-                                                                  date.number.input = as.numeric(dateSeq))
+                                                                  date.input = dateValues$dates)
           
         })
         
@@ -2473,13 +2452,6 @@ server <- function(input, output, session) {
            ######################################
            if(any(model %in% c("ARIMA"))){
              
-             #########################
-             # Date Type of Interest #
-             #########################
-             dateSeq <- switch(as.character(dateValues$dates), # Calling the data type
-                               "week" = 7, # Sequence forecast periods by seven if weekly data
-                               "day" = 7, # Sequence forecast periods by seven if daily data
-                               1) # Sequence forecast periods by one if daily, yearly, or time index
              
              ##################################################################
              # Isolating the behavior of the function until run button is hit #
@@ -2491,7 +2463,6 @@ server <- function(input, output, session) {
                ###############################################
                ARIMAList <- ARIMA(calibration.input = calibration.period.list$calibrations, # List of forecast periods 
                                   horizon.input = input$forecastHorizon, # Forecasting horizon 
-                                  dateSeq.input = dateSeq, # Date sequencer 
                                   smoother.input = input$smoothingInput, # Smoothing for data 
                                   parameter.input = c(input$pMin, input$pMax, input$qMin, input$qMax, 
                                                       input$differences), # ARIMA parameters 
@@ -2506,17 +2477,6 @@ server <- function(input, output, session) {
                
                # Pulling the names with issues
                namesErrorARIMA <- c(names(isNAARIMA))
-               
-               #####################################################
-               # Error if there are any forecasts that did not run #
-               #####################################################
-               if(length(namesErrorARIMA) > 0){
-
-                 # Error 
-                 shinyalert("Unable to run the following ARIMA forecasts (i.e., not enough data): ", 
-                            paste(namesErrorARIMA, collapse = "\n"), type = "error")
-                 
-               }
                  
                ###################################################
                # Returning the list of lists if ARIMA model runs #
@@ -2527,6 +2487,17 @@ server <- function(input, output, session) {
                
                # Saving list of lists to reactive value 
                ARIMAInfo$arima <- notNAARIMA
+               
+               #####################################################
+               # Error if there are any forecasts that did not run #
+               #####################################################
+               if(length(notNAARIMA) != length(calibration.period.list$calibrations)){
+                 
+                 # Error 
+                 shinyalert("Unable to run some ARIMA forecasts (i.e., small case counts).", 
+                            type = "error")
+                 
+               }
                
                }) # End of inner 'isolate' statement 
              
@@ -4452,7 +4423,7 @@ server <- function(input, output, session) {
        #########################################################
        # Returning a notification if ARIMA models were present #
        #########################################################
-       if(modelFitOutput$`ARIMA-Indicator` == 1 & input$metricsToShow == "Model Fit" & input$my_picker == "Model Metrics"){
+       if(modelFitOutput[[2]] == 1 & input$metricsToShow == "Model Fit" & input$my_picker == "Model Metrics"){
          
          shinyalert("Model fit metrics are not avaliable for ARIMA models", type = "error")
          
@@ -4461,7 +4432,7 @@ server <- function(input, output, session) {
        #####################################################
        # Adding the forecast metrics to the reactive value #
        #####################################################
-       modelFitMetricsList$fitMetrics <- modelFitOutput[-(length(modelFitOutput))]
+       modelFitMetricsList$fitMetrics <- modelFitOutput[[1]]
        
        ###############################################
        # Returns a NULL if no information is entered #
@@ -4503,17 +4474,17 @@ server <- function(input, output, session) {
            # Function to produce forecast metrics #
            ########################################
            forecastMetricsList <- forecastingMetrics(crude.data.input = file(), # Crude data 
-                                                     horizon.input = input$forecastHorizon, # Horizon 
-                                                     date.Type.input = dateValues$dates, # Date type 
-                                                     quantile.list.input = c(ARIMAInfo$arima, GAMList$GAM, GLMList$GLM, ProphetList$prophet)) # Quantile list
+                                                      horizon.input = input$forecastHorizon, # Horizon 
+                                                      date.Type.input = dateValues$dates, # Date type 
+                                                      quantile.list.input = c(ARIMAInfo$arima, GAMList$GAM, GLMList$GLM, ProphetList$prophet)) # Quantile list
            
            ###################
            # Reactive values #
            ###################
-           forecastMetricsFinal <- forecastMetricsList$ForecastMetrics
+           forecastMetricsFinal <- forecastMetricsList
                
-             # Adding it to the reactive value
-             forecastMetricsListCrude$forecastMetrics <- forecastMetricsFinal[!is.na(forecastMetricsFinal)]
+           # Adding it to the reactive value
+           forecastMetricsListCrude$forecastMetrics <- forecastMetricsFinal
 
          ##################################
          # Runs if no inputs were entered #
@@ -4565,12 +4536,14 @@ server <- function(input, output, session) {
        }else{
          
          # Handling when forecasting methods can not be evaluated
-         if(length(forecastMetricsListCrude$forecastMetrics) == 0){
+         if(nrow(forecastMetricsListCrude$forecastMetrics) == 0){
            
            shinyalert("Not enough data to evaluate forecasting performance." , type = "error")
            metrics <- NULL
-           finalList <- NULL
            modelMetricsCrude$metricsList <- NULL
+           modelCrudePlot$figures <- NULL
+           avgMetrics$metricsList <- NULL
+           modelAvgPlot$figures <- NULL
            
          }else{
          
@@ -4581,73 +4554,21 @@ server <- function(input, output, session) {
         
        }
 
-       # Creating the empty list for forecasts
-       showList <- list()
+       ##############################################################
+       # Filtering the crude metrics by selected location and model #
+       ##############################################################
+       finalList <- metrics %>%
+         dplyr::filter(Model %in% c(input$modelMetrics),
+                       Location %in% c(input$locationMetrics)) 
        
-       #######################################
-       # Looping through the list of metrics #
-       #######################################
-       for(i in 1:length(metrics)){
-         
-         # Pulling the name of the indexed metric
-         nameMetric <- names(metrics[i])
-         
-         # Sub-setting location/group name
-         locationGroupNames <- strsplit(nameMetric, "[-]")[[1]][2]
-         
-         # Sub-setting model
-         modelNames <- strsplit(nameMetric, "[-]")[[1]][1]
-         
-         ##########################################################
-         # Skipping to the next loop if the model is not selected #
-         ##########################################################
-         if(modelNames %!in% input$modelMetrics){
-           
-           # Returning an NA
-           showList[[i]] <- NA
-           
-           # Skipping to the next loop iteration
-           next
-           
-         } # End of 'if'
-         
-         ########################################
-         # Extracting the metrics from the list #
-         ########################################
-         indexedMetric <- metrics[[i]]
-         
-         # Fixing the names
-         names(indexedMetric) <- c("MSE", "MAE", "95%PI", "WIS")
-         
-         ########################################################
-         # Determining if it should be added to the 'show list' #
-         ########################################################
-         if(locationGroupNames %in% c(input$locationMetrics)){
-           
-           # Saving the data in the list
-           showList[[i]] <- indexedMetric
-           
-           # Renaming the data
-           names(showList)[i] <- nameMetric
-           
-           ########################################
-           # Runs if the location is not selected #
-           ########################################
-           }else{
-             
-             # Saving NA in the list 
-             showList[[i]] <- NA
-             
-           }
-         
-       } # End of loop going through metrics
+       ###########################
+       # Changing the file names #
+       ###########################
+       names(finalList) <- c("", "Model", "Date", "MSE", "MAE", "PI", "WIS")
        
-       ######################
-       # Final list to show #
-       ######################
-       finalList <- showList[!is.na(showList)]
-       
-       # Adding the final list to the reactive value
+       ###############################################
+       # Adding the final list to the reactive value #
+       ###############################################
        modelMetricsCrude$metricsList <- finalList
        
        
@@ -4662,118 +4583,15 @@ server <- function(input, output, session) {
      }) # End of 'tryCatch'
      
    }) # End of 'observe'
-  
-   
+
+
 #------------------------------------------------------------------------------#
-# Creating the forward and backwards arrows for the crude metrics --------------
+# Rendering the data frame for crude metrics -----------------------------------
 #------------------------------------------------------------------------------#
-# About: This section creates the fowards and backwards buttons, and ensures   #
-# reactivity in the dashboard.                                                 #
+# About: This section renders the data table containing either the crude fit   #
+# or forecasting metrics for the selected locations, models, and inputted      #
+# data.                                                                        #
 #------------------------------------------------------------------------------#
-   
-   ###################################################################
-   # Creating the reactive value to be used with the metrics buttons #
-   ###################################################################
-   current_index_crudeMetrics <- reactiveVal(1)
-   
-   #################################################
-   # Going backwards if the previous button is hit #
-   #################################################
-   observeEvent(input$PreviousMetric, {
-     
-     # Isolating the action to only when the button is clicked
-     isolate({
-       
-       # Running if the current index is greater than one
-       if(current_index_crudeMetrics() > 1){
-         
-         # Changing the index of the reactive value
-         current_index_crudeMetrics(max(current_index_crudeMetrics() - 1))
-         
-       }
-       
-     }) # End of 'isolate' statement
-     
-   }) # End of 'observeEvent' statement
-   
-   ############################################
-   # Going forwards if the next button is hit #
-   ############################################
-   observeEvent(input$NextMetric, {
-     
-     # Isolating the action to only when the button is clicked
-     isolate({
-       
-       # Run if the current index is less than the length of the list
-       if (current_index_crudeMetrics() < length(modelMetricsCrude$metricsList)) {
-         
-         # Changing the index of the reactive value
-         current_index_crudeMetrics(min(current_index_crudeMetrics() + 1))
-         
-       }
-       
-     }) # End of 'isolate' statement
-     
-   }) # End of 'observeEvent' statement
-   
-   
-   ######################################################
-   # Fixes the index when the data is filtered - Models #
-   ######################################################
-   observeEvent(input$modelMetrics, {
-     
-     # Isolate the behavior to when the button is clicked
-     isolate({
-       
-       current_index_crudeMetrics(1)
-       
-     }) # End of isolate
-     
-   }) # End of 'observeEvent'
-   
-   #########################################################
-   # Fixes the index when the data is filtered - Locations #
-   #########################################################
-   observeEvent(input$locationMetrics, {
-     
-     # Isolate the behavior to when the button is clicked
-     isolate({
-       
-       current_index_crudeMetrics(1)
-       
-     }) # End of isolate
-     
-   }) # End of 'observeEvent'
-   
-#------------------------------------------------------------------------------#
-# Rendering the title, and data frame or figure --------------------------------
-#------------------------------------------------------------------------------#
-# About: This section renders the title of the box, and either the crude       #
-# metrics data set, or metrics plotted over time dependent on the users        #
-# choice.                                                                      #
-#------------------------------------------------------------------------------#
-  
-   ###################################
-   # Rendering the title for the box #
-   ###################################
-   output$CrudeMetricsTitle <- renderText({
-     
-     # Producing nothing if no locations are chosen 
-     if(length(input$locationMetrics) == 0 || length(input$modelMetrics) == 0 || length(modelMetricsCrude$metricsList) == 0){
-       
-       # Returning a NULL
-       return(NULL)
-       
-       # Producing a title if a location is chosen   
-     }else{
-       
-       # Returning the title 
-       return(paste0("Crude Metrics: ", names(modelMetricsCrude$metricsList[current_index_crudeMetrics()])))
-       
-     }
-     
-   }) # End of rendering the title 
-   
    
    ##########################
    # Rending the data table #
@@ -4790,14 +4608,14 @@ server <- function(input, output, session) {
      }else{
        
        # Rendering the data table
-       return(datatable(modelMetricsCrude$metricsList[[current_index_crudeMetrics()]],
+       return(datatable(data.frame(modelMetricsCrude$metricsList), 
                         options = list(scrollX = T)))
        
      }
      
    }) # End of rendering the title 
    
-
+   
 #------------------------------------------------------------------------------#
 # Downloading the crude metrics as a 'zip' file --------------------------------
 #------------------------------------------------------------------------------#
@@ -4807,71 +4625,34 @@ server <- function(input, output, session) {
 #------------------------------------------------------------------------------#
    
    output$download_metrics <- downloadHandler(
-       
-       ####################
-       # Filename for ZIP #
-       ####################
-       filename = function(){
-         
-         paste("Crude-Metrics.zip", sep = "")
-         
-       },
-       
-       ############################################
-       # Determining what should be in the folder #
-       ############################################
-       content = function(file){
-         
-         # Removing the message
-         removeModal()
-         
-         # Creating a temp directory for files 
-         temp_directory <- file.path(tempdir(), as.integer(Sys.time()))
-         
-         # Physically creating the directory 
-         dir.create(temp_directory)
-         
-         # Saving the ggplots 
-         for (plot_name in names(modelMetricsCrude$metricsList)) {
-           
-           # Plot 
-           plot_obj <- data.frame(modelMetricsCrude$metricsList[[plot_name]])
-           
-           # If plot is found 
-           if (!is.null(plot_obj)) {
-             
-             # File name 
-             file_name <- glue("{plot_name}.csv")
-             
-             # Saving the csv
-             write_csv(plot_obj, file.path(temp_directory, file_name))
-             
-           }
-           
-         }
-         
-         #####################
-         # Create a zip file #
-         #####################
-         zip::zip(
-           zipfile = file,
-           files = dir(temp_directory),
-           root = temp_directory
-         )
-         
-       },
-       
-       contentType = "application/zip"
-       
      
-   ) # End of 'downloadHandler'
+     ##########################################################
+     # Function to create the file-name to save crude metrics #
+     ##########################################################
+     filename = function() {
+       
+       paste("crude-metrics-data-", input$dataset, sep = "")
+       
+     },
+     
+     #######################################
+     # Function to save the file - as .csv #
+     #######################################
+     content = function(file) {
+       
+       # Saving the file
+       write.csv(data.frame(modelMetricsCrude$metricsList), file, row.names = FALSE)
+       
+     }
+     
+   ) # End of download button 
    
-
+   
 #------------------------------------------------------------------------------#
-# Creating the timeseries plot for crude metrics -------------------------------
+# Creating the tile heat map for the crude forecast metrics --------------------
 #------------------------------------------------------------------------------#
-# About: This section plots the crude metrics over time as a timeseris plot.   #
-# However, the plot only shows if the user selects the check mark.             #
+# About: This section creates tile heat maps showing the forecast or fit model #
+# performance across all forecasting dates for each country/group of interest. #
 #------------------------------------------------------------------------------#
    
    ####################################################################
@@ -4892,11 +4673,12 @@ server <- function(input, output, session) {
        ##################################
        # Function to produce panel plot #
        ##################################
-       metricPanelCrude <- timeseries.Panel.Metrics(crudeMetrics = modelMetricsCrude$metricsList, 
-                                                    dateType = dateValues$dates)
+       metricPanelCrude <- CrudeMetricsFigure(crudeMetrics = modelMetricsCrude$metricsList, 
+                                              dateType = dateValues$dates)
        
        # Adding the figures to the reactive value
        modelCrudePlot$figures <- metricPanelCrude
+
        
      ##################################
      # Runs if no inputs are selected #
@@ -4910,18 +4692,18 @@ server <- function(input, output, session) {
      
    }) # End of 'observe'
    
-   
 #------------------------------------------------------------------------------#
-# Creating the forward and backwards arrows for the crude metrics figures ------
+# Setting up the reactivity of the arrows going through crude figures ----------
 #------------------------------------------------------------------------------#
-# About: This section creates the forwards and backwards buttons, and ensures  #
-# reactivity in the dashboard.                                                 #
+# About: This section creates the reactivity of the foward and backwards       #
+# arrows for the crude forecast and fit metrics for each location.             #
 #------------------------------------------------------------------------------#
    
    ###################################################################
    # Creating the reactive value to be used with the metrics buttons #
    ###################################################################
-   current_index_crudeMetricsFigure <- reactiveVal(1)
+   current_index_Metrics <- reactiveVal(1)
+   
    
    #################################################
    # Going backwards if the previous button is hit #
@@ -4932,10 +4714,10 @@ server <- function(input, output, session) {
      isolate({
        
        # Running if the current index is greater than one
-       if(current_index_crudeMetricsFigure() > 1){
+       if(current_index_Metrics() > 1){
          
          # Changing the index of the reactive value
-         current_index_crudeMetricsFigure(max(current_index_crudeMetricsFigure() - 1))
+         current_index_Metrics(max(current_index_Metrics() - 1))
          
        }
        
@@ -4952,10 +4734,10 @@ server <- function(input, output, session) {
      isolate({
        
        # Run if the current index is less than the length of the list
-       if (current_index_crudeMetricsFigure() < length(modelCrudePlot$figures)) {
+       if (current_index_Metrics() < length(modelCrudePlot$figures)) {
          
          # Changing the index of the reactive value
-         current_index_crudeMetricsFigure(min(current_index_crudeMetricsFigure() + 1))
+         current_index_Metrics(min(current_index_Metrics() + 1))
          
        }
        
@@ -4972,7 +4754,7 @@ server <- function(input, output, session) {
      # Isolate the behavior to when the button is clicked
      isolate({
        
-       current_index_crudeMetricsFigure(1)
+       current_index_Metrics(1)
        
      }) # End of isolate
      
@@ -4986,16 +4768,19 @@ server <- function(input, output, session) {
      # Isolate the behavior to when the button is clicked
      isolate({
        
-       current_index_crudeMetricsFigure(1)
+       current_index_Metrics(1)
        
      }) # End of isolate
      
    }) # End of 'observeEvent'
    
-   ##################################
-   # Rendering the title of the box #
-   ##################################
-   output$crudeFigTitle <- renderText({
+#------------------------------------------------------------------------------#
+# Rendering the title for each of the figures ----------------------------------
+#------------------------------------------------------------------------------#
+# About: This section creates the figures for the crude metrics.               #
+#------------------------------------------------------------------------------#
+
+   output$CrudeMetricsTitle <- renderText({
      
      # Producing nothing if no locations are chosen
      if(length(input$locationMetrics) == 0 || length(input$modelMetrics) == 0 || length(modelCrudePlot$figures) == 0){
@@ -5006,17 +4791,22 @@ server <- function(input, output, session) {
        # Runs if at least one location is selected
      }else{
        
-       # Rendering the box title 
-       return(paste0("Crude Metrics: ", names(modelCrudePlot$figures[current_index_crudeMetricsFigure()])))
+       # Rendering the data table
+       return(names(modelCrudePlot$figures)[current_index_Metrics()])
        
      }
      
-   }) # End of render statement for crude forecast figures 
+     
+   }) # End of 'renderPlot'
 
 
-   ##########################
-   # Rending the data table #
-   ##########################
+#------------------------------------------------------------------------------#
+# Rendering each of the figures ------------------------------------------------
+#------------------------------------------------------------------------------#
+# About: This section creates each of the figures shown in the main UI         #
+# interface.                                                                   #
+#------------------------------------------------------------------------------#
+   
    output$CrudeMetricsFigure <- renderPlot({
      
      # Producing nothing if no locations are chosen
@@ -5025,17 +4815,17 @@ server <- function(input, output, session) {
        # Returning a NULL data frame 
        return((NULL))
        
-     # Runs if at least one location is selected
+       # Runs if at least one location is selected
      }else{
        
        # Rendering the data table
-       return((modelCrudePlot$figures[[current_index_crudeMetricsFigure()]]))
+       return(modelCrudePlot$figures[[current_index_Metrics()]])
        
      }
      
-     }) # End of 'renderPlot'
+   }) # End of 'renderPlot'
    
-   
+
 #------------------------------------------------------------------------------#
 # Downloading the figures pop-up -----------------------------------------------
 #------------------------------------------------------------------------------#
@@ -5291,11 +5081,20 @@ server <- function(input, output, session) {
        #####################################################
        # Running the function to calculate average metrics #
        #####################################################
-       averageMetricsList <- averageMetrics(metrics.input = metrics,
-                                            dateType.input = dateValues$dates)
-       
+       averageMetrics <- metrics %>%
+         dplyr::filter(Location %in% c(input$locationsAvgMetrics), # Filtering locations
+                       Model %in% c(input$modelAvgMetrics)) %>% # Filtering models 
+         dplyr::group_by(Model, Location) %>% # Grouping by location and model
+         dplyr::mutate(avgMSE = mean(meanMSE), # Avg. MSE
+                       avgMAE = mean(meanMAE), # Avg. MAE
+                       avgPI = mean(mean95PI), # Avg. PI
+                       avgWIS = mean(meanWIS)) %>% # Avg. WIS
+         dplyr::select(Model, Location, avgMSE, avgMAE, avgWIS, avgPI) %>% # Selecting needed variables
+         distinct(Model, Location, .keep_all = T) # Remove duplicate rows
+
+
        # Adding the metrics to the reactive value
-       avgMetrics$metricsList <- averageMetricsList
+       avgMetrics$metricsList <- averageMetrics
        
      ###################################
      # Runs if inputs are not selected #
@@ -5310,274 +5109,31 @@ server <- function(input, output, session) {
    }) # End of 'observe'
 
 #------------------------------------------------------------------------------#
-# Creating the list of average metrics to show ---------------------------------
+# Rendering the data frame containing the average metrics ----------------------
 #------------------------------------------------------------------------------#
-# About: This section creates separate data frames based on user selected      #
-# location in the average metrics box, and filters the models based on user    #
-# choice. It outputs a list of data frames that can be searched via the        #
-# forward and backwards buttons.                                               #
+# About: This section creates the data frame shown in the user UI.             #
 #------------------------------------------------------------------------------#
-
-   ################################################################
-   # Initialize reactiveValues to store the shown average metrics #
-   ################################################################
-   modelMetricsAvg <- reactiveValues()
-
-   ########################################
-   # Observing changes in reactive values #
-   ########################################
-   observe({
-
-     ################################
-     # Runs if options are selected #
-     ################################
-     tryCatch({
-
-       #####################################################
-       # Saving the list of of avg. metrics under new name #
-       #####################################################
-       
-       if(input$metricsToShow == "Model Fit"){
-         
-         avgMetrics <- avgMetrics$metricsList
-         
-       }else{
-       
-         # Handling when forecasting methods can not be evaluated
-         if(length(avgMetrics$metricsList) == 0){
-           
-           avgMetrics <- NULL
-           modelMetricsAvg$metricsList <- NULL
-           
-         }else{
-           
-           # Using forecast metrics 
-           avgMetrics <- avgMetrics$metricsList
-           
-         }
-         
-       }
-
-       # Empty list to save data sets in
-       allDataFiles <- list()
-
-       # List of locations
-       locationsList <- unique(avgMetrics$Location)
-
-       ###################################
-       # Creating the list of data files #
-       ###################################
-       for(i in 1:length(locationsList)){
-
-         # Filtering the data for the indexed location
-         data <- avgMetrics %>%
-           dplyr::filter(Location == locationsList[i]) %>%
-           dplyr::filter(Model %in% c(input$modelAvgMetrics)) 
-         
-         # Removing the second column
-         data <- data[,-2]
-         
-         # Fixing names in the data frame
-         names(data) <- c("Model", "Avg. MSE", "Avg. MAE", "Avg. WIS", "Avg. 95% PI")
-         
-         # Adding the data to the list
-         allDataFiles[[i]] <- data
-
-         # Adding name to the list element
-         names(allDataFiles)[i] <- locationsList[i]
-       }
-
-       # Creating the empty list for forecasts
-       showList <- list()
-       
-       #######################################
-       # Looping through the list of metrics #
-       #######################################
-       for(j in 1:length(allDataFiles)){
-
-         # Pulling the name of the indexed metric
-         nameMetric <- names(allDataFiles[j])
-
-         ########################################
-         # Extracting the metrics from the list #
-         ########################################
-         indexedMetric <- allDataFiles[[j]]
-
-         ########################################################
-         # Determining if it should be added to the 'show list' #
-         ########################################################
-         if(nameMetric %in% c(input$locationsAvgMetrics)){
-
-           # Saving the data in the list
-           showList[[j]] <- indexedMetric
-
-           # Renaming the data
-           names(showList)[j] <- nameMetric
-
-         ########################################
-         # Runs if the location is not selected #
-         ########################################
-         }else{
-
-           # Saving NA in the list
-           showList[[j]] <- NA
-
-         }
-
-       } # End of loop going through metrics
-
-       ######################
-       # Final list to show #
-       ######################
-       finalList <- showList[!is.na(showList)]
-
-       # Adding the final list to the reactive value
-       modelMetricsAvg$metricsList <- finalList
-
-
-     ###################################
-     # Runs if no information is added #
-     ###################################
-     }, error = function(e){
-
-       # Returns a NULL
-       NULL
-
-     }) # End of 'tryCatch'
-
-   }) # End of 'observe'
-
-
-#------------------------------------------------------------------------------#
-# Creating the forward and backwards arrows for the average metrics ------------
-#------------------------------------------------------------------------------#
-# About: This section creates the forwards and backwards buttons, and ensures  #
-# reactivity in the dashboard.                                                 #
-#------------------------------------------------------------------------------#
-
-   ###################################################################
-   # Creating the reactive value to be used with the metrics buttons #
-   ###################################################################
-   current_index_avgMetrics <- reactiveVal(1)
-
-
-   #################################################
-   # Going backwards if the previous button is hit #
-   #################################################
-   observeEvent(input$PreviousAvgMetric, {
-
-     # Isolating the action to only when the button is clicked
-     isolate({
-
-       # Running if the current index is greater than one
-       if(current_index_avgMetrics() > 1){
-
-         # Changing the index of the reactive value
-         current_index_avgMetrics(max(current_index_avgMetrics() - 1))
-
-       }
-
-     }) # End of 'isolate' statement
-
-   }) # End of 'observeEvent' statement
-
-   ############################################
-   # Going forwards if the next button is hit #
-   ############################################
-   observeEvent(input$NextAvgMetric, {
-
-     # Isolating the action to only when the button is clicked
-     isolate({
-
-       # Run if the current index is less than the length of the list
-       if (current_index_avgMetrics() < length(modelMetricsAvg$metricsList)) {
-
-         # Changing the index of the reactive value
-         current_index_avgMetrics(min(current_index_avgMetrics() + 1))
-
-       }
-
-     }) # End of 'isolate' statement
-
-   }) # End of 'observeEvent' statement
-
-
-   ######################################################
-   # Fixes the index when the data is filtered - Models #
-   ######################################################
-   observeEvent(input$modelAvgMetrics, {
-
-     # Isolate the behavior to when the button is clicked
-     isolate({
-
-       current_index_avgMetrics(1)
-
-     }) # End of isolate
-
-   }) # End of 'observeEvent'
-
-   #########################################################
-   # Fixes the index when the data is filtered - Locations #
-   #########################################################
-   observeEvent(input$locationsAvgMetrics, {
-
-     # Isolate the behavior to when the button is clicked
-     isolate({
-
-       current_index_avgMetrics(1)
-
-     }) # End of isolate
-
-   }) # End of 'observeEvent'
-
-#------------------------------------------------------------------------------#
-# Rendering the title and data frame or figure --------------------------------
-#------------------------------------------------------------------------------#
-# About: This section renders the title of the box, and the average metrics    #
-# data.                                                                        #
-#------------------------------------------------------------------------------#
-
-   ###################################
-   # Rendering the title for the box #
-   ###################################
-   output$AvgMetricsTitle <- renderText({
-
-     # Producing nothing if no locations are chosen
-     if(length(input$locationsAvgMetrics) == 0 || length(input$modelAvgMetrics) == 0 || length(modelMetricsAvg$metricsList) == 0){
-
-       # Returning a NULL
-       return(NULL)
-
-     # Producing a title if a location is chosen
-     }else{
-
-       # Returning the title
-       return(paste0("Average Metrics: ", names(modelMetricsAvg$metricsList[current_index_avgMetrics()])))
-
-     }
-
-   }) # End of rendering the title
-
+   
    ##########################
    # Rending the data table #
    ##########################
    output$AvgMetricsData <- renderDataTable({
-
+     
      # Producing nothing if no locations are chosen
-     if(length(input$locationsAvgMetrics) == 0 || length(input$modelAvgMetrics) == 0 || length(modelMetricsAvg$metricsList) == 0){
-
+     if(length(input$locationsAvgMetrics) == 0 || length(input$modelAvgMetrics) == 0 || length(avgMetrics$metricsList) == 0){
+       
        # Returning a NULL data frame
        return(datatable(NULL))
-
-     # Runs if at least one location is selected
+       
+       # Runs if at least one location is selected
      }else{
-
+       
        # Rendering the data table
-       return(datatable(as.data.frame(modelMetricsAvg$metricsList[[current_index_avgMetrics()]]),
+       return(datatable(as.data.frame(avgMetrics$metricsList),
                         options = list(scrollX = T)))
-
+       
      }
-
+     
    }) # End of render statement for the data frame
 
 
@@ -5590,64 +5146,27 @@ server <- function(input, output, session) {
 #------------------------------------------------------------------------------#
 
    output$download_AvgMetrics <- downloadHandler(
-
-     ####################
-     # Filename for ZIP #
-     ####################
-     filename = function(){
-       
-       paste("Average-Metrics.zip", sep = "")
-       
-     },
      
-     ############################################
-     # Determining what should be in the folder #
-     ############################################
-     content = function(file){
-       
-       # Removing the message
-       removeModal()
-       
-       # Creating a temp directory for files 
-       temp_directory <- file.path(tempdir(), as.integer(Sys.time()))
-       
-       # Physically creating the directory 
-       dir.create(temp_directory)
-       
-       # Saving the ggplots 
-       for (plot_name in names(modelMetricsAvg$metricsList)) {
+     ##########################################################
+     # Function to create the file-name to save crude metrics #
+     ##########################################################
+       filename = function() {
          
-         # Plot 
-         plot_obj <- data.frame(modelMetricsAvg$metricsList[[plot_name]])
+         paste("Average-Metrics-Metrics-", input$dataset, sep = "")
          
-         # If plot is found 
-         if (!is.null(plot_obj)) {
-           
-           # File name 
-           file_name <- glue("{plot_name}.csv")
-           
-           # Saving the csv
-           write_csv(plot_obj, file.path(temp_directory, file_name))
-           
-         }
+       },
+       
+       #######################################
+       # Function to save the file - as .csv #
+       #######################################
+       content = function(file) {
+         
+         # Saving the file
+         write.csv(data.frame(avgMetrics$metricsList), file, row.names = FALSE)
          
        }
        
-       #####################
-       # Create a zip file #
-       #####################
-       zip::zip(
-         zipfile = file,
-         files = dir(temp_directory),
-         root = temp_directory
-       )
-       
-     },
-     
-     contentType = "application/zip"
-
-   ) # End of 'downloadHandler'
-
+     ) # End of download button 
 
 #------------------------------------------------------------------------------#
 # Creating the timeseries plot for average metrics -----------------------------
@@ -5674,11 +5193,11 @@ server <- function(input, output, session) {
        ##################################
        # Function to produce panel plot #
        ##################################
-       metricPanelAverage <- timeseries.Panel.AverageMetrics(avgMetrics.input = modelMetricsAvg$metricsList,
-                                                             dateType.input = dateValues$dates)
+       metricPanelAverage <- AverageMetricsPanel(avgMetrics.input = avgMetrics$metricsList,
+                                                 dateType.input = dateValues$dates)
 
        # Adding the figures to the reactive value
-       modelAvgPlot$figures <- metricPanelAverage
+       modelAvgPlot$figures <- metricPanelAverage[[1]]
 
      ##################################
      # Runs if no inputs are selected #
@@ -5693,37 +5212,14 @@ server <- function(input, output, session) {
    }) # End of 'observe'
 
 
+
 #------------------------------------------------------------------------------#
-# Rendering the title of the plot and the plot itself --------------------------
+# Rendering the plotly figure --------------------------------------------------
 #------------------------------------------------------------------------------#
-# About: This section renders the title of the box and the plot itself.        #
+# About: This section renders the plot showing the average metrics for each    #
+# location and model of interest.                                              #
 #------------------------------------------------------------------------------#
    
-   ##################################
-   # Rendering the title of the box #
-   ##################################
-   output$AvgFigTitle <- renderText({
-
-     # Producing nothing if no locations are chosen
-     if(length(modelAvgPlot$figures) == 0){
-
-       # Returning a NULL data frame
-       return((NULL))
-
-     # Runs if at least one location is selected
-     }else{
-
-       # Rendering the box title
-       return(paste0("Average Metrics"))
-
-     }
-
-   }) # End of render statement for crude forecast figures
-
-
-   ##########################
-   # Rending the data table #
-   ##########################
    output$AvgMetricsFigure <- renderPlot({
 
      # Producing nothing if no locations are chosen
@@ -5752,7 +5248,6 @@ server <- function(input, output, session) {
 # users to download the figure with the user specifications.                   #
 #------------------------------------------------------------------------------#
    
-   
    #################################
    # Setting Figure Specifications #
    #################################
@@ -5780,6 +5275,7 @@ server <- function(input, output, session) {
      
    }) # End of 'observeEvent' statement
    
+     
    
 #------------------------------------------------------------------------------#
 # Downloading the figure -------------------------------------------------------

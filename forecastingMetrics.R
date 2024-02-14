@@ -39,27 +39,33 @@ forecastingMetrics <- function(crude.data.input, horizon.input,
   #############################
   # Reading in the crude data #
   #############################
-  data.input.FM <- crude.data.input
+  data.input.FM <<- crude.data.input
   
   ###############################
   # Saving the forecast horizon #
   ###############################
-  horizon.input.FM <- as.numeric(horizon.input)
+  horizon.input.FM <<- as.numeric(horizon.input)
   
   #############
   # Date type #
   #############
-  date.Type.input.FM <- date.Type.input
+  date.Type.input.FM <<- date.Type.input
   
   ##############################
   # List of quantile forecasts #
   ##############################
-  quantile.forecast.input.FM <- quantile.list.input 
+  quantile.forecast.input.FM <<- quantile.list.input 
   
   ######################################
   # Empty list to add forecast metrics #
   ######################################
-  forecastMetrics <- list()
+  forecastMetrics <- data.frame(Location = NA, 
+                                Model = NA, 
+                                Date = NA, 
+                                meanMSE = NA, 
+                                meanMAE = NA, 
+                                mean95PI = NA, 
+                                meanWIS = NA)
   
   ##############################################
   # Empty list for metrics that can not be run #
@@ -127,9 +133,20 @@ forecastingMetrics <- function(crude.data.input, horizon.input,
     ###############################
     # Preparing the observed data #
     ###############################
-    observedData <- data.input.FM %>%
-      dplyr::filter(data.input.FM[,1] %in% c(forecastDates)) %>% # Filtering dates
-      dplyr::select(location) # Selecting the right group 
+    if(date.Type.input.FM %in% c("day", "week")){
+      
+      observedData <- data.input.FM %>%
+        dplyr::filter(anytime::anydate(data.input.FM[,1]) %in% c(forecastDates)) %>% # Filtering dates
+        dplyr::select(location) # Selecting the right group 
+      
+    }else{
+      
+      observedData <- data.input.FM %>%
+        dplyr::filter(as.numeric(data.input.FM[,1]) %in% c(forecastDates)) %>% # Filtering dates
+        dplyr::select(location) # Selecting the right group 
+      
+    }
+
     
     ##################################
     # Checking if metrics can be run #
@@ -146,12 +163,6 @@ forecastingMetrics <- function(crude.data.input, horizon.input,
       
       # Adding it to the list
       notRun[[q]] <- notRunData
-      
-      # Skipping the spot in the forecast metrics list
-      forecastMetrics[[q]] <- NA
-      
-      # Adding a name
-      names(forecastMetrics)[q] <- "Skipped"
       
       # Skipping to next loop iteration
       next
@@ -305,15 +316,17 @@ forecastingMetrics <- function(crude.data.input, horizon.input,
     # Combining all metrics #
     #########################
     allMetrics <- PI_MSE_MAE %>%
-      dplyr::mutate(avgWIS = mean(WISF[,1]))
+      dplyr::mutate(meanWIS = mean(WISF[,1]),
+                    Model = modelName,
+                    Location = location,
+                    Date = forecastPeriod) %>%
+      dplyr::select(Location, Model, Date, meanMSE, meanMAE, mean95PI, meanWIS)
     
     ##################################
     # Adding the metrics to the list #
     ##################################
-    forecastMetrics[[q]] <- allMetrics
-    
-    # Adding name to list element 
-    names(forecastMetrics)[q] <- paste0(modelName, "-", location, "-", forecastPeriod)
+    forecastMetrics <- rbind(forecastMetrics, allMetrics)
+
     
   } # End of calibration loop
     
@@ -325,15 +338,11 @@ forecastingMetrics <- function(crude.data.input, horizon.input,
 # outputs it to the main list that is exported.                                #
 #------------------------------------------------------------------------------#
 
-  ##############
-  # Final list #
-  ##############
-  finalList <- list(forecastMetrics, notRun)
+  # Removing NA in Model_Fits data
+  forecastMetrics <- forecastMetrics[-1,]
   
-  # Adding names to the list
-  names(finalList) <- c("ForecastMetrics", "Errors")
   
   # Returning the list
-  return(finalList)
+  return(forecastMetrics)
   
 }    

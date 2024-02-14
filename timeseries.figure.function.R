@@ -24,7 +24,7 @@ timeseries.figure.function <- function(crude.data.input, location.input,
 ####################
 # Crude data input #
 ####################
-crude.data <- crude.data.input
+crude.data <<- crude.data.input
 
 #######################
 # Location data input #
@@ -34,7 +34,7 @@ locations <- location.input
 ###################
 # Date Type input #
 ###################
-dateType <- dateType.input
+dateType <<- dateType.input
 
 ###############################################
 # Indicator if forecast lines should be shown #
@@ -128,16 +128,8 @@ if(dateType %in% c("week", "day")){
   xAxisBreaks <- scale_x_continuous(breaks = seq.Date(min(data.for.plot$Dates), max(data.for.plot$Dates), by = 7))  # X-axis breaks
   
   # Creating the vector of line breaks
-  if(dateType == "week"){
+  lineBreaksVector <- seq.Date(anytime::anydate(startForecastPeriod), anytime::anydate(EndForecastPeriod), by = 7)
     
-    lineBreaksVector <- seq.Date(anytime::anydate(startForecastPeriod), anytime::anydate(EndForecastPeriod), by = 7)
-    
-  }else{
-    
-    lineBreaksVector <- seq.Date(anytime::anydate(startForecastPeriod), anytime::anydate(EndForecastPeriod), by = 1)
-    
-  }
-  
   ##########################################
   # Handling dates - Years or Time Indexes #  
   ##########################################

@@ -28,7 +28,7 @@
 #                Authors: Amanda Bleichrodt and Ruiyan Luo                     #
 #------------------------------------------------------------------------------#
 
-ARIMA <- function(calibration.input, horizon.input, dateSeq.input, 
+ARIMA <- function(calibration.input, horizon.input, 
                   smoother.input, parameter.input, seasonality.input){
   
 #------------------------------------------------------------------------------#
@@ -41,32 +41,27 @@ ARIMA <- function(calibration.input, horizon.input, dateSeq.input,
   ######################################
   # Reading in the calibration periods #
   ######################################
-  calibration.periods.A <- calibration.input
+  calibration.periods.A <<- calibration.input
 
   ##################################
   # Saving the forecasting horizon #
   ##################################
-  horizon.input.A <- horizon.input
+  horizon.input.A <<- horizon.input
 
-  #############
-  # Date type #
-  #############
-  date.Type.input.A <- dateSeq.input
-  
   #####################
   # Smoothing of data #
   #####################
-  smoothing.input.A <- smoother.input
+  smoothing.input.A <<- smoother.input
 
   #######################
   # Parameter Selection #
   #######################
-  parameter.selection.arima.input.A <- parameter.input
+  parameter.selection.arima.input.A <<- parameter.input
   
   ###############
   # Seasonality #
   ###############
-  seasonality.input.A <- seasonality.input
+  seasonality.input.A <<- seasonality.input
   
   ########################################
   # Creating an empty list for quantiles #
@@ -107,8 +102,16 @@ ARIMA <- function(calibration.input, horizon.input, dateSeq.input,
     # Location names
     location.names <- names(index.calibration.period)[-1]
     
-    # Determining the forecast period 
-    forecast.period.date <- max(index.calibration.period[,1])
+    # Determining the forecast period - Daily or Weekly
+    if(all(str_length(index.calibration.period[,1]) > 4)){
+   
+       forecast.period.date <- max(anytime::anydate(index.calibration.period[,1]))
+       
+    }else{
+      
+      forecast.period.date <- max(as.numeric(index.calibration.period[,1]))
+      
+    }
     
     ##################################
     # Removing the time-index column #
@@ -215,7 +218,7 @@ ARIMA <- function(calibration.input, horizon.input, dateSeq.input,
       # indicates that the # time series starts at the first value of the
       # vector read into the ts() function ('sdata') and the # frequency = 1
       # indicates that there is only one "observation" per unit of time
-      sdata.ts <- ts(data, start=1, frequency=as.numeric(seasonality.input.A))
+      sdata.ts <<- ts(data, start=1, frequency=as.numeric(seasonality.input.A))
 
       ###########################
       # Fitting the ARIMA model #
@@ -242,11 +245,10 @@ ARIMA <- function(calibration.input, horizon.input, dateSeq.input,
         quantile.list.locations[[i]] <- NA
         
         names(quantile.list.locations)[i] <- paste0("ARIMA-", location.index, "-", forecast.period.date)
+        print("noo")
         
         next
-        # Returning an error 
-        #return(paste0("Issue occured with: ", location.index, " ", forecast.period.date,  ". Please try a different calibration period size, or run without the specificed location/forecast period."))
-
+    
         
       }
       
