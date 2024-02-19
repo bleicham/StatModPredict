@@ -11,7 +11,7 @@
 # returns an error that alerts users to fix their dates. If there is no issue, #
 # the function returns the term that relates to the time make-up of the data.  #
 #------------------------------------------------------------------------------#
-# Author: Amanda Bleichrodt                                                    #
+#                       Author: Amanda Bleichrodt                              #
 #------------------------------------------------------------------------------#
 
 date.type.function <- function(dates.input){

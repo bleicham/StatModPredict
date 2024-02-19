@@ -1,13 +1,30 @@
 #------------------------------------------------------------------------------#
 #                                                                              #
-#                        ARIMA, GLM, SLR Toolbox                               #
+#             ARIMA, GAM, GLM, Prophet Forecasting Toolbox - BETA              #
 #                                                                              #
 #------------------------------------------------------------------------------#
-#            Amanda Bleichrodt, Amelia Phan, and Ruiyan Luo                    #
+# About:                                                                       #
+#                                                                              #
+# This is the main script included as part of the ARIMA, GLM, GAM, Prophet     #
+# toolbox. The toolbox allows users to fit and forecast using common           #
+# statistical models, employing a multitude of specifications. The only inputs #
+# needed for the toolbox is the data of interest, formatted with one column    #
+# of dates and the remaining corresponding to groups of interest. The toolbox  #
+# works with yearly, daily, weekly, and time index data and does not require   #
+# a specific date format. In addition to forecasting and fitting using the     #
+# toolbox models, the user can also evaluate their forecasts and model fits    #
+# utilizing mean squared error, mean absolute error, prediction interval       #
+# coverage, and weighted interval scores. Finally, other models, pending they  #
+# are formatted correctly, can be read into the toolbox and compared against   #
+# the ARIMA, GLM, GAM, and Prophet models, Please refer to the documentation   #
+# for full toolbox details.                                                    #
+#------------------------------------------------------------------------------#
+#             Amanda Bleichrodt, Ruiyan Luo, Alexander Kirpich,                #
+#                      Gerardo Chowell and Amelia Phan                         #
 #------------------------------------------------------------------------------#
 
 #------------------------------------------------------------------------------#
-# Needed functions -------------------------------------------------------------
+# Creating the 'not-in' function -----------------------------------------------
 #------------------------------------------------------------------------------#
 # About: This section creates the 'not-in' function. Therefore, `%!in%` now    #
 # can be used as the inverse of the built-in `%in%` function.                  #
@@ -27,23 +44,27 @@
 # are called based on user selections.                                         #
 #------------------------------------------------------------------------------#
 
-source("date.type.function.R")
-source("forecast.period.dates.function.R")
-source("calibration.period.function.R")
+source("date.type.function.R") 
+source("forecast.period.dates.function.R") 
+source("calibration.period.function.R") 
 source("timeseries.figure.function.R")
-source("ARIMA.R")
-source("formatted.forecast.function.R")
-source("forecast.figures.R")
+source("ARIMA.R") 
+source("formatted.forecast.function.R") 
+source("forecast.figures.R") 
 source("GAM.R")
-source("GLM.R")
-source("panel.forecast.figures.R")
-source("Prophet.R")
-source("modelFitMetrics.R")
+source("GLM.R") 
+source("panel.forecast.figures.R") 
+source("Prophet.R") 
+source("modelFitMetrics.R") 
 source("CrudeMetricsFigure.R")
 source("forecastingMetrics.R")
 source("averageMetrics.R")
 source("AverageMetricsPanel.R")
 source("Otherforecast.figures.R")
+source("other.panel.forecast.figures.R")
+source("winkler.scores.AGGP.R") 
+source("winkler.figure.AGGP.R")
+source("skill.scores.AGGP.R")
 
 #------------------------------------------------------------------------------#
 #                             Needed Packages                                  #
@@ -51,14 +72,15 @@ source("Otherforecast.figures.R")
 pacman::p_load(MASS, shiny, shinydashboard, shinyWidgets, bslib, plotly, anytime,
                shinyalert, shinyjs, shinybusy, editData, shinyBS, DT, stringr,
                tidyverse, forstringr, mgcv, processx, ggpubr, shinyalert, forecast, 
-               prophet, zip, glue, shinyjqui, patchwork, ggplot2, zoo)
+               prophet, zip, glue, shinyjqui, patchwork, ggplot2, zoo, gridExtra)
 
 #------------------------------------------------------------------------------#
 #                            User Interface                                    #
 #------------------------------------------------------------------------------#
 
 ui <- dashboardPage(skin = "black", 
-              
+                    
+           
 #------------------------------------------------------------------------------#      
 # Dashboard Header -------------------------------------------------------------
 #------------------------------------------------------------------------------#
@@ -416,7 +438,7 @@ conditionalPanel(
               # Reading in the Forecasts #
               ############################
               fileInput("dataset2", # ID of UI input
-                        label = tags$span("Upload time-series data file", # Shown label
+                        label = tags$span("Upload Forecast Files", # Shown label
                                           # Creating the info circle 
                                           tags$i(class = "glyphicon glyphicon-info-sign",
                                                  style = "color:#FFFFFF;",
@@ -437,6 +459,14 @@ conditionalPanel(
 # UI Body ----------------------------------------------------------------------
 
 dashboardBody(
+  
+  #################
+  # Hiding errors #
+  #################
+  tags$style(type="text/css",
+             ".shiny-output-error { visibility: hidden; }",
+             ".shiny-output-error:before { visibility: hidden; }"
+  ), 
   
   ###########################
   # Adding a loading circle #
@@ -899,7 +929,7 @@ fluidRow(
           width = 12, 
           
           # Plotting the time series plot 
-          dataTableOutput("timeseries") , 
+         dataTableOutput("timeseries") , 
           
           div(style = "display: flex; justify-content: flex-start; align-items: center;",
               uiOutput("downloadTimeseries")))
@@ -1111,10 +1141,11 @@ conditionalPanel(
       ) # End of 'column' for average metrics box 
       
     ), # End of fluid row for first row of page
-    
-    #####################################
-    # Second Row of Page: Crude Metrics #
-    #####################################
+
+#------------------------------------------------------------------------------#    
+# Crude Metrics Box ------------------------------------------------------------
+#------------------------------------------------------------------------------#
+
     fluidRow(
       
       ##############################################
@@ -1303,8 +1334,297 @@ conditionalPanel(
         
       ) # End of 'column' for crude box
       
-    ) # End of crude metrics box
+    ), # End of crude metrics box
     
+#------------------------------------------------------------------------------#
+# Box 3 and 4: Winkler Scores and Skill Score ----------------------------------
+#------------------------------------------------------------------------------#
+fluidRow(
+  
+  #######################################
+  # Creating the box for Winkler Scores #
+  #######################################
+  tabBox(
+    
+    # Box title 
+    title = NULL, 
+    
+    # ID of the box 
+    id = "otherMeasures",
+    
+    # Width of the box 
+    width = 12,
+    
+    ################################
+    # Rendering the Winkler Scores #
+    ################################
+    tabPanel(id = "winklerScores",
+             
+             # Title of box 
+             title = "Winkler Scores", 
+             
+             ###############################################
+             # Row 1: Rendering the Winkler Scores Figures #
+             ###############################################
+             fluidRow(
+               
+               ####################
+               # Alignment column #
+               ####################
+               column(
+                 
+                 width = 12, 
+                 
+                 ########################################################
+                 # Conditional Panel: Rendering the Winkler Scores Data #
+                 ########################################################
+                 conditionalPanel(
+                   
+                   # Condition
+                   condition = "!input.WinklerFigure",
+                   
+                   # Rendering the data frame
+                   dataTableOutput("winklerDataTableAGGP")
+                   
+                 ), # End of condition for data
+                 
+                 ########################################################
+                 # Conditional Panel: Rendering the Winkler Scores Data #
+                 ########################################################
+                 conditionalPanel(
+                   
+                   # Condition
+                   condition = "input.WinklerFigure",
+                   
+                   # Rendering the data frame
+                   plotOutput("winklerFigureAGGP")
+                   
+                 ), # End of condition for data
+                 
+                 
+               ) # End of Alignment Column 
+               
+             ), # End of row creating the Winkler Scores figures 
+             
+             ####################################
+             # Row 2: Creating the user options #
+             ####################################
+             fluidRow(
+               
+               ####################
+               # Alignment column #
+               ####################
+               column( 
+                 
+                 # Column width 
+                 width = 12, 
+                 
+                 # Overall style for row 
+                 div(style = "display:flex; vertical-aline: top",
+                     
+                     #######################################
+                     # Creating the download button - Data #
+                     #######################################
+                     conditionalPanel(
+                       
+                       # Condition
+                       condition = "!input.WinklerFigure",
+                       
+                       # Creating the download button - Data
+                       div(downloadButton("downloadWinkerData", "Download Scores", style = "margin-right: 10px"))
+                       
+                     ),
+                     
+                     #########################################
+                     # Creating the download button - Figure #
+                     #########################################
+                     conditionalPanel(
+                       
+                       # Condition
+                       condition = "input.WinklerFigure",
+                       
+                       # Creating the download button - Data
+                       div(actionButton("downloadWinklerAGGP", "Download Figures", style = "margin-right: 10px"))
+                       
+                     ),
+                     
+                     ###################################
+                     # Creating the location drop-down #
+                     ###################################
+                     div(uiOutput("locationsWinklerMain"), style = "margin-right: 10px"),
+                     
+                     ################################
+                     # Creating the model drop-down #
+                     ################################
+                     div(uiOutput("modelsWinklerMain"),  style = "margin-right: 10px"),
+                     
+                     #######################################
+                     # Creating the check-mark for figures #
+                     #######################################
+                     div(checkboxInput("WinklerFigure", "Show Figure"))
+                     
+                 ) # End of style
+                 
+               ) # End of alignment column 
+               
+             ) # End of options row
+             
+    ), # End of Winkler Scores Box
+    
+    ################################
+    # Rendering the Winkler Scores #
+    ################################
+    tabPanel(id = "skillScores",
+             
+             # Title of box 
+             title = "Skill Scores",
+             
+             #############################################
+             # Row 1: Rendering the skill Scores Figures #
+             #############################################
+             fluidRow(
+               
+               ####################
+               # Alignment column #
+               ####################
+               column(
+                 
+                 width = 12, 
+                 
+                 #############################
+                 # Check for average metrics #
+                 #############################
+                 div(checkboxInput("avgSSOptions", "Use Average Metrics"), 
+                     style = "margin-right: 10px;justify-content: flex-end")
+                 
+               )
+               
+             ), # End of Row 1
+             
+             #############################################
+             # Row 2: Rendering the skill Scores Figures #
+             #############################################
+             fluidRow(
+               
+               ####################
+               # Alignment column #
+               ####################
+               column(
+                 
+                 width = 12, 
+                 
+                 ######################################################
+                 # Conditional Panel: Rendering the Skill Scores Data #
+                 ######################################################
+                 conditionalPanel(
+                   
+                   # Condition
+                   condition = "!input.SSFig",
+                   
+                   # Rendering the data frame
+                   dataTableOutput("skillScoresAGGPData")
+                   
+                 ), # End of condition for data
+                 
+                 ########################################################
+                 # Conditional Panel: Rendering the Skill Scores Figure #
+                 ########################################################
+                 conditionalPanel(
+                   
+                   # Condition
+                   condition = "input.SSFig",
+                   
+                   # Rendering the data frame
+                   #plotOutput("winklerFigureAGGP")
+                   
+                 ), # End of condition for data
+                 
+               ) # End of Alignment Column 
+               
+             ), # End of row creating the Winkler Scores figures 
+             
+             ####################################
+             # Row 3: Creating the user options #
+             ####################################
+             fluidRow(
+               
+               ####################
+               # Alignment column #
+               ####################
+               column( 
+                 
+                 # Column width 
+                 width = 12, 
+                 
+                 # Overall style for row 
+                 div(style = "display:flex; vertical-aline: top",
+                     
+                     #######################################
+                     # Creating the download button - Data #
+                     #######################################
+                     conditionalPanel(
+                       
+                       # Condition
+                       condition = "!input.SSFig",
+                       
+                       # Creating the download button - Data
+                       div(downloadButton("downloadSSData", "Download Scores", style = "margin-right: 10px"))
+                       
+                     ),
+                     
+                     #########################################
+                     # Creating the download button - Figure #
+                     #########################################
+                     conditionalPanel(
+                       
+                       # Condition
+                       condition = "input.SSFig",
+                       
+                       # Creating the download button - Data
+                       div(actionButton("downloadSSAGGP", "Download Figures", style = "margin-right: 10px"))
+                       
+                     ),
+                     
+                     ###################################
+                     # Creating the location drop-down #
+                     ###################################
+                     div(uiOutput("locationsSSMain"), style = "margin-right: 10px"),
+                     
+                     ################################
+                     # Creating the model drop-down #
+                     ################################
+                     div(uiOutput("BenchmarkSSMain"),  style = "margin-right: 10px"),
+                     
+                     ###########################################
+                     # Creating the comparison model drop-down #
+                     ###########################################
+                     div(uiOutput("ComparisonSSMain"),  style = "margin-right: 10px"),
+                     
+                     #######################################
+                     # Creating the check-mark for figures #
+                     #######################################
+                     div(checkboxInput("SSFig", "Show Figure"))
+                     
+                     
+                 ) # End of style
+                 
+               ) # End of alignment column 
+               
+             ) # End of options row
+             
+             
+             
+             
+             
+             
+             
+    ) # End of tab box
+    
+  ) # End of "Tabbox"
+  
+) # End of fluidRow
+
+      
   ) # Column alignment overall
 
 ), # End of Page 2 conditional panel 
@@ -1415,32 +1735,74 @@ conditionalPanel(
     ############################################
     # Rendering the individual forecast figure #
     ############################################
-    tabPanel(id = "two",
-      title = "two",
-      #############################################
-      # Row 1: Rendering the data frame or figure #
-      #############################################
-      fluidRow(
-        
-        # Rendering the data frame
-        #dataTableOutput("otherForecasts")
-        
-      ),
-      
-      ####################################
-      # Row 2: Creating the user options #
-      ####################################
-      fluidRow(
-        
-        #div(style = "display: flex; justify-content: flex-start; align-items: center;",
-            #downloadButton("downloadOtherForecastsFigures", "Download Forecasts", style = "margin-right: 10px")),
-        
-        div(style = "display: flex; justify-content: flex-end; align-items: center;",
-            actionButton(inputId = "otherForecastPrevious2", label = icon("arrow-left")),
-            actionButton(inputId = "otherForecastNext2", label = icon("arrow-right")))
-        
-      )
-    )
+    tabPanel(id = "panelFigsOther",
+             
+             # Title for box
+             title = "Panel Figures",
+             
+             ##############################################
+             # Row 1: Rendering the panel figure forecast #
+             ##############################################
+             fluidRow(
+               
+               ####################
+               # Alignment column #
+               ####################
+               column(
+                 
+                 width = 12, 
+                 
+                 # Rendering the data frame
+                 plotOutput("otherModelPanelFigure")
+                 
+               )
+               
+             ),
+             
+             ####################################
+             # Row 2: Creating the user options #
+             ####################################
+             fluidRow(
+               
+               ####################
+               # Alignment column #
+               ####################
+               column( 
+                 
+                 # Column width 
+                 width = 12, 
+                 
+                 # Overall style for row 
+                 div(style = "display: flex; justify-content: space-between; align-items: center; width: 100%;",
+                     
+                     ################################
+                     # Creating the download button #
+                     ################################
+                     div(
+                       
+                       style = "display: flex; justify-content: flex-start; align-items: center;",
+                       actionButton("downloadOtherForecastsPanels", "Download Figures", style = "margin-right: 10px")
+                       
+                     ),
+                     
+                     #######################
+                     # Creating the arrows #
+                     #######################
+                     div(
+                       
+                       style = "display: flex; justify-content: flex-end; align-items: center;",
+                       actionButton(inputId = "otherFigsPanelsPrevious", label = icon("arrow-left")),
+                       actionButton(inputId = "otherFigsPanelsNext", label = icon("arrow-right"))
+                       
+                     )
+                     
+                 ) # End of overall row style 
+                 
+               ) # End of alignment column 
+               
+             ) # End of options row
+             
+             ) # End of forecast figures panel
     )
     )
     
@@ -1463,8 +1825,26 @@ conditionalPanel(
 # SERVER -----------------------------------------------------------------------
 
 server <- function(input, output, session) {
+  
+#------------------------------------------------------------------------------#
+# Clearing some settings -------------------------------------------------------
+#------------------------------------------------------------------------------#
+  
+  ##############################################################
+  # Resetting the check-box for Winkler scores when run is hit #
+  ##############################################################
+  observeEvent(input$run, {
  
-
+    # Isolating the behavior to only when run is hit 
+    isolate({
+      
+      # Updating the value of the check-box
+      updateCheckboxInput(session, "WinklerFigure", value = FALSE)
+      
+    })
+    
+  }) # End of 'observeEvent'
+   
 #------------------------------------------------------------------------------#
 # Reading in the data frame ----------------------------------------------------
 #------------------------------------------------------------------------------#
@@ -1512,6 +1892,7 @@ server <- function(input, output, session) {
     },error = function(e){
       
       NULL
+      
     })
     
   }) 
@@ -1541,7 +1922,7 @@ server <- function(input, output, session) {
       # Grabbing the headers from the data file #
       ###########################################
       location.names <- colnames(data)[-1]
-      
+
       ##########################
       # Creating the drop down #
       ##########################
@@ -1634,303 +2015,470 @@ server <- function(input, output, session) {
   
   
 #------------------------------------------------------------------------------#
-# Plotting the time-series and showing the data --------------------------------
+# Creating the download button -------------------------------------------------
 #------------------------------------------------------------------------------#
-# About: If the run forecasts button is clicked, a default time-series figure  #
-# for the selected locations is shown. If the data button is clicked, then a   #
-# figure is not shown. Rather, the data used to plot the figure is shown. This #
-# is completed with the help of a function. Additionally, users can download   #
-# both the outputted figure and data table to the folder of their choosing.    #
+# About: This section creates the download button for the time series data. It #
+# only shows if the check-mark for data is hit. When it is not clicked, the    #
+# button does not show up.                                                     #
 #------------------------------------------------------------------------------#
   
-  ##################################
-  # Reactive values for timeseries #
-  ##################################
-  timeseriesList <- reactiveValues()
-
-  #####################################
-  # Observing changings in the inputs #
-  #####################################
+  ###########################################
+  # Observing changes in reactive variables #
+  ###########################################
   observe({
     
+    ##################################################
+    # If-Else Statement to determined what to render #
+    ##################################################
+    if(input$timeseriesCheckBox){
+      
+      ########################################
+      # Creating the button to download data #
+      ########################################
+      output$downloadTimeseries <- renderUI({
+        
+        # Download button 
+        downloadButton("download_timeseries", "Download Timeseries Data")
+        
+      }) # End of render UI
+      
+    #######################################################
+    # Returning Null (no button) if check-mark is not hit #
+    #######################################################
+    }else{
+      
+      ######################################
+      # Making the download button go away #
+      ######################################
+      output$downloadTimeseries <- 
+        
+        # Download button 
+        NULL
+        
+       # End of render UI()
+      
+    } # End of else 
+    
+  }) # End of observe statement 
+  
+  
+#------------------------------------------------------------------------------#
+# Pop-up for the download button for time series figures -----------------------
+#------------------------------------------------------------------------------#
+# About: This section creates the figure pop-up options for the time series    #
+# button. In this pop-up, users have the option to format how the figure is    #
+# saved, and the download button is created.                                   #
+#------------------------------------------------------------------------------#
+  
+  #####################################################
+  # Setting Figure Specifications - Pop up for figure #
+  #####################################################
+  observeEvent(input$figureTimeseries, {
+    
+    ################################
+    # Figure specification options #
+    ################################
+    isolate({
+      
+      showModal(modalDialog(
+        
+        title = "Figure Specifications",
+        numericInput("dpi", "Figure DPI:", value = 900),
+        numericInput("width", "Figure Width:", value = 9),
+        numericInput('height', 'Figure Height:', value = 5),
+        pickerInput("units", label = "Unit of Measurement:", choices = c("in", "cm", "mm", "px")),
+        pickerInput("extFig", label = "Figure Type:", choices = c("png", "eps", "pdf", "tiff", "jpeg", "svg")),
+        downloadButton("downloadtimeseriesF", "Download Timeseries Figure"),
+        easyClose = TRUE))
+      
+    }) # End of isolate
+    
+  }) # End of observe-event
+  
+  
+#------------------------------------------------------------------------------#
+# Preparing the time-series data -----------------------------------------------
+#------------------------------------------------------------------------------#
+# About: This section prepares the data to be shown as the time series data    #
+# in the UI for users. The data shown is based on user-selected locations      #
+# during an earlier step in work-flow.                                         #
+#------------------------------------------------------------------------------#
+  
+  #############################################
+  # Reactive value to save timeseries data in #
+  #############################################
+  timeseriesData <- reactiveValues()
+
+  ####################################
+  # Observing changing in the inputs #
+  ####################################
+  observe({
+
     ##############################
     # Runs if a file is selected #
     ##############################
     tryCatch({
-      
+
       ################################
       # Reading in the original data #
       ################################
-      data <- file()
+      data1 <- file()
+      
+      #############################################################
+      # Filtering the data shown based on user selected locations #
+      #############################################################
 
-      ##################################################
-      # If-Else Statement to determined what to render #
-      ##################################################
-      if(input$timeseriesCheckBox){
+          data.for.table <- data1 %>%
+            dplyr::select(names(data1)[1], all_of(input$locations))
+
+        ############################################
+        # Saving the results to the reactive value #
+        ############################################
+        timeseriesData$dataList <- data.for.table
+
+    ###############################
+    # Error portion of 'tryCatch' #
+    ###############################
+    }, error = function(e){
+
+      NULL
+
+    }) # End of 'tryCatch'
+
+  }) # End of 'observe'
+
+#------------------------------------------------------------------------------#
+# Rendering the data table for the timeseries ----------------------------------
+#------------------------------------------------------------------------------#
+# About: This section renders the data table if the 'check-mark' is hit to     #
+# show the data frame.                                                         #
+#------------------------------------------------------------------------------#
+  
+  ########################################
+  # Observing changes in reactive values #
+  ########################################
+  observe({
+
+    ##############################
+    # Running if no errors occur #
+    ##############################
+    tryCatch({
+      
+      #################################
+      # Running if "Run" has been hit #
+      #################################
+      observeEvent(input$run, {
         
-        ################################################
-        # Runs if the 'Run Forecast' button is clicked #
-        ################################################
-        observeEvent(input$run | input$forecastLines, {
+        # Isolating the behavior
+        isolate({
           
-          # Isolates the download unless the run button is clicked 
-          isolate({
-            
-            ########################################
-            # Creating the button to download data #
-            ########################################
-            output$downloadTimeseries <- renderUI({
-              
-              # Download button 
-              downloadButton("download_timeseries", "Download Timeseries Data")
-              
-            }) # End of render UI
-            
-          }) # End of isolate 
-          
-          # Isolates the rendering of the data table unless the run button is clicked 
-          isolate({
-            
-            ##########################
-            # Rendering a data table #
-            ##########################
-            output$timeseries <- renderDataTable({
-              
-              ####################################
-              # Preparing the data for the table #
-              ####################################
-              
-              # Grabbing the location headers from the data file
-              locations <- colnames(data)[-1]
-              
-              # Grabbing the date header for the data file
-              dateHeader <- str_to_sentence(colnames(data)[1])
-              
-              # Fixing the names in the table
-              names(data) <- c(dateHeader, locations)
-              
-              #############################################################
-              # Filtering the data shown based on user selected locations #
-              #############################################################
-              isolate({
-                
-                # Selecting columns related to dates and locations
-                data.for.table <- data %>%
-                  dplyr::select(dateHeader, all_of(input$locations)) # Filtering locations
-                
-              }) # End of isolate
-              
-              ############################################
-              # Creating the option to download the data #
-              ############################################
-              output$download_timeseries <- downloadHandler(
-                
-                # Function to create the file-name
-                filename = function() {
-                  
-                  paste("time-series-data-", input$dataset, sep = "")
-                  
-                },
-                
-                # Function to save the file
-                content = function(file) {
-                  
-                  # Saving the file
-                  write.csv(data.for.table, file, row.names = FALSE)
-                  
-                }
-                
-              ) # End of download button 
-              
-              ############################
-              # Returning the data table #
-              ############################
-              return(datatable(data.for.table, rownames = F))
-              
-            }) # End of 'renderDataTable'
-            
-          }) # End of 'isolate'
-          
-        }) # End of 'observedEvent' statement
-        
-        ##########################################################
-        # If check in not clicked, a timeseries plot is produced #
-        ##########################################################
-      }else{
-        
-        ################################
-        # Updates if button is clicked #
-        ################################
-        observeEvent(input$run | input$forecastLines, {
-          
-          # Isolating behaviors until the run button is clicked 
-          isolate({
-            
-            ##################################################
-            # Returns a NULL object for the time-series data #
-            ##################################################
-            output$timeseries <- renderDataTable({ NULL })
-            
-          }) # End of isolate 
-          
-          # Isolating behaviors until the run button is clicked 
-          isolate({
-            
-            ###############################################
-            # Null object for time series download button #
-            ###############################################
-            output$downloadTimeseries <- renderUI({NULL})
-            
-          }) # End of 'isolate' statement
-          
-          ##################################
-          # Rending the time series figure #
-          ##################################
-          isolate({
-            
-            ########################################################
-            # Error that runs if no locations or group is selected #
-            ########################################################
-            if(length(input$locations) == 0 & input$run){
-              
-              # Produced error
-              showModal(modalDialog(
-                title = "Error",
-                "Please select a group or location. ",
-                easyClose = TRUE
-              ))
-              
-              # Return null so user has to re-upload
-              timeseriesFigure <<- NULL
-              
-              # Outputting nothing 
-              output$timeseriesPlot <- renderPlotly({NULL})
-              
-              #######################
-              # If no error outputs #
-              #######################
-            }else{
-              
-              #########################################
-              # Function to produce time-series image #
-              #########################################
-              timeseriesFigure <- timeseries.figure.function(crude.data.input = file(), # Crude data 
-                                                              location.input = c(input$locations), # Locations 
-                                                              dateType.input = dateValues$dates, # Type of data
-                                                              forecastLineShow = input$forecastLines, # Show forecast lines 
-                                                              forecastDatesStart = input$forecast.period[1], # Start of slider 
-                                                              forecastDatesEnd = input$forecast.period[2]) # End of slider
-              
-              # Saving the figure to a reactive value
-              timeseriesList$figure <- timeseriesFigure
-              
-              if(length(timeseriesList$figure[[1]]) == 0 || is.null(timeseriesList$figure[[1]]) || is.character(timeseriesFigure[[1]])){
-                
-                output$timeseriesPlot <- NULL
-                
-              }else{
-                
-                # Ourputting the plot 
-                output$timeseriesPlot <- renderPlotly({ggplotly(timeseriesList$figure[[1]], tooltip = "text")})
-                
-              }
-          
-            }# End of else for rendering 
-            
-          }) # End of 'isolate' statement 
-          
-        }) # End of 'observeEvent' statement
-        
-        #################################
-        # Setting Figure Specifications #
-        #################################
-        observeEvent(input$figureTimeseries, {
-          
-          ################################
-          # Figure specification options #
-          ################################
-          isolate({
-            
-            showModal(modalDialog(
-              
-              title = "Figure Specifications",
-              numericInput("dpi", "Figure DPI:", value = 900),
-              numericInput("width", "Figure Width:", value = 9),
-              numericInput('height', 'Figure Height:', value = 5),
-              pickerInput("units", label = "Unit of Measurement:", choices = c("in", "cm", "mm", "px")),
-              pickerInput("extFig", label = "Figure Type:", choices = c("png", "eps", "pdf", "tiff", "jpeg", "svg")),
-              downloadButton("downloadtimeseriesF", "Download Timeseries Figure"),
-              easyClose = TRUE
-              
-            )) 
-          })
+          # Data to render 
+          data1 <-  timeseriesData$dataList
           
         })
         
-        ##############################################
-        # Creating the option to download the figure #
-        ##############################################
-        output$downloadtimeseriesF<- downloadHandler(
+        #########################################
+        # Running if the check has been clicked #
+        #########################################
+        observeEvent(input$timeseriesCheckBox, {
           
-          ####################################
-          # Function to create the file-name #
-          ####################################
-          filename = function() {
+          ###########################################
+          # Rendering the data if the check is true #
+          ###########################################
+          if(input$timeseriesCheckBox){
             
-            # Closing the figure specification 
-            removeModal()
+            # Isolating behaviors until the button is clicked
+            isolate({
+              
+              # Render statement
+              output$timeseries <- renderDataTable({data1})
+              
+            }) # End of 'isolate'
             
-            # Removing '.csv' 
-            fileName <- gsub('.csv', '', input$dataset)
+            ######################################
+            # Rendering NULL if check is not hit #
+            ######################################
+          }else{
             
-            # File name 
-            paste(fileName, "-timeseries.", input$extFig, sep = "")
+            # Isolating behaviors
+            isolate({
+              
+              # Render statement
+              output$timeseries <- renderDataTable({NULL})
+              
+            }) # End of isolate
             
-          },
+          } # End of NULL rendering
           
-          #############################
-          # Function to save the file #
-          #############################
-          content = function(file) {
-            
-            # Running with compression if using a '.tiff'
-            if(input$extFig == 'tiff'){
-              
-              # Saving the file
-              ggsave(file, plot = timeseriesList$figure[[2]], 
-                     dpi = input$dpi,
-                     width = input$width, 
-                     height = input$height, 
-                     units = input$units,
-                     compression = "lzw")
-              
-              # Running without compression if not using a '.tiff'
-            }else{
-              
-              # Saving the file
-              ggsave(file, plot = timeseriesList$figure[[2]], 
-                     dpi = input$dpi,
-                     width = input$width, 
-                     height = input$height, 
-                     units = input$units)
-            }
-            
-          }) # End of saving the figure(s) 
+        }) # End of "check" observe event
         
-      } # End of 'else' for check box
+      }) # End of "run" observe event 
       
-      #########################################
-      # Produces nothing if no data is loaded #
-      #########################################
+    ###########################################
+    # Returns NULL the above code can not run #
+    ###########################################
     }, error = function(e){
       
-      output$timeseriesPlot <- NULL
+      NULL
       
     }) # End of 'tryCatch'
     
-  }) # End of 'observe' statement 
+  }) # End of 'observe'
   
+#------------------------------------------------------------------------------#
+# Downloading the time series data as a '.csv' ---------------------------------
+#------------------------------------------------------------------------------#
+# About: This section provides interactivity to download button. Therefore, it #
+# allows users to download the time series data as a '.csv' file to the        #
+# directory of their choosing.                                                 #
+#------------------------------------------------------------------------------#
+  
+  output$download_timeseries <- downloadHandler(
+    
+    ####################################
+    # Function to create the file-name #
+    ####################################
+    filename = function() {
+      
+      # File name 
+      paste("time-series-data-", input$dataset, sep = "")
+      
+    },
+    
+    #############################
+    # Function to save the file #
+    #############################
+    content = function(file) {
+      
+      # Saving the file
+      write.csv(timeseriesData$dataList, file, row.names = FALSE)
+      
+    }
+    
+  ) # End of download button  
+  
+#------------------------------------------------------------------------------#
+# Creating the time series figure ----------------------------------------------
+#------------------------------------------------------------------------------#
+# About: This section creates the time series figure based on the data above.  #
+# The time series figure shows the trajectory of the entire process of         #
+# interest, for each of the selected locations/groups. Additionally, it allows #
+# users to show the forecast period dates they selected in the side panel.     #
+#------------------------------------------------------------------------------#
+  
+  #####################################
+  # Reactive value to save figures in #
+  #####################################
+  timeseriesFigureList <- reactiveValues()
+  
+  ########################################
+  # Observing changes in reactive values #
+  ########################################
+  observe({
+    
+    ##############################
+    # Running if no errors occur #
+    ##############################
+    tryCatch({
+      
+      #############################################
+      # Function to produce the timeseries figure #
+      #############################################
+      timeseriesFigure <- timeseries.figure.function(timeseries.input = timeseriesData$dataList, # Timeseries data
+                                                     location.input = c(input$locations), # Locations
+                                                     dateType.input = dateValues$dates, # Type of data
+                                                     forecastLineShow = input$forecastLines, # Show forecast lines
+                                                     forecastDatesStart = input$forecast.period[1], # Start of slider
+                                                     forecastDatesEnd = input$forecast.period[2]) # End of slider
+      
+      # Saving figure list to reactive value variable - Plotly figure
+      timeseriesFigureList$figureInteractive <- timeseriesFigure[[1]]
+      
+      # Saving the non-reactive ggplot figure to the second list
+      timeseriesFigureList$figureStatic <- timeseriesFigure[[2]]
+      
+    ##############################
+    # Running if an error occurs #
+    ##############################
+    }, error = function(e){
+      
+      NULL
+      
+    }) # End of 'tryCatch'
+    
+  }) # End of 'observe'
+  
+  
+#------------------------------------------------------------------------------#
+# Rendering the time-series figure ---------------------------------------------
+#------------------------------------------------------------------------------#
+# About: This section renders the plotly time-series image to the main         #
+# dashboard. Therefore, users can scroll over the figures and see values at    #
+# specific points over the course of a process's trajectory.                   #
+#------------------------------------------------------------------------------#
+  
+  ########################################
+  # Observing changes in reactive values #
+  ########################################
+  observe({
+    
+    ##############################
+    # Running if no errors occur #
+    ##############################
+    tryCatch({
+      
+      #################################
+      # Running if "Run" has been hit #
+      #################################
+      observeEvent(input$run | input$forecastLines, {
+        
+        # Isolating the behavior
+        isolate({
+          
+          # Data to render 
+          TimeseriesInteractive <-  timeseriesFigureList$figureInteractive
+          
+        })
+        
+          ################################################
+          # Rendering a NULL object if the check is true #
+          ################################################
+          if(length(TimeseriesInteractive[[1]]) == 0 || is.null(TimeseriesInteractive[[1]]) || is.character(TimeseriesInteractive[[1]])){
+            
+            # Isolating behaviors until the button is clicked
+            isolate({
+              
+              # Render statement
+              output$timeseriesPlot <- NULL
+              
+            }) # End of 'isolate'
+            
+          #######################################################
+          # Rendering the timeseries figure if check is not hit #
+          #######################################################
+          }else{
+            
+            # Isolating behaviors
+            isolate({
+              
+              # Render statement
+              output$timeseriesPlot <- renderPlotly({ggplotly(TimeseriesInteractive, tooltip = "text")})
+              
+            }) # End of isolate
+            
+          } # End of NULL rendering
+        
+      }) # End of "run" observe event 
+      
+      ###########################################
+      # Returns NULL the above code can not run #
+      ###########################################
+    }, error = function(e){
+      
+      NULL
+      
+    }) # End of 'tryCatch'
+    
+  }) # End of 'observe'
 
+#------------------------------------------------------------------------------#
+# Handling when the data set is changed ----------------------------------------
+#------------------------------------------------------------------------------#
+# About: This section of code clears any existing output when the data set is  #
+# changed by the user.                                                         #
+#------------------------------------------------------------------------------#
+  
+  ########################################
+  # Observing changes in reactive output #
+  ########################################
+  observe({
+    
+    ##############################
+    # Running if no errors occur #
+    ##############################
+    tryCatch({
+      
+      # Clearing output if the data is changed 
+      if(names(timeseriesData$dataList)[-1] %!in% c(input$locations) | length(input$locations) == 0){
+        
+        # Clearing plot output 
+        output$timeseriesPlot <- NULL
+        
+        # Clearing timeseries data output 
+        output$timeseries <- NULL
+        
+        } # End of "else" 
+      
+      ###########################
+      # Running if error occurs #
+      ###########################
+      }, error = function(e){
+        
+        NULL
+        
+        }) # End of 'tryCatch'
+    
+    }) # End of 'observe'
+  
+#------------------------------------------------------------------------------#
+# Downloading the timeseries figure --------------------------------------------
+#------------------------------------------------------------------------------#
+# About: This section provides interactivity to the 'download' figures button. #
+# It takes in inputs from the pop-up menu, and then allows users to save the   #
+# time series figure in the location of the users choosing.                    #
+#------------------------------------------------------------------------------#
+  
+  ##############################################
+  # Creating the option to download the figure #
+  ##############################################
+  output$downloadtimeseriesF<- downloadHandler(
+    
+    ####################################
+    # Function to create the file-name #
+    ####################################
+    filename = function() {
+      
+      # Closing the figure specification 
+      removeModal()
+      
+      # Removing '.csv' 
+      fileName <- gsub('.csv', '', input$dataset)
+      
+      # File name 
+      paste(fileName, "-timeseries.", input$extFig, sep = "")
+      
+    },
+    
+    #############################
+    # Function to save the file #
+    #############################
+    content = function(file) {
+      
+      # Running with compression if using a '.tiff'
+      if(input$extFig == 'tiff'){
+        
+        # Saving the file
+        ggsave(file, plot = timeseriesFigureList$figureStatic, 
+               dpi = input$dpi,
+               width = input$width, 
+               height = input$height, 
+               units = input$units,
+               compression = "lzw")
+        
+        # Running without compression if not using a '.tiff'
+      }else{
+        
+        # Saving the file
+        ggsave(file, plot = timeseriesFigureList$figureStatic, 
+               dpi = input$dpi,
+               width = input$width, 
+               height = input$height, 
+               units = input$units)
+      }
+      
+    }) # End of saving the figure(s) 
+  
+  
 #------------------------------------------------------------------------------#
 # UI Input for Smoothing Data --------------------------------------------------
 #------------------------------------------------------------------------------#
@@ -1942,7 +2490,7 @@ server <- function(input, output, session) {
   # Creating the UI object #
   ##########################
   output$smoothing <- renderUI({
-    
+
     ######################################################
     # Fixing the error that occurs until data is read in #
     ######################################################
@@ -2491,7 +3039,7 @@ server <- function(input, output, session) {
                #####################################################
                # Error if there are any forecasts that did not run #
                #####################################################
-               if(length(notNAARIMA) != length(calibration.period.list$calibrations)){
+               if(length(isNAARIMA) > 0){
                  
                  # Error 
                  shinyalert("Unable to run some ARIMA forecasts (i.e., small case counts).", 
@@ -3228,6 +3776,42 @@ server <- function(input, output, session) {
      }) # End of isolate
      
    }) # End of 'observeEvent'
+   
+   
+#------------------------------------------------------------------------------#
+# Handling when the data set is changed ----------------------------------------
+#------------------------------------------------------------------------------#
+# About: This section of code clears any existing output when the data set is  #
+# changed by the user.                                                         #
+#------------------------------------------------------------------------------#
+   
+   ########################################
+   # Observing changes in reactive output #
+   ########################################
+   observe({
+     
+     ##############################
+     # Running if no errors occur #
+     ##############################
+     tryCatch({
+       
+       # Clearing output if the data is changed 
+       if(names(timeseriesData$dataList)[-1] %!in% c(input$locations) | length(input$locations) == 0){
+         
+         current_index(1)
+         
+       } # End of "else" 
+       
+       ###########################
+       # Running if error occurs #
+       ###########################
+     }, error = function(e){
+       
+       NULL
+       
+     }) # End of 'tryCatch'
+     
+   }) # End of 'observe'
      
    #######################################################
    # Rendering the current quantile data frame box title #
@@ -3235,7 +3819,7 @@ server <- function(input, output, session) {
    output$quantileTitle <- renderText({
      
      # Producing nothing if no locations are chosen
-     if(length(input$locationQuantiles) == 0 || length(input$modelQuantiles) == 0){
+     if(length(input$locationQuantiles) == 0 || length(input$modelQuantiles) == 0 | length(input$locations) == 0){
        
        return(NULL)
        
@@ -3256,7 +3840,7 @@ server <- function(input, output, session) {
    output$quantileForecasts <- renderDataTable({
      
      # Producing nothing if no locations are chosen
-     if(length(input$locationQuantiles) == 0 || length(input$modelQuantiles) == 0){
+     if(length(input$locationQuantiles) == 0 || length(input$modelQuantiles) == 0 || length(input$locations) == 0){
        
        return(NULL)
        
@@ -4304,8 +4888,6 @@ server <- function(input, output, session) {
    )
 
    
-   
-   
 
 # MODEL METRICS PAGE -----------------------------------------------------------
 
@@ -5333,10 +5915,737 @@ server <- function(input, output, session) {
        }
        
      }) # End of saving the figure(s) 
+   
+#------------------------------------------------------------------------------#
+# Location Drop-Down for Winkler Scores ----------------------------------------
+#------------------------------------------------------------------------------#
+# About: This section creates the locations drop-down for filtering the        #
+# Winker scores by location. This filter applies both to the data and figure   #
+# boxes shown in the main dashboard.                                           #
+#------------------------------------------------------------------------------#
+   
+   ##################################
+   # Rending the location drop down #
+   ##################################
+   output$locationsWinklerMain <- renderUI({
+     
+     pickerInput("locationsWinklerMain", # ID for picker 
+                 label = NULL, # Removing the label 
+                 choices = c(input$locations), # Choices for picker 
+                 selected = c(input$locations), # Selected locations/group 
+                 multiple = T, # Allowing multiple options 
+                 width = "175px") # Width of picker 
+     
+   }) # End of 'renderUI'
+   
+#------------------------------------------------------------------------------#
+# Creating the model drop down for Winkler Scores ------------------------------
+#------------------------------------------------------------------------------#
+# About: This section creates the models drop-down for filtering the Winkler   #
+# scores by model. This filter applied both to the data and figure boxed shown #
+# in the main dashboard.                                                       #
+#------------------------------------------------------------------------------#
+   
+   ##################################################
+   # Creating the model drop down for crude metrics #
+   ##################################################
+   output$modelsWinklerMain <- renderUI({
+     
+     ###############################################
+     # Outputs if no model on the side is selected #
+     ###############################################
+     if(is.null(input$modelType)){
+       
+       pickerInput("modelsWinklerMain", # Input ID for the model drop down 
+                   label = NULL, # No label for the drop down
+                   selected = "Please select a model", # Model type 
+                   choices = "Please select a model", # Choices 
+                   width = "175px", # Width of picker 
+                   multiple = T) # Allowing multiple options
+       
+     ####################################
+     # Outputs if model(s) are selected #
+     ####################################
+     }else{
+       
+       # Runs if working with model fit 
+       if(input$metricsToShow == "Model Fit"){
+         
+         # Options to show
+         optionsPicker <- c(input$modelType[input$modelType != "ARIMA"])
+         
+         # Runs if working with forecast metrics 
+         }else{
+         
+         # Options to show
+         optionsPicker <- c(input$modelType)
+         
+         }
+       
+       ##############################
+       # Rendering the picker input #
+       ##############################
+       pickerInput("modelsWinklerMain", # Input ID for the model drop down 
+                   label = NULL, # No label for the drop down
+                   selected = optionsPicker, # Model type 
+                   choices = optionsPicker, # Choices 
+                   width = "175px", # Width of picker 
+                   multiple = T) # Allowing multiple options
+       
+     } # End of else 
+     
+   }) # End of 'render' 
+   
+   
+#------------------------------------------------------------------------------#
+# Winkler Scores ---------------------------------------------------------------
+#------------------------------------------------------------------------------#
+# About: This section calculates Winkler scores for the produced ARIMA, GLM,   #
+# GAM, Prophet models. The Winkler scores provide a quantitative measure of    #
+# comparison for prediction interval coverage.                                 #
+#------------------------------------------------------------------------------#
+   
+   ######################################################
+   # Creating a reactive value to save winkler score in #
+   ######################################################
+   winklerScoresAGGP <- reactiveValues()
+   
+   ################################################
+   # Observing changes in the formatted forecasts #
+   ################################################
+   observe({
+     
+     ########################################
+     # Trying to run - If data is available #
+     ########################################
+     tryCatch({
+       
+       #######################################
+       # Running the winkler scores function #
+       #######################################
+       winkler.scores.output <- winkler.scores.AGGP(formattedForecasts = foremattedForecasts$forecasts)
+       
+       # Saving the output to a reactive value
+       winklerScoresAGGP$scores <- winkler.scores.output
+     
+     ###################################
+     # Returns if the code can not run #
+     ###################################
+     }, error = function(e){
+       
+       # Returning a NULL
+       NULL
+       
+     }) # End of 'tryCatch'
+     
+   }) # End of 'observe'
+   
+#------------------------------------------------------------------------------#
+# Filtering the Winkler scores based on user input -----------------------------
+#------------------------------------------------------------------------------#
+# About: This section filters the Winkler Scores based on the user inputs for  #
+# locations and models. Additionally, it removes not-needed variables and      #
+# prepares the final data for export to the UI.                                #
+#------------------------------------------------------------------------------#
+   
+   #########################################################
+   # Reactive value to save the filtered winkler scores in #
+   #########################################################
+   winklerFinalAGGP <- reactiveValues()
+
+   ##########################################
+   # Filtering the data based on user input #
+   ##########################################
+   observe({
+
+     # Reading in the list of Winkler scores
+     winklerScores <- winklerScoresAGGP$scores
+
+     # Runs if a location is selected
+     if(length(input$locationsWinklerMain) == 0 | is.null(input$locationsWinklerMain) | 
+        length(input$modelsWinklerMain) == 0 | is.null(input$modelsWinklerMain)){
+       
+       # Returning NULL 
+       winklerFinalAGGP$scores <- NULL
+
+     }else{
+       
+       # Filtering the data 
+       winklerFiltered <- winklerScores %>%
+         dplyr::filter(Location %in% c(input$locationsWinklerMain)) %>% # Filtering locations
+         dplyr::filter(Model %in% c(input$modelsWinklerMain)) # Filtering models 
+       
+       # Data to show
+       winklerFinalAGGP$scores <- winklerFiltered
+       
+     }
+     
+   }) # End of "observe"
+   
+#------------------------------------------------------------------------------#
+# Rendering the Winkler Scores data frame --------------------------------------
+#------------------------------------------------------------------------------#
+# About: This section takes in the winkler scores calculated above and returns #
+# them to the main UI as a data table.                                         #
+#------------------------------------------------------------------------------#
+   
+   #########################################
+   # Reactive value for final data to save #
+   #########################################
+   winklerSAVE <- reactiveValues()
+   
+   ###########################################
+   # Rendering the Winkler Scores Data Frame #
+   ###########################################
+   output$winklerDataTableAGGP <- renderDataTable({
+     
+     ######################################################
+     # Returning NULL if no Winkler scores are calculated #
+     ######################################################
+     if(nrow(winklerScoresAGGP$scores) == 0 | is.null(winklerScoresAGGP$scores)){
+       
+       return(NULL)
+      
+     ###################################################################
+     # Returning the calibration period Winkler scores when applicable #
+     ###################################################################
+     }else if(input$metricsToShow == "Model Fit"){
+       
+       # Preparing the final data set
+       winklerFinal <- winklerFinalAGGP$scores %>%
+         dplyr::filter(CalibrationIndicator == 1) %>% # Keeping only calibration rows 
+         dplyr::select(-CalibrationIndicator, -Date, -`Winkler Score`) # Removing the not needed variable 
+       
+       # Saving the data to the reactive value
+       winklerSAVE$final <- winklerFinal
+       
+       # Returning the resulting data frame 
+       return(datatable(winklerFinal))
+       
+     #########################################################
+     # Returning the forecast Winkler scores when applicable #
+     #########################################################
+     }else{
+       
+       # Preparing the final data set
+       winklerFinal <- winklerFinalAGGP$scores %>%
+         dplyr::filter(CalibrationIndicator == 0) %>% # Keeping only calibration rows 
+         dplyr::select(-CalibrationIndicator, -Date, -`Winkler Score`) # Removing the not needed variable 
+       
+       # Saving the data to the reactive value
+       winklerSAVE$final <- winklerFinal
+       
+       # Returning the resulting data frame 
+       return(datatable(winklerFinal))
+       
+     }
+     
+     }) # End of Winkler scorees render
+   
+#------------------------------------------------------------------------------#
+# Downloading the Winkler Scores -----------------------------------------------
+#------------------------------------------------------------------------------#
+# About: This section allows users to download the Winkler Scores data as a    #
+# '.csv' file to the directory of their choosing.                              #
+#------------------------------------------------------------------------------#
+   
+   ##############################################
+   # Creating the option to download the figure #
+   ##############################################
+   output$downloadWinkerData<- downloadHandler(
+     
+     ####################################
+     # Function to create the file-name #
+     ####################################
+     filename = function() {
+       
+       # File name 
+       paste("winkler-scores-", input$dataset, sep = "")
+       
+     },
+     
+     #############################
+     # Function to save the file #
+     #############################
+     content = function(file) {
+       
+       # Saving the file
+       write.csv(winklerSAVE$final, file, row.names = FALSE)
+       
+     }
+     
+   ) # End of download button  
+   
+#------------------------------------------------------------------------------#
+# Creating the Winkler Scores Figures ------------------------------------------
+#------------------------------------------------------------------------------#
+# About: This section creates the Winkler figures using the data from above.   #
+# For each location/group included in the data, a line plot is outputted where #
+# the y-axis is the Winkler Score and each line is a model. The resulting plot #
+# is then rendered to the main dashboard.                                      #
+#------------------------------------------------------------------------------#
+   
+   ################################################################
+   # Reactive value to save list of figures for later user-saving #
+   ################################################################
+   WinklerFiguresSave <- reactiveValues()
+   
+   #######################################
+   # Rendering the Winkler Socres Figure #
+   #######################################
+   output$winklerFigureAGGP <- renderPlot({
+     
+     ##############################
+     # Running if no error occurs #
+     ##############################
+     tryCatch({
+       
+       # Function to produce figures 
+       winklerFigures <- winkler.figure.AGGP(scoresFigure = winklerSAVE$final, # List of winkler scores 
+                                             locationWinklerFig = input$locationsWinklerMain, # Locations 
+                                             modelsWinklerFig = input$modelsWinklerMain) # Models
+       
+       # Saving output of function to a reactive value
+       WinklerFiguresSave$figures <- winklerFigures
+       
+    
+     ##############################
+     # Running if an error occurs #
+     ##############################
+     }, error = function(e){
+       
+       NULL
+       
+     }) # End of 'tryCatch'
+     
+     ##############################################
+     # Returning the figure to the main dashboard #
+     ##############################################
+     return(winklerFigures)
+     
+   }) # End of render
+   
+
+#------------------------------------------------------------------------------#
+# Creating the figures pop-up --------------------------------------------------
+#------------------------------------------------------------------------------#
+# About: This section creates the pop-up for the download button associated    #
+# with the figures box. It allows users to select the dpi, height, width,      #
+# unit of measurement for size, and type of photo. Additionally, it allows     #
+# users to download the figure with the user specifications.                   #
+#------------------------------------------------------------------------------#
+   
+   #################################
+   # Setting Figure Specifications #
+   #################################
+   observeEvent(input$downloadWinklerAGGP, {
+     
+     ################################
+     # Figure specification options #
+     ################################
+     isolate({
+       
+       showModal(modalDialog(
+         
+         title = "Figure Specifications",
+         numericInput("dpi", "Figure DPI:", value = 900),
+         numericInput("width", "Figure Width:", value = 9),
+         numericInput('height', 'Figure Height:', value = 5),
+         pickerInput("units", label = "Unit of Measurement:", choices = c("in", "cm", "mm", "px")),
+         pickerInput("extFig", label = "Figure Type:", choices = c("png", "eps", "pdf", "tiff", "jpeg", "svg")),
+         downloadButton("downloadWinklerFigAGGP", "Download Winkler Scores Figure"),
+         easyClose = TRUE
+         
+       ))
+       
+     }) # End of 'isolate' statement
+     
+   }) # End of 'observeEvent' statement
+   
+
+#------------------------------------------------------------------------------#
+# Downloading the Winkler Scores Figure ----------------------------------------
+#------------------------------------------------------------------------------#
+# About: This section creates the download handler for the Winkler figure. It  #
+# allows the user to click the download button, and save the figure to the     #
+# folder of their choosing.                                                    #
+#------------------------------------------------------------------------------#
+   
+   ##############################################
+   # Creating the option to download the figure #
+   ##############################################
+   output$downloadWinklerFigAGGP <- downloadHandler(
+     
+     ####################################
+     # Function to create the file-name #
+     ####################################
+     filename = function() {
+       
+       # Closing the figure specification 
+       removeModal()
+       
+       # Removing '.csv' 
+       fileName <- gsub('.csv', '', input$dataset)
+       
+       # File name 
+       paste(fileName, "-Winkler-Scores.", input$extFig, sep = "")
+       
+     },
+     
+     #############################
+     # Function to save the file #
+     #############################
+     content = function(file) {
+       
+       # Running with compression if using a '.tiff'
+       if(input$extFig == 'tiff'){
+         
+         # Saving the file
+         ggsave(file, plot = WinklerFiguresSave$figures, 
+                dpi = input$dpi,
+                width = input$width, 
+                height = input$height, 
+                units = input$units,
+                compression = "lzw")
+         
+         # Running without compression if not using a '.tiff'
+       }else{
+         
+         # Saving the file
+         ggsave(file, plot = WinklerFiguresSave$figures, 
+                dpi = input$dpi,
+                width = input$width, 
+                height = input$height, 
+                units = input$units)
+       }
+       
+     }) # End of saving the figure(s) 
+   
+#------------------------------------------------------------------------------#
+# Location Drop-Down for Skill Scores ------------------------------------------
+#------------------------------------------------------------------------------#
+# About: This section creates the locations drop-down for filtering the        #
+# skill scores by location. This filter applies both to the data and figure    #
+# boxes shown in the main dashboard.                                           #
+#------------------------------------------------------------------------------#
+   
+   ##################################
+   # Rending the location drop down #
+   ##################################
+   output$locationsSSMain <- renderUI({
+     
+     pickerInput("locationsSSMain", # ID for picker 
+                 label = NULL, # Removing the label 
+                 choices = c(input$locations), # Choices for picker 
+                 selected = c(input$locations), # Selected locations/group 
+                 multiple = T, # Allowing multiple options 
+                 width = "175px") # Width of picker 
+     
+   }) # End of 'renderUI'   
+   
+#------------------------------------------------------------------------------#
+# Creating the benchmark model drop down for skill Scores ----------------------
+#------------------------------------------------------------------------------#
+# About: This section creates the benchmark model drop-down for calculating    #
+# skill scores for either the average or crude metrics. This filter applied    #
+# both to the data and figure boxed shown in the main dashboard.               #
+#------------------------------------------------------------------------------#
+   
+   ##################################################
+   # Creating the model drop down for crude metrics #
+   ##################################################
+   output$BenchmarkSSMain <- renderUI({
+     
+     ###############################################
+     # Outputs if no model on the side is selected #
+     ###############################################
+     if(is.null(input$modelType)){
+       
+       pickerInput("BenchmarkSSMain", # Input ID for the model drop down 
+                   label = NULL, # Label
+                   selected = "Benchmark Model:", # Model type 
+                   choices = "Benchmark Model", # Choices 
+                   width = "175px", # Width of picker 
+                   multiple = F) # Allowing multiple options
+       
+     ####################################
+     # Outputs if model(s) are selected #
+     ####################################
+     }else{
+       
+       # Runs if working with model fit 
+       if(input$metricsToShow == "Model Fit"){
+         
+         # Options to show
+         optionsPicker <- c(input$modelType[input$modelType != "ARIMA"])
+         
+       # Runs if working with forecast metrics 
+       }else{
+         
+         # Options to show
+         optionsPicker <- c(input$modelType)
+         
+       }
+       
+       ##############################
+       # Rendering the picker input #
+       ##############################
+       pickerInput("BenchmarkSSMain", # Input ID for the model drop down 
+                   label = "Benchmark Model", 
+                   inline = T, 
+                   selected = "Benchmark Model", # Model type 
+                   choices = optionsPicker, # Choices 
+                   width = "fit", # Width of picker 
+                   multiple = F) # Allowing multiple options
+       
+     } # End of else 
+     
+   }) # End of 'render'     
+   
+#------------------------------------------------------------------------------#
+# Creating the comparison model(s) drop down for skill Scores ------------------
+#------------------------------------------------------------------------------#
+# About: This section creates the comparison model drop-down for calculating   #
+# skill scores for either the average or crude metrics. This filter applied    #
+# both to the data and figure boxed shown in the main dashboard.               #
+#------------------------------------------------------------------------------#
+   
+   ##################################################
+   # Creating the model drop down for crude metrics #
+   ##################################################
+   output$ComparisonSSMain <- renderUI({
+     
+     ###############################################
+     # Outputs if no model on the side is selected #
+     ###############################################
+     if(is.null(input$modelType)){
+       
+       pickerInput("ComparisonSSMain", # Input ID for the model drop down 
+                   label = NULL, # Label
+                   selected = "Comparison Model(s)", # Model type 
+                   choices = "Comparison Model(s)", # Choices 
+                   width = "175px", # Width of picker 
+                   multiple = T) # Allowing multiple options
+       
+       ####################################
+       # Outputs if model(s) are selected #
+       ####################################
+     }else{
+       
+       # Runs if working with model fit 
+       if(input$metricsToShow == "Model Fit"){
+         
+         # Filtering out the benchmark model
+         filteredLocations <- input$modelType[input$modelType != input$BenchmarkSSMain]
+         
+         # Options to show
+         optionsPicker <- c(filteredLocations[filteredLocations != "ARIMA"])
+         
+         # Runs if working with forecast metrics 
+       }else{
+         
+         # Filtering out the benchmark model
+         filteredLocations <- input$modelType[input$modelType != input$BenchmarkSSMain]
+         
+         # Options to show
+         optionsPicker <- c(filteredLocations)
+         
+       }
+       
+       ##############################
+       # Rendering the picker input #
+       ##############################
+       pickerInput("ComparisonSSMain", # Input ID for the model drop down 
+                   label = "Comparison Model(s):", 
+                   selected = "Comparison Model(s)", # Model type 
+                   choices = optionsPicker, # Choices 
+                   width = "fit", # Width of picker 
+                   inline = T, # Inline label 
+                   multiple = T) # Allowing multiple options
+       
+     } # End of else 
+     
+   }) # End of 'render' 
+      
+         
+#------------------------------------------------------------------------------#
+# Producing the skill scores ---------------------------------------------------
+#------------------------------------------------------------------------------#
+# About: This section calculates the skill scores for the average or crude     #
+# metrics. The user can select the benchmark and comparison models, and also   #
+# filter the scores by location.                                               #
+#------------------------------------------------------------------------------#
+   
+   ##########################################
+   # Reactive value to save skill scores in #
+   ##########################################
+   skillScoresAGGP <- reactiveValues()
+   
+   ########################################
+   # Observing changes in reactive values #
+   ########################################
+   observe({
+     
+     ###########################
+     # Runs if no errors occur #
+     ###########################
+     tryCatch({
+       
+       #####################################
+       # Runs if the model fit is selected #
+       #####################################
+       if(input$metricsToShow == "Model Fit"){
+         
+         # Model fit metrics 
+         CrudeMetrics <- modelFitMetricsList$fitMetrics
+         
+         # Winkler scores for model fit metrics 
+         winklerScoresInput <- winklerScoresAGGP$scores %>%
+           dplyr::filter(CalibrationIndicator == 1)
+         
+       ########################################
+       # Runs if forecast metrics is selected #
+       ########################################
+       }else{
+         
+         # Forecast performance metrics
+         CrudeMetrics <- forecastMetricsListCrude$forecastMetrics
+         
+         # Winkler scores for forecast metrics 
+         winklerScoresInput <- winklerScoresAGGP$scores %>%
+           dplyr::filter(CalibrationIndicator == 0)
+  
+       }
+     
+       ######################################
+       # Function to calculate skill scores #
+       ######################################
+       skillScores <- skill.scores.AGGP(averageIndicator= input$avgSSOptions, 
+                                        locationsFilter = input$locationsSSMain, 
+                                        CrudeMetrics = CrudeMetrics,
+                                        benchModel = input$BenchmarkSSMain, 
+                                        compModels = input$ComparisonSSMain,
+                                        winklerScoresInput = winklerScoresInput)
+       
+       # Saving the output to a reactive value
+       skillScoresAGGP$scores <- skillScores
+     
+     #############################
+     # Runs with an error occurs #
+     #############################
+     }, error = function(e){
+       
+       NULL
+       
+     }) # End of tryCatch
+     
+   }) # End of 'observe'
+     
+     
+#------------------------------------------------------------------------------#
+# Rendering the skill scores data ----------------------------------------------
+#------------------------------------------------------------------------------#
+# About: This section renders the skill scores the to the main dashboard.      #
+#------------------------------------------------------------------------------#
+   
+   ############################
+   # Rendering the data frame #
+   ############################
+   output$skillScoresAGGPData <- renderDataTable({
+     
+     ###########################
+     # Runs if no errors occur #
+     ###########################
+     tryCatch({
+       
+       # Returning the data frame
+       return(datatable(skillScoresAGGP$scores))
+     
+     ###########################
+     # Runs if an error occurs #
+     ###########################
+     }, error = function(e){
+       
+       NULL
+       
+     }) # End of 'tryCatch'
+     
+   }) # End of 'render'
+   
+#------------------------------------------------------------------------------#
+# Downloading the skill scores as a '.csv' -------------------------------------
+#------------------------------------------------------------------------------#
+# About: This section provides interactivity to download button. Therefore, it #
+# allows users to download the skill scores data as a '.csv' file to the       #
+# directory of their choosing.                                                 #
+#------------------------------------------------------------------------------#
+   
+   output$downloadSSData <- downloadHandler(
+     
+     ####################################
+     # Function to create the file-name #
+     ####################################
+     filename = function() {
+       
+       # File name 
+       paste("skill-scores-", input$dataset, sep = "")
+       
+     },
+     
+     #############################
+     # Function to save the file #
+     #############################
+     content = function(file) {
+       
+       # Saving the file
+       write.csv(skillScoresAGGP$scores, file, row.names = FALSE)
+       
+     }
+     
+   ) # End of download button
+  
+       
+       
+
+         
+
+                          
+       
+
+     
+
+     
+
 
 
 # Reading in additional models -------------------------------------------------
    
+#------------------------------------------------------------------------------#
+# Data Formatting Pop-up Message -----------------------------------------------
+#------------------------------------------------------------------------------#
+# 
+   
+   
+   # observeEvent(input$my_picker, {
+   # 
+   #   isolate({
+   #  if(input$my_picker == "Model Comparison"){
+   # 
+   # modalDialog(
+   #   "...",
+   #   title = NULL,
+   #   footer = modalButton("Dismiss"),
+   #   size = c("l"),
+   #   easyClose = FALSE
+   # )
+   #    
+   #  }
+   # 
+   #   })
+   # 
+   # })
+   
+  
 #------------------------------------------------------------------------------#
 # Reading in multiple files ----------------------------------------------------
 #------------------------------------------------------------------------------#
@@ -5650,22 +6959,18 @@ server <- function(input, output, session) {
   observe({
     
     tryCatch({
-      
-      formatted.forecast.input <<- foremattedForecasts$forecasts # Formatted figures
-      data.type.input <<- dateValues$dates # Date type 
-      formatted.forecast.Other.input <<- filesOtherModels()
-      
+
       #######################################################
       # Function to produce the individual forecast figures #
       #######################################################
-      # OtherpanelOutput <<- other.panel.forecast.figures(formatted.forecast.input <- foremattedForecasts$forecasts, # Formatted figures
-      #                                                  data.type.input = dateValues$dates, # Date type 
-      #                                                  formatted.forecast.input = filesOtherModels()) # Read in forecasts 
-      # 
+      OtherpanelOutput <<- other.panel.forecast.figures(formatted.forecast.input = foremattedForecasts$forecasts, # Formatted figures
+                                                       date.type.input = dateValues$dates, # Date type
+                                                       formatted.forecast.Other.input = filesOtherModels()) # Read in forecasts
+
       # Saving the output to the reactive value list
       PanelOtherPlots$figures <- OtherpanelOutput
      
-     
+      
     }, error = function(e){
       
       NULL
@@ -5673,6 +6978,206 @@ server <- function(input, output, session) {
     })
     
   })
+  
+#------------------------------------------------------------------------------#
+# Creating the previous and next arrows for the other panel figures ------------
+#------------------------------------------------------------------------------#
+# About: This section creates the reactive value, and previous and next arrow  #
+# buttons for the panel other model figures. It then gives functionality to    #
+# the buttons as its related to going through the list of figures.             #
+#------------------------------------------------------------------------------#
+  
+  #######################################################################
+  # Creating the reactive value to be used with the other pabel buttons #
+  #######################################################################
+  current_index_Panels <- reactiveVal(1)
+  
+  #################################################
+  # Going backwards if the previous button is hit #
+  #################################################
+  observeEvent(input$otherFigsPanelsPrevious, {
+    
+    # Isolating the action to only when the button is clicked
+    isolate({
+      
+      # Running if the current index is greater than one
+      if(current_index_Panels() > 1){
+        
+        # Changing the index of the reactive value
+        current_index_Panels(max(current_index_Panels() - 1))
+        
+      }
+      
+    }) # End of 'isolate' statement
+    
+  }) # End of 'observeEvent' statement
+  
+  ############################################
+  # Going forwards if the next button is hit #
+  ############################################
+  observeEvent(input$otherFigsPanelsNext, {
+    
+    # Isolating the action to only when the button is clicked
+    isolate({
+      
+      # Run if the current index is less than the length of the list
+      if (current_index_Panels() < length(PanelOtherPlots$figures)) {
+        
+        # Changing the index of the reactive value
+        current_index_Panels(min(current_index_Panels() + 1))
+        
+      }
+      
+    }) # End of 'isolate' statement
+    
+  }) # End of 'observeEvent' statement   
+  
+#------------------------------------------------------------------------------#
+# Rendering the plotly figure --------------------------------------------------
+#------------------------------------------------------------------------------#
+# About: This section renders the plotly figure that correspond to the panels  #
+# of figures of both read-in and ARIMA/GLM/GAM/Prophet figures.                #
+#------------------------------------------------------------------------------#
+  
+  ###############################
+  # Rendering the plotly figure #
+  ###############################
+  
+  # Try to produce the figure 
+  tryCatch({
+    
+    output$otherModelPanelFigure <- renderPlot({PanelOtherPlots$figures[[current_index_Panels()]]})
+    
+    # Runs if error occurs 
+    }, error = function(e){
+    
+      output$otherModelPanelFigure <- NULL
+      
+    })
+  
+#------------------------------------------------------------------------------#
+# Creating the download handler for the panel figures --------------------------
+#------------------------------------------------------------------------------#
+# About: This section enables the downloading of the forecast figures to the   #
+# folder of the user's choosing.                                               #
+#------------------------------------------------------------------------------#
+  
+  #################################################
+  # Message that pops up with downloading options #
+  #################################################
+  
+  #################################
+  # Setting Figure Specifications #
+  #################################
+  observeEvent(input$downloadOtherForecastsPanels, {
+    
+    ################################
+    # Figure specification options #
+    ################################
+    isolate({
+      
+      showModal(modalDialog(
+        
+        title = "Figure Specifications",
+        numericInput("dpi", "Figure DPI:", value = 900),
+        numericInput("width", "Figure Width:", value = 9),
+        numericInput('height', 'Figure Height:', value = 5),
+        pickerInput("units", label = "Unit of Measurement:", choices = c("in", "cm", "mm", "px")),
+        pickerInput("extFig", label = "Figure Type:", choices = c("png", "eps", "pdf", "tiff", "jpeg", "svg")),
+        downloadButton("downloadOtherFigsPanels", "Download Forecast Figures"),
+        easyClose = TRUE
+        
+      )) 
+      
+    })
+    
+  })  
+  
+  ##########################
+  # Downloading the images #
+  ##########################
+  output$downloadOtherFigsPanels <- downloadHandler(
+    
+    ####################
+    # Filename for ZIP #
+    ####################
+    filename = function(){
+      
+      paste("other-panel-forecast-figures.zip", sep = "")
+      
+    },
+    
+    ############################################
+    # Determining what should be in the folder #
+    ############################################
+    content = function(file){
+      
+      # Removing the message
+      removeModal()
+      
+      # Creating a temp directory for files 
+      temp_directory <- file.path(tempdir(), as.integer(Sys.time()))
+      
+      # Physically creating the directory 
+      dir.create(temp_directory)
+      
+      # Saving the ggplots 
+      for (plot_name in names(PanelOtherPlots$figures)) {
+        
+        # Plot 
+        plot_obj <- PanelOtherPlots$figures[[plot_name]]
+        
+        # If plot is found 
+        if (!is.null(plot_obj)) {
+          
+          # File name 
+          file_name <- glue("{plot_name}.{input$extFig}")
+          
+          # TIFF file 
+          if(input$extFig == ".tiff"){
+            ggsave(
+              file.path(temp_directory, file_name),
+              plot = plot_obj,
+              dpi = input$dpi,
+              width = input$width,
+              height = input$height,
+              units = input$units,
+              device = input$extFig,
+              compression = "lzw")
+            
+          }else{
+            
+            # All other image types
+            ggsave(
+              file.path(temp_directory, file_name),
+              plot = plot_obj,
+              dpi = input$dpi,
+              width = input$width,
+              height = input$height,
+              units = input$units,
+              device = input$extFig)
+            
+          }
+          
+        }
+        
+      }
+      
+      #####################
+      # Create a zip file #
+      #####################
+      zip::zip(
+        zipfile = file,
+        files = dir(temp_directory),
+        root = temp_directory
+      )
+      
+    },
+    
+    contentType = "application/zip"
+    
+  )
+  
   
 }
 

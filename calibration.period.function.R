@@ -5,16 +5,17 @@
 #------------------------------------------------------------------------------#
 # About:                                                                       #
 #                                                                              #
-# This function takes in information related to the user selcted calibration   #
-# period, the orignal data, and the vector of forecast dates from the previous #
+# This function takes in information related to the user selected calibration  #
+# period, the original data, and the vector of forecast dates from the previous#
 # function. It then creates a list of calibration periods (i.e., one entry for #
 # for each forecast period). The list is then used in conducting forecasts,    #
 # plotting, and evaluating performance metrics.                                #
 #------------------------------------------------------------------------------#
-# Author: Amanda Bleichrodt                                                    #
+#                       Author: Amanda Bleichrodt                              #
 #------------------------------------------------------------------------------#
 calibration.period.function <- function(crude.data.input, calibration.period.input,
                                         forecast.period.input, date.input){
+  
 #------------------------------------------------------------------------------#
 # Reading in inputs from the main script ---------------------------------------
 #------------------------------------------------------------------------------#
@@ -41,7 +42,6 @@ forecast.period.range <- forecast.period.input
 # Date sequencer #
 ##################
 dateSeq <- date.input
-
 
 
 #------------------------------------------------------------------------------#

@@ -10,7 +10,7 @@
 #------------------------------------------------------------------------------#
 # Author: Amanda Bleichrodt                                                    #
 #------------------------------------------------------------------------------#
-timeseries.figure.function <- function(crude.data.input, location.input,
+timeseries.figure.function <- function(timeseries.input, location.input,
                                        dateType.input, forecastLineShow,
                                        forecastDatesStart, forecastDatesEnd){
   
@@ -21,10 +21,10 @@ timeseries.figure.function <- function(crude.data.input, location.input,
 # names to be used for the function.                                           #
 #------------------------------------------------------------------------------#
 
-####################
-# Crude data input #
-####################
-crude.data <<- crude.data.input
+#########################
+# Timeseries data input #
+#########################
+timeseries.data <- timeseries.input
 
 #######################
 # Location data input #
@@ -34,7 +34,7 @@ locations <- location.input
 ###################
 # Date Type input #
 ###################
-dateType <<- dateType.input
+dateType <- dateType.input
 
 ###############################################
 # Indicator if forecast lines should be shown #
@@ -70,7 +70,6 @@ if(length(locations) == 0){
   
 }
 
-
 #------------------------------------------------------------------------------#
 # Filtering data based on selected locations -----------------------------------
 #------------------------------------------------------------------------------#
@@ -81,20 +80,12 @@ if(length(locations) == 0){
 ##################################
 # Setting a standard date header #
 ##################################
-names(crude.data)[1] <- "Dates"
-
-#############################################################
-# Filtering the data shown based on user selected locations #
-#############################################################
-
-# Selecting columns related to dates and locations 
-data.for.plot <- crude.data %>%
-  dplyr::select(Dates, all_of(locations)) # Filtering locations 
+names(timeseries.data)[1] <- "Dates"
 
 ##########################
 # Data from wide to long #
 ##########################
-data.for.plot <- data.for.plot %>%
+data.for.plot <- timeseries.data %>%
   pivot_longer(-Dates, names_to = "Location", values_to = "Count")
 
 #------------------------------------------------------------------------------#

@@ -6,8 +6,8 @@
 # About:                                                                       #
 #                                                                              #
 # This file reads in the formatted forecasts created during an earlier step in #
-# the toolbox and the date type of the orignal data. It then merges all of the #
-# data together and forms panel plots for the avaliable data.                  #
+# the toolbox and the date type of the original data. It then merges all of the#
+# data together and forms panel plots for the available data.                  #
 #------------------------------------------------------------------------------#
 #                         By: Amanda Bleichrodt                                #
 #------------------------------------------------------------------------------#
@@ -221,7 +221,7 @@ for(i in 1:length(formatted.forecast.Figure)){
         xAxisBreaks <- scale_x_continuous(breaks = seq.Date(min(anydate(dataFilteredFinal$dates)), max(anydate(dataFilteredFinal$dates)), by = 7))  # X-axis breaks
         
         # Checking for large number of dates
-        if(length(xAxisBreaks) > 10){
+        if(length(xAxisBreaks) > 15){
           
           xAxisBreaks <- scale_x_continuous(breaks = seq.Date(min(anydate(dataFilteredFinal$dates)), max(anydate(dataFilteredFinal$dates)), by = "2 weeks"))  # X-axis breaks
           
@@ -242,7 +242,7 @@ for(i in 1:length(formatted.forecast.Figure)){
         xAxisBreaks <- scale_x_continuous(breaks = seq(min(dataFilteredFinal$dates), max(dataFilteredFinal$dates), by = 1))  # X-axis breaks
         
         # Checking for large number of dates
-        if(length(xAxisBreaks) > 10){
+        if(length(xAxisBreaks) > 15){
           
           xAxisBreaks <-  scale_x_continuous(breaks = seq(min(dataFilteredFinal$dates), max(dataFilteredFinal$dates), by = 2))  # X-axis breaks
           

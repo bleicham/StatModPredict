@@ -15,12 +15,12 @@ AverageMetricsPanel <- function(avgMetrics.input, dateType.input){
   ########################################
   # Reading in the list of crude metrics #
   ########################################
-  crude.metric.input.AM <<- avgMetrics.input
+  crude.metric.input.AM <- avgMetrics.input
   
   ####################################
   # Reading in the type of date data #
   ####################################
-  dateType.AM <<- dateType.input
+  dateType.AM <- dateType.input
   
   ###############################
   # Empty data frame for graphs #

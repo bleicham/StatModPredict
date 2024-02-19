@@ -39,22 +39,22 @@ forecastingMetrics <- function(crude.data.input, horizon.input,
   #############################
   # Reading in the crude data #
   #############################
-  data.input.FM <<- crude.data.input
+  data.input.FM <- crude.data.input
   
   ###############################
   # Saving the forecast horizon #
   ###############################
-  horizon.input.FM <<- as.numeric(horizon.input)
+  horizon.input.FM <- as.numeric(horizon.input)
   
   #############
   # Date type #
   #############
-  date.Type.input.FM <<- date.Type.input
+  date.Type.input.FM <- date.Type.input
   
   ##############################
   # List of quantile forecasts #
   ##############################
-  quantile.forecast.input.FM <<- quantile.list.input 
+  quantile.forecast.input.FM <- quantile.list.input 
   
   ######################################
   # Empty list to add forecast metrics #

@@ -30,7 +30,7 @@
 
 ARIMA <- function(calibration.input, horizon.input, 
                   smoother.input, parameter.input, seasonality.input){
-  
+ 
 #------------------------------------------------------------------------------#
 # Function Inputs --------------------------------------------------------------
 #------------------------------------------------------------------------------#
@@ -41,27 +41,27 @@ ARIMA <- function(calibration.input, horizon.input,
   ######################################
   # Reading in the calibration periods #
   ######################################
-  calibration.periods.A <<- calibration.input
+  calibration.periods.A <- calibration.input
 
   ##################################
   # Saving the forecasting horizon #
   ##################################
-  horizon.input.A <<- horizon.input
+  horizon.input.A <- horizon.input
 
   #####################
   # Smoothing of data #
   #####################
-  smoothing.input.A <<- smoother.input
+  smoothing.input.A <- smoother.input
 
   #######################
   # Parameter Selection #
   #######################
-  parameter.selection.arima.input.A <<- parameter.input
+  parameter.selection.arima.input.A <- parameter.input
   
   ###############
   # Seasonality #
   ###############
-  seasonality.input.A <<- seasonality.input
+  seasonality.input.A <- seasonality.input
   
   ########################################
   # Creating an empty list for quantiles #
@@ -132,6 +132,7 @@ ARIMA <- function(calibration.input, horizon.input,
     # Looping through locations #
     #############################
     for(i in 1:ncol(timeseries.no.date)){
+      
 #------------------------------------------------------------------------------#
 # Setting up the information needed for each iteration of the location loop ----
 #------------------------------------------------------------------------------#
@@ -218,7 +219,7 @@ ARIMA <- function(calibration.input, horizon.input,
       # indicates that the # time series starts at the first value of the
       # vector read into the ts() function ('sdata') and the # frequency = 1
       # indicates that there is only one "observation" per unit of time
-      sdata.ts <<- ts(data, start=1, frequency=as.numeric(seasonality.input.A))
+      sdata.ts <- ts(data, start=1, frequency=as.numeric(seasonality.input.A))
 
       ###########################
       # Fitting the ARIMA model #

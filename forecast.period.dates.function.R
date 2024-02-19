@@ -13,11 +13,18 @@
 # occur, the function outputs a vector of forecasting periods to be used in a  #
 # loop in the `Running_Forecast.R` file.                                       #
 #------------------------------------------------------------------------------#
-# Author: Amanda Bleichrodt                                                    #
+#                      Author: Amanda Bleichrodt                               #
 #------------------------------------------------------------------------------#
 
 forecast.period.dates.function <- function(date.Type.input, start.input, 
                                            end.input, date.seq.input, dates.input){
+  
+#------------------------------------------------------------------------------#
+# Creating the 'not-in' function -----------------------------------------------
+#------------------------------------------------------------------------------#
+# About: This section creates the 'not-in' function. Therefore, `%!in%` now    #
+# can be used as the inverse of the built-in `%in%` function.                  #
+#------------------------------------------------------------------------------#
   
   `%!in%` <- function(x, y) {
     
