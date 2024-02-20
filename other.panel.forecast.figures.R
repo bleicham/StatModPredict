@@ -28,17 +28,17 @@ other.panel.forecast.figures <- function(formatted.forecast.input,
   ###########################
   # Formatted Forecast list #
   ###########################
-  formatted.forecast.Figure <- formatted.forecast.input
+  formatted.forecast.Figure <<- formatted.forecast.input
   
   ############################################
   # Reading in the other formatted forecasts #
   ############################################
-  other.formatted.forecasts <- formatted.forecast.Other.input
+  other.formatted.forecasts <<- formatted.forecast.Other.input
   
   #############
   # Date type #
   #############
-  date.Figure <- date.type.input
+  date.Figure <<- date.type.input
   
   ###############################################################
   # Creating and empty list for figures - Forecast period dates #
@@ -532,7 +532,7 @@ other.panel.forecast.figures <- function(formatted.forecast.input,
   for(i in 1:length(ListtoExport)){
     
     # Update figure name
-    names(ListtoExport)[i] <- OtherpanelOutput[[i]][["labels"]][["title"]]
+    names(ListtoExport)[i] <- ListtoExport[[i]][["labels"]][["title"]]
     
   }
 
