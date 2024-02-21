@@ -65,6 +65,7 @@ source("other.panel.forecast.figures.R")
 source("winkler.scores.AGGP.R") 
 source("winkler.figure.AGGP.R")
 source("skill.scores.AGGP.R")
+source("skill.scores.figures.AGGP.R")
 
 #------------------------------------------------------------------------------#
 #                             Needed Packages                                  #
@@ -72,7 +73,8 @@ source("skill.scores.AGGP.R")
 pacman::p_load(MASS, shiny, shinydashboard, shinyWidgets, bslib, plotly, anytime,
                shinyalert, shinyjs, shinybusy, editData, shinyBS, DT, stringr,
                tidyverse, forstringr, mgcv, processx, ggpubr, shinyalert, forecast, 
-               prophet, zip, glue, shinyjqui, patchwork, ggplot2, zoo, gridExtra)
+               prophet, zip, glue, shinyjqui, patchwork, ggplot2, zoo, gridExtra,
+               viridis)
 
 #------------------------------------------------------------------------------#
 #                            User Interface                                    #
@@ -1535,7 +1537,7 @@ fluidRow(
                    condition = "input.SSFig",
                    
                    # Rendering the data frame
-                   #plotOutput("winklerFigureAGGP")
+                   plotOutput("SSFigureAGGP")
                    
                  ), # End of condition for data
                  
@@ -1554,7 +1556,7 @@ fluidRow(
                column( 
                  
                  # Column width 
-                 width = 12, 
+                 width = 10, 
                  
                  # Overall style for row 
                  div(style = "display:flex; vertical-aline: top",
@@ -1605,18 +1607,36 @@ fluidRow(
                      #######################################
                      div(checkboxInput("SSFig", "Show Figure"))
                      
-                     
                  ) # End of style
+                 
+               ), # End of column 
+               
+               ##################################################
+               # Conditional Panel: Creating arrows if crude SS #
+               ##################################################
+               
+               # Alignment column
+               column(
+                 
+                 # Width 
+                 width = 2,
+                 
+                 # Conditional panel 
+                 conditionalPanel(
+                   
+                   # Condition
+                   condition = "input.avgSSOptions",
+                   
+                   # Creating the buttons 
+                   div(style = "display: flex; justify-content: flex-end; align-items: center;",
+                       actionButton(inputId = "PreviousSS", label = icon("arrow-left")),
+                       actionButton(inputId = "NextSS", label = icon("arrow-right")))
+                   
+                 ), # End of condition
                  
                ) # End of alignment column 
                
              ) # End of options row
-             
-             
-             
-             
-             
-             
              
     ) # End of tab box
     
@@ -1624,11 +1644,12 @@ fluidRow(
   
 ) # End of fluidRow
 
-      
+
   ) # Column alignment overall
 
 ), # End of Page 2 conditional panel 
-                
+             
+              
 
 #------------------------------------------------------------------------------#
 # Page 3: Handling the other forecasts and metrics -----------------------------
@@ -2740,7 +2761,7 @@ server <- function(input, output, session) {
         # Sub-setting data to keep date column and locations of interest
         data <- data %>%
           dplyr::select(dateHeader, all_of(locations))
-        
+
         #############################################
         # Calibration period input selected by user #
         #############################################
@@ -4450,7 +4471,22 @@ server <- function(input, output, session) {
      
    }) # End of 'observe' statement 
    
-
+   
+#------------------------------------------------------------------------------#
+# Resetting the index for formatted forecast for panel figures -----------------
+#------------------------------------------------------------------------------#
+# About: This section fixes an error that occurs when the current index is     #
+# larger than the number of panel figures. Therefore, when the panel figure    #
+# button is clicked, the current index resets.                                 #
+#------------------------------------------------------------------------------#
+   
+   observeEvent(input$panelModelsForecasts, {
+     
+     current_index_formatted(1)
+     
+   })
+   
+   
 #------------------------------------------------------------------------------#
 # Producing list of forecast figure panels -------------------------------------
 #------------------------------------------------------------------------------#
@@ -6604,7 +6640,60 @@ server <- function(input, output, session) {
      
    ) # End of download button
   
+#------------------------------------------------------------------------------#
+# Creating the figures for skill scores ----------------------------------------
+#------------------------------------------------------------------------------#
+# About: This section calls the skill scores figure function, and produces the #
+# reactive value with the figures to return to the main dashboard.             #
+#------------------------------------------------------------------------------#
+   
+   ##################################
+   # Reactive value to save figures #
+   ##################################
+   skillScoresFigs <- reactiveValues()
+   
+   ############################################
+   # Observing changes in the reactive values #
+   ############################################
+   observe({
+     
+     # Runs if no error occurs
+     tryCatch({
+     
+       #####################################
+       # Creating the skill scores figures #
+       #####################################
+       ssFigOutput <<- skill.scores.figures.AGGP(skillScores = skillScoresAGGP$scores)
        
+       # Saving the output to the reactive value
+       skillScoresFigs$figList <- ssFigOutput
+       
+     # Runs if error occurs
+     }, error = function(e){
+       
+       NULL
+       
+     })
+
+   }) # End of 'observe'
+   
+#------------------------------------------------------------------------------#
+# Rendering the plot for skill scores ------------------------------------------
+#------------------------------------------------------------------------------#
+# About: This section renders the skill scores figure, either the average plot #
+# or indexed crude plot.                                                       #
+#------------------------------------------------------------------------------#
+   
+   output$SSFigureAGGP <- renderPlot({ skillScoresFigs$figList 
+     
+     
+   })
+     
+     
+     
+     
+   
+
        
 
          
