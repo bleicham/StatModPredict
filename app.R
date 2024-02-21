@@ -976,13 +976,16 @@ conditionalPanel(
     ###########################################
     fluidRow(
 
-      ##############################################
-      # Creating a box for crude model fit metrics #
-      ##############################################
+      #################################################
+      # Creating a box for avgerage model fit metrics #
+      #################################################
       box(
 
         # Setting the box width
         width = 12,
+        
+        # Title
+        title = "Average Metrics",
     
         ############################################
         # First row of the box - Showing the Title #
@@ -1556,7 +1559,7 @@ fluidRow(
                column( 
                  
                  # Column width 
-                 width = 10, 
+                 width = 11, 
                  
                  # Overall style for row 
                  div(style = "display:flex; vertical-aline: top",
@@ -1583,7 +1586,7 @@ fluidRow(
                        condition = "input.SSFig",
                        
                        # Creating the download button - Data
-                       div(actionButton("downloadSSAGGP", "Download Figures", style = "margin-right: 10px"))
+                       #div(actionButton("downloadSSAGGP", "Download Figures", style = "margin-right: 10px"))
                        
                      ),
                      
@@ -1619,13 +1622,13 @@ fluidRow(
                column(
                  
                  # Width 
-                 width = 2,
+                 width = 1,
                  
                  # Conditional panel 
                  conditionalPanel(
                    
                    # Condition
-                   condition = "input.avgSSOptions",
+                   condition = "!input.avgSSOptions & input.SSFig",
                    
                    # Creating the buttons 
                    div(style = "display: flex; justify-content: flex-end; align-items: center;",
@@ -6659,7 +6662,7 @@ server <- function(input, output, session) {
      
      # Runs if no error occurs
      tryCatch({
-     
+       
        #####################################
        # Creating the skill scores figures #
        #####################################
@@ -6678,35 +6681,102 @@ server <- function(input, output, session) {
    }) # End of 'observe'
    
 #------------------------------------------------------------------------------#
+# Creating the forward and backwards arrows for the SS figures   ---------------
+#------------------------------------------------------------------------------#
+# About: This section provides the functionality for the forward and back      #
+# arrows for going through the skill scores figures                            #
+#------------------------------------------------------------------------------#
+   
+   ###################################################################
+   # Creating the reactive value to be used with the metrics buttons #
+   ###################################################################
+   current_index_skillScores <- reactiveVal(1)
+   
+   #################################################
+   # Going backwards if the previous button is hit #
+   #################################################
+   observeEvent(input$PreviousSS, {
+     
+     # Isolating the action to only when the button is clicked
+     isolate({
+       
+       # Running if the current index is greater than one
+       if(current_index_skillScores() > 1){
+         
+         # Changing the index of the reactive value
+         current_index_skillScores(max(current_index_skillScores() - 1))
+         
+       }
+       
+     }) # End of 'isolate' statement
+     
+   }) # End of 'observeEvent' statement
+   
+   ############################################
+   # Going forwards if the next button is hit #
+   ############################################
+   observeEvent(input$NextSS, {
+     
+     # Isolating the action to only when the button is clicked
+     isolate({
+       
+       # Run if the current index is less than the length of the list
+       if (current_index_skillScores() < length(skillScoresFigs$figList)) {
+         
+         # Changing the index of the reactive value
+         current_index_skillScores(min(current_index_skillScores() + 1))
+         
+       }
+       
+     }) # End of 'isolate' statement
+     
+   }) # End of 'observeEvent' statement   
+   
+#------------------------------------------------------------------------------#
+# Resetting the index value  ---------------------------------------------------
+#------------------------------------------------------------------------------#
+# About: This section resets the current index to zero if the average metrics  #
+# button is hit.                                                               #
+#------------------------------------------------------------------------------#
+   
+   ########################################
+   # Observing changes in reactive values #
+   ########################################
+   observe({
+     
+     # Runs if no errors occur 
+     tryCatch({
+       
+         # Running if working with average figure
+         if(length(skillScoresFigs$figList) == 1 | is.na(skillScoresFigs$figList) | is.null(skillScoresFigs$figList) | length(skillScoresFigs$figList) == 0){
+           
+           current_index_skillScores(1)
+           
+         }
+       
+       }, error = function(e){
+       
+       NULL
+         
+     })
+     
+     }) # End of observe
+   
+#------------------------------------------------------------------------------#
 # Rendering the plot for skill scores ------------------------------------------
 #------------------------------------------------------------------------------#
 # About: This section renders the skill scores figure, either the average plot #
 # or indexed crude plot.                                                       #
 #------------------------------------------------------------------------------#
    
-   output$SSFigureAGGP <- renderPlot({ skillScoresFigs$figList 
+   output$SSFigureAGGP <- renderPlot({
      
+     
+      return(skillScoresFigs$figList[[current_index_skillScores()]])
+       
      
    })
      
-     
-     
-     
-   
-
-       
-
-         
-
-                          
-       
-
-     
-
-     
-
-
-
 # Reading in additional models -------------------------------------------------
    
 #------------------------------------------------------------------------------#

@@ -212,7 +212,8 @@ other.panel.forecast.figures <- function(formatted.forecast.input,
       data.for.plot <- formatted.forecast.Figure[[i]] %>% # Re-naming the orginal data 
         dplyr::mutate(median = ifelse(is.na(median), data, median), # Handling NAs for the median model fit
                       LB = ifelse(is.na(LB), data, LB), # Handling the NAs for the LB model fit
-                      UB = ifelse(is.na(UB), data, UB)) # Handling the NAs for the UB model fit
+                      UB = ifelse(is.na(UB), data, UB), # Handling the NAs for the UB model fit
+                      data = ifelse(is.na(data), median, data)) # Handling the NAs for the data
       
     ###############################################
     # Handling the NAs in the data - Other models #

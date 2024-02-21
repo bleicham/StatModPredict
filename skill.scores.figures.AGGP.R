@@ -24,7 +24,7 @@ skill.scores.figures.AGGP <- function(skillScores){
 #######################
 # Skill scores inputs #
 #######################
-skillScores.input <- skillScores
+skillScores.input <<- skillScores
 
 ################################
 # List of skill scores figures #
@@ -68,7 +68,11 @@ locationsCount <- length(unique(skillScores.input$Location))
 ###################################################
 # Determining the number of forecast period dates #
 ###################################################
-datesCount <- length(unique(skillScores.input$`Forecast Date`))
+if(crudeScores == 1){
+  
+  datesCount <- length(unique(skillScores.input$`Forecast Date`))
+  
+}
 
 
 #------------------------------------------------------------------------------#
@@ -81,16 +85,20 @@ datesCount <- length(unique(skillScores.input$`Forecast Date`))
 ##############################################
 # Handling the dates - Weekly and Daily data #
 ##############################################
-if(nchar(as.character(skillScores.input[1,2])) > 4){
+if(crudeScores == 1){
   
-  xAxisBreaks <- scale_x_continuous(breaks = seq.Date(min(anytime::anydate(skillScores.input$`Forecast Date`)), max(anytime::anydate(skillScores.input$`Forecast Date`)), by = 7))  # X-axis breaks
-  
-  ##############################################
-  # Handling the dates - Yearly and time index #
-  ##############################################
-}else{
-  
-  xAxisBreaks <- scale_x_continuous(breaks = seq(min(skillScores.input$`Forecast Date`), max(skillScores.input$`Forecast Date`), by = 1))  # X-axis breaks
+  if(nchar(as.character(skillScores.input[1,2])) > 4){
+    
+    xAxisBreaks <- scale_x_continuous(breaks = seq.Date(min(anytime::anydate(skillScores.input$`Forecast Date`)), max(anytime::anydate(skillScores.input$`Forecast Date`)), by = 7))  # X-axis breaks
+    
+    ##############################################
+    # Handling the dates - Yearly and time index #
+    ##############################################
+  }else{
+    
+    xAxisBreaks <- scale_x_continuous(breaks = seq(min(skillScores.input$`Forecast Date`), max(skillScores.input$`Forecast Date`), by = 1))  # X-axis breaks
+    
+  }
   
 }
 
@@ -255,7 +263,7 @@ if(crudeScores == 1){
       labs(title = bquote(bold("D")~"  Winkler Scores"),
            y = "Skill Score") + 
       theme_bw() +
-      theme(element_text(angle = 90, vjust = 0.5, hjust=1),
+      theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1),
             panel.grid.minor = element_blank(),
             panel.grid.major = element_line(color = "grey97"),
             legend.position = "none")
@@ -268,8 +276,8 @@ if(crudeScores == 1){
 
   MSE <- ggplot(data = skillScores.input, aes(x = `Comparison Model`, y = Location, fill = MSE)) +
     geom_tile(color = "white") +
-    scale_fill_gradient(low = "red", high = "blue") +
-    geom_text(data=skillScores.input, aes(x = `Comparison Model`, y = Location,label = round(MSE, 2)), color = "grey97") +
+    scale_fill_gradient(low = "grey70", high = "blue") +
+    geom_text(data=skillScores.input, aes(x = `Comparison Model`, y = Location,label = round(MSE, 2)), color = "grey90", size = 10) +
     labs(title = bquote(bold("A")~"  Mean Squared Error (MSE)"),
          y = "",
          x = "") + 
@@ -284,8 +292,8 @@ if(crudeScores == 1){
   ###################################
   MAE <- ggplot(data = skillScores.input, aes(x = `Comparison Model`, y = Location, fill = MAE)) +
     geom_tile(color = "white") +
-    scale_fill_gradient(low = "red", high = "blue") +
-    geom_text(data=skillScores.input, aes(x = `Comparison Model`, y = Location,label = round(MAE, 2)), color = "grey97") +
+    scale_fill_gradient(low = "grey70", high = "blue") +
+    geom_text(data=skillScores.input, aes(x = `Comparison Model`, y = Location,label = round(MAE, 2)), color = "grey90", size = 10) +
     labs(title = bquote(bold("B")~"  Mean Absolute Error (MAE)"),
          y = "",
          x = "") + 
@@ -300,8 +308,8 @@ if(crudeScores == 1){
   ###################################
   WIS <- ggplot(data = skillScores.input, aes(x = `Comparison Model`, y = Location, fill = WIS)) +
     geom_tile(color = "white") +
-    scale_fill_gradient(low = "red", high = "blue") +
-    geom_text(data=skillScores.input, aes(x = `Comparison Model`, y = Location,label = round(WIS, 2)), color = "grey97") +
+    scale_fill_gradient(low = "grey70", high = "blue") +
+    geom_text(data=skillScores.input, aes(x = `Comparison Model`, y = Location,label = round(WIS, 2)), color = "grey90", size = 10) +
     labs(title = bquote(bold("C")~"  Weighted Interval Score (WIS)"),
          y = "Skill Score") + 
     theme_bw() +
@@ -315,12 +323,12 @@ if(crudeScores == 1){
   ##############################################
   Winkler <- ggplot(data = skillScores.input, aes(x = `Comparison Model`, y = Location, fill = `Winkler Score`)) +
     geom_tile(color = "white") +
-    scale_fill_gradient(low = "red", high = "blue") +
-    geom_text(data=skillScores.input, aes(x = `Comparison Model`, y = Location,label = round(`Winkler Score`, 2)), color = "grey97") +
+    scale_fill_gradient(low = "grey70", high = "blue") +
+    geom_text(data=skillScores.input, aes(x = `Comparison Model`, y = Location,label = round(`Winkler Score`, 2)), color = "grey90", size = 10) +
     labs(title = bquote(bold("D")~"  Winkler Scores"),
          y = "Skill Score") + 
     theme_bw() +
-    theme(element_text(angle = 90, vjust = 0.5, hjust=1),
+    theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1),
           panel.grid.minor = element_blank(),
           panel.grid.major = element_line(color = "grey97"),
           legend.position = "none")
@@ -347,20 +355,24 @@ if(crudeScores == 1){
 # corresponding figure panel for the average skill scores.                     #
 #------------------------------------------------------------------------------#
   
+  
+  
   #################################
   # Returning the list of figures #
   #################################
   if(crudeScores == 1){
     
-    return(skillScoresFigs)
+   test <-  skillScoresFigs
     
   ##############################
   # Returning the panel figure #
   ##############################
   }else{
-    panelFig
-    return(panelFig)
+
+    test <- panelFig
     
   }
+  
+  return(test)
   
 } # End of function
