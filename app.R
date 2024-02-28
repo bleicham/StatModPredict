@@ -444,11 +444,25 @@ conditionalPanel(
                                           # Creating the info circle 
                                           tags$i(class = "glyphicon glyphicon-info-sign",
                                                  style = "color:#FFFFFF;",
-                                                 title = "Upload a '.csv' file of your data.")
+                                                 title = "Upload '.csv' file(s).")
+                        ),
+                        
+                        multiple = TRUE),
+              
+              
+              ################################
+              # Reading in the other metrics #
+              ################################
+              fileInput("metricsOther", # ID of UI input
+                        label = tags$span("Upload Performance Metrics", # Shown label
+                                          # Creating the info circle 
+                                          tags$i(class = "glyphicon glyphicon-info-sign",
+                                                 style = "color:#FFFFFF;",
+                                                 title = "Upload '.csv' files.")
                         ),
                         
                         multiple = TRUE)
-              
+            
   )
   
 )
@@ -904,6 +918,9 @@ fluidRow(
               
               # Check-mark to see data
               div(style = "margin-right: 10px", checkboxInput("timeseriesCheckBox", "Show Underlying Data")),
+              
+              # Edit legend names 
+              div(style = "margin-right: 10px", actionButton("editLegendLabels", "Edit Legend Labels")), 
               
               # Check mark for forecast lines
               div(checkboxInput("forecastLines", "Show Forecast Dates"))
@@ -1999,7 +2016,7 @@ server <- function(input, output, session) {
       data <- file()
       
       # Subsetting dates 
-      crude.dates <- data[, 1]
+      crude.dates <- na.omit(data[, 1])
       
       ###################################
       # Function to determine date type #
@@ -2152,8 +2169,15 @@ server <- function(input, output, session) {
       # Filtering the data shown based on user selected locations #
       #############################################################
 
+      if(!is.null(data1)){
+        
           data.for.table <- data1 %>%
             dplyr::select(names(data1)[1], all_of(input$locations))
+          
+      }else{
+        
+        data.for.table <- NULL
+      }
 
         ############################################
         # Saving the results to the reactive value #
@@ -2281,6 +2305,27 @@ server <- function(input, output, session) {
     
   ) # End of download button  
   
+  
+#------------------------------------------------------------------------------#
+# Button to edit legend labels -------------------------------------------------
+#------------------------------------------------------------------------------#
+# About: This section creates the buttons to edit the legend labels in the     #
+# 'plotly' figure.                                                             #
+#------------------------------------------------------------------------------#
+  
+  ##############################
+  # Creating the button pop-up #
+  ##############################
+  observeEvent(input$editLegendLabels, {
+    
+    showModal(modalDialog(
+      title = "Coming Soon!",
+     
+    ))
+  })
+  
+
+  
 #------------------------------------------------------------------------------#
 # Creating the time series figure ----------------------------------------------
 #------------------------------------------------------------------------------#
@@ -2341,6 +2386,9 @@ server <- function(input, output, session) {
 # specific points over the course of a process's trajectory.                   #
 #------------------------------------------------------------------------------#
   
+  # Reactive value to save y-axis title
+  yAxisTitleObj <- reactiveValues()
+  
   ########################################
   # Observing changes in reactive values #
   ########################################
@@ -2384,15 +2432,43 @@ server <- function(input, output, session) {
             
             # Isolating behaviors
             isolate({
-              
+
               # Render statement
-              output$timeseriesPlot <- renderPlotly({ggplotly(TimeseriesInteractive, tooltip = "text")})
-              
+              output$timeseriesPlot <- renderPlotly({
+                
+                # Plot to return
+                timeFig <- ggplotly(TimeseriesInteractive, tooltip = "text") %>%
+                  config(edits = list(axisTitleText= TRUE)) 
+
+                # Returning the figure
+                return(timeFig)
+
+                })
+
             }) # End of isolate
             
           } # End of NULL rendering
         
       }) # End of "run" observe event 
+      
+      #############################################
+      # Determining what the new y-axis should be #
+      #############################################
+      observeEvent(event_data("plotly_relayout"), {
+
+        # Y-axis title
+        yAxisTitle <- event_data("plotly_relayout")
+
+        print(yAxisTitle)
+
+        # Saving the resulting character in a reactive value
+        yAxisTitleObj$titleFig <- as.character(yAxisTitle[1])
+
+        # Showing the new plot
+        plotlyProxy("plot", session) %>%
+          plotlyProxyInvoke("relayout", list(yaxis = list(yaxis = list(title = yAxisTitle[[1]]))))
+
+      })
       
       ###########################################
       # Returns NULL the above code can not run #
@@ -2478,11 +2554,23 @@ server <- function(input, output, session) {
     #############################
     content = function(file) {
       
+      # Updating the figure y-axis title if needed
+      if(!is.null(yAxisTitleObj$titleFig)){
+        
+        figure <- timeseriesFigureList$figureStatic +
+          labs(y = yAxisTitleObj$titleFig)
+        
+      }else{
+        
+        figure <- timeseriesFigureList$figureStatic 
+        
+      }
+      
       # Running with compression if using a '.tiff'
       if(input$extFig == 'tiff'){
         
         # Saving the file
-        ggsave(file, plot = timeseriesFigureList$figureStatic, 
+        ggsave(file, plot = figure, 
                dpi = input$dpi,
                width = input$width, 
                height = input$height, 
@@ -2493,7 +2581,7 @@ server <- function(input, output, session) {
       }else{
         
         # Saving the file
-        ggsave(file, plot = timeseriesFigureList$figureStatic, 
+        ggsave(file, plot = figure, 
                dpi = input$dpi,
                width = input$width, 
                height = input$height, 
@@ -2589,10 +2677,10 @@ server <- function(input, output, session) {
       if(dateValues$dates %in% c("year", "index")){
         
         # Earliest possible date
-        data_min_date <- as.numeric(min(na.omit(as.numeric(file()[,1]))))
+        data_min_date <<- as.numeric(min(na.omit(as.numeric(file()[,1]))))
         
         # Latest possible date
-        data_max_date <- as.numeric(max(na.omit(as.numeric(file()[,1]))))
+        data_max_date <<- as.numeric(max(na.omit(as.numeric(file()[,1]))))
         
         ##########################################
         # Create the sliderInput for the UI Side #
@@ -6837,7 +6925,7 @@ server <- function(input, output, session) {
            # Produced error
            showModal(modalDialog(
              title = "Error",
-             paste("File", nput$dataset2[i,1], "is not a '.csv' file. Please upload only '.csv' files."),
+             paste("File", input$dataset2[i,1], "is not a '.csv' file. Please upload only '.csv' files."),
              easyClose = TRUE
            ))
            
@@ -7336,6 +7424,130 @@ server <- function(input, output, session) {
     contentType = "application/zip"
     
   )
+  
+#------------------------------------------------------------------------------#
+# Handling crude metrics (Data) ------------------------------------------------
+#------------------------------------------------------------------------------#
+# About: This section allows users to read in the crude metrics of their       #
+# interest, combines them with the metrics calculated for the ARIMA, GLM, GAM, #
+# and Prophet models, and exports a data set with the crude metrics. Figures   #
+# will be created at a later step.                                             #
+#------------------------------------------------------------------------------#
+  
+#------------------------------------------------------------------------------#
+# Reading in the crude metrics for the other files -----------------------------
+#------------------------------------------------------------------------------#
+# About: This section provides the re-activity to the download button located  #
+# in the side-bar panel. It allows the user to read in multiple files, pending #
+# the files are names correctly.                                               #
+#------------------------------------------------------------------------------#
+  
+  metricsOtherFiles <- reactive({
+    
+    tryCatch({
+      
+      ####################################################
+      # Creating an empty list to fill in with data sets #
+      ####################################################
+      lst <- list()
+      
+      ######################################
+      # Looping through uploaded data sets #
+      ######################################
+      for (i in 1:length(input$metricsOther[, 1])) {
+        
+        # Extract the extension of the file
+        ext <- tools::file_ext(input$metricsOther[i,4])
+        
+        ######################################################
+        # Produces an error if a '.csv' file is not selected #
+        ######################################################
+        if (ext != "csv") {
+          
+          # Produced error
+          showModal(modalDialog(
+            title = "Error",
+            paste("File", input$metricsOther[i,1], "is not a '.csv' file. Please upload only '.csv' files."),
+            easyClose = TRUE
+          ))
+          
+          # Return null so the user has to re-upload
+          return(NULL)
+          
+        }
+        
+        #######################
+        # Reading in the data #
+        #######################
+        lst[[i]] <- read.csv(input$metricsOther[i,4], header = TRUE, check.names = FALSE)
+        
+        # Assigning a name to the list
+        names(lst)[i] <- input$metricsOther[i,1]
+      }
+      
+      ###################################
+      # Returning a list of data frames #
+      ###################################
+      return(lst)
+     
+    ###########################
+    # Runs if an error occurs #
+    ###########################
+    }, error = function(e) {
+      
+      NULL
+      
+    })
+    
+  })
+  
+#------------------------------------------------------------------------------#
+# Combining crude metrics ------------------------------------------------------
+#------------------------------------------------------------------------------#
+# About: This section allows users to combine the crude metrics they have read #
+# into the dashboard with the produced ARIMA, GLM, GAM, Prophet results. The   #
+# files are matched on if they are fit or forecast statistics, horizon,        #
+# calibration, forecast period, and location/group. Additionally, the data     #
+# will be structured where each column is a metrics, and the first column is   #
+# the forecast date. If there are additionally statistics outside those        #
+# produced in the toolbox, they will have their own column.                    #
+#------------------------------------------------------------------------------#
+  
+  ########################################
+  # Observing changes in reactive values #
+  ########################################
+  observe({
+    
+    #################
+    # Error checker #
+    #################
+    tryCatch({
+      
+      # Crude metrics (fit) - ARIMA, GLM, GAM, Prophet
+      crudeMetricsFitAGGP <- modelFitMetricsList$fitMetrics
+      
+      # Crude metrics (forecast) - ARIMA, GLM, GAM, Prophet
+      crudeMetricsForecastAGGP <- forecastMetricsListCrude$forecastMetrics
+      
+      # Other metrics
+      otherMetrics <- metricsOtherFiles()
+      
+      # Date type 
+      dateType <- dateValues$dates
+
+
+    ###########################
+    # Runs if an error occurs #
+    ###########################
+    }, error = function(e){
+      
+      # Returning NULL
+      NULL
+      
+    })
+    
+  })
+  
   
   
 }
