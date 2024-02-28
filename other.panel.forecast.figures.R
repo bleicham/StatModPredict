@@ -292,7 +292,7 @@ other.panel.forecast.figures <- function(formatted.forecast.input,
   ###############################
   # Merging the two data frames #
   ###############################
-  plotData <<- rbind(allOtherForecasts, allForecasts)
+  plotData <- rbind(allOtherForecasts, allForecasts)
   
 #------------------------------------------------------------------------------#
 # Unique Values ----------------------------------------------------------------

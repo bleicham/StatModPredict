@@ -74,7 +74,7 @@ pacman::p_load(MASS, shiny, shinydashboard, shinyWidgets, bslib, plotly, anytime
                shinyalert, shinyjs, shinybusy, editData, shinyBS, DT, stringr,
                tidyverse, forstringr, mgcv, processx, ggpubr, shinyalert, forecast, 
                prophet, zip, glue, shinyjqui, patchwork, ggplot2, zoo, gridExtra,
-               viridis)
+               viridis, qdapRegex)
 
 #------------------------------------------------------------------------------#
 #                            User Interface                                    #

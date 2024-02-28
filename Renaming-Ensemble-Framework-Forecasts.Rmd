@@ -29,12 +29,12 @@ here matches the order of the columns in your '.txt' file.
 #############################################
 # Order of names or "states" in input files #
 #############################################
-namesOrder <- c("Brazil", "Canada", "France", "Germany", "Spain", "United-Kingdom", "US-CDC", "US-OWID", "World")
+namesOrder <- c("US-CDC")
 
 ######################
 # Calibration period #
 ######################
-calibration.input <- 9
+calibration.input <- 11
 ```
 
 After you have set the names, you should not need to make any additional edits
@@ -56,7 +56,7 @@ for the remainder of the code. First (below) it looks for the folder called
 saves the file pathway names as a "vector" in your global environment.
 
 ```{r calling-folder-from-WD}
-nSubForecasts <- list.files (path = "n-sub-epidemic/", # Folder with saved forecasts
+nSubForecasts <- list.files (path = "C:/Users/ablei/Desktop/n-sub-epidemic/", # Folder with saved forecasts
                              full.names = T) # Telling R we want the full file names 
 ```
 
@@ -72,8 +72,8 @@ will be created within your working directory (Desktop folder).
 
 ### Creating the new folder
 ```{r creating-the-n-sub-epidemic-folder}
-ifelse(!dir.exists("Renamed-NSubEpi"), # Checking to see if the folder exists
-       dir.create("Renamed-NSubEpi"), # Creating the folder if it does not exist
+ifelse(!dir.exists("C:/Users/ablei/Desktop/Renamed-NSubEpi"), # Checking to see if the folder exists
+       dir.create("C:/Users/ablei/Desktop/Renamed-NSubEpi"), # Creating the folder if it does not exist
        "Folder exists already") # Returning a message if its already creates
 ```
 
@@ -193,7 +193,7 @@ for(i in 1:length(nSubForecasts)){
   ###############################################
 
   # Saving the forecast under the new name
-  write.csv(data, file = paste0("Renamed-NSubEpi/", newFileName), row.names = F)
+  write.csv(data, file = paste0("C:/Users/ablei/Desktop/Renamed-NSubEpi/", newFileName), row.names = F)
  
 }
 
