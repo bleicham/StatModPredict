@@ -41,27 +41,27 @@ GLM <- function(calibration.input, horizon.input, date.Type.input,
   ##############################################
   # Reading in the list of calibration periods #
   ##############################################
-  calibration.list.GLM <- calibration.input
+  calibration.list.GLM <<- calibration.input
   
   ##################################
   # Saving the forecasting horizon #
   ##################################
-  horizon.input.GLM <- horizon.input
+  horizon.input.GLM <<- horizon.input
   
   #############
   # Date type #
   #############
-  date.Type.input.GLM <- date.Type.input
+  date.Type.input.GLM <<- date.Type.input
   
   #####################
   # Smoothing of data #
   #####################
-  smoothing.input.GLM <- smoothing.input
+  smoothing.input.GLM <<- smoothing.input
   
   ###############
   # Error input #
   ###############
-  error.input.GLM <- error.input
+  error.input.GLM <<- error.input
   
   ########################################
   # Creating an empty list for quantiles #
@@ -126,11 +126,6 @@ GLM <- function(calibration.input, horizon.input, date.Type.input,
     ###########################################################
     alphas <- c(0.02, 0.05, seq(0.1, 0.9, by=0.1))
     
-    #########################################################################
-    # Creating the `time` predictor, which is the length of the calibration #
-    #########################################################################
-    time <- seq(1:nrow(timeseries.no.date))
-    
     #############################
     # Looping through locations #
     #############################
@@ -188,7 +183,11 @@ GLM <- function(calibration.input, horizon.input, date.Type.input,
           
         } # End of else for determining if should round or not   
       
-      
+      #########################################################################
+      # Creating the `time` predictor, which is the length of the calibration #
+      #########################################################################
+      time <- seq(1:length(data.cur))
+
 #------------------------------------------------------------------------------#
 # Fitting the GLM Model --------------------------------------------------------
 #------------------------------------------------------------------------------#
@@ -315,6 +314,24 @@ GLM <- function(calibration.input, horizon.input, date.Type.input,
                     `upper.90%` = `u 0.1`,
                     `upper.95%` = `u 0.05`,
                     `upper.98%` = `u 0.02`)
+    
+    ########################################
+    # Handling when data smoothing is used #
+    ########################################
+    if(smoothing.input.GLM == 1 || is.null(smoothing.input.GLM)){
+      
+      # Keeping what was used before
+      GLMForecast <- GLMForecast 
+    
+    ############################
+    # Runs if an error occured #
+    ############################
+    }else{
+
+      # Keeping only the forecast horizon
+      GLMForecast <- GLMForecast[(nrow(GLMForecast) - horizon.input.GLM + 1):nrow(GLMForecast),]
+
+    }
     
 
 #------------------------------------------------------------------------------#

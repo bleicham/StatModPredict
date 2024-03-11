@@ -144,11 +144,6 @@ GAM <- function(calibration.input, horizon.input, date.Type.input,
     ###########################################################
     alphas <- c(0.02, 0.05, seq(0.1, 0.9, by=0.1))
     
-    #########################################################################
-    # Creating the `time` predictor, which is the length of the calibration #
-    #########################################################################
-    time <- seq(1:nrow(timeseries.no.date))
-    
     #############################
     # Looping through locations #
     #############################
@@ -205,6 +200,11 @@ GAM <- function(calibration.input, horizon.input, date.Type.input,
           } # End of else for rounding smoothing 
           
           } # End of else for determining if should round or not   
+      
+      #########################################################################
+      # Creating the `time` predictor, which is the length of the calibration #
+      #########################################################################
+      time <- seq(1:length(data.cur))
     
     
 #------------------------------------------------------------------------------#
@@ -223,9 +223,9 @@ GAM <- function(calibration.input, horizon.input, date.Type.input,
       test <- try(
         
       gam.mod <- base::switch(error.input.G,
-                              "Normal" = mgcv::gam(data.cur~s(time,bs=smoothingTerm.input,k=k.input.G)), # Normal distribution 
-                              "Poisson" = mgcv::gam(data.cur~s(time,bs=smoothingTerm.input,k=k.input.G), family=poisson), # Poisson distribution
-                               mgcv::gam(data.cur~s(time,bs=smoothingTerm.input,k=k.input.G), family=nb())) # Negative-binomial distribution 
+                              "Normal" = mgcv::gam(data.cur~s(time,bs=smoothing.term.G,k=k.input.G)), # Normal distribution 
+                              "Poisson" = mgcv::gam(data.cur~s(time,bs=smoothing.term.G,k=k.input.G), family=poisson), # Poisson distribution
+                               mgcv::gam(data.cur~s(time,bs=smoothing.term.G,k=k.input.G), family=nb())) # Negative-binomial distribution 
     
       )
       
@@ -333,6 +333,25 @@ GAM <- function(calibration.input, horizon.input, date.Type.input,
                     `upper.90%` = `u 0.1`,
                     `upper.95%` = `u 0.05`,
                     `upper.98%` = `u 0.02`)
+    
+    ########################################
+    # Handling when data smoothing is used #
+    ########################################
+    if(smoothing.input.G == 1 || is.null(smoothing.input.G)){
+      
+      # Keeping orignal forecast
+      GAMForecast <- GAMForecast
+      
+      
+    ################################
+    # Runs if smoothing is applied #
+    ################################
+    }else{
+      
+      # Keeping only the forecast horizon
+      GAMForecast <- GAMForecast[(nrow(GAMForecast) - horizon.input.G + 1):nrow(GAMForecast),]
+
+    }
     
 #------------------------------------------------------------------------------#
 # Creating a list of quantile frames -------------------------------------------

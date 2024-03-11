@@ -15,7 +15,7 @@
 formatted.forecast.function <- function(quantile.input, data.input, 
                                         calibration.input, dateType.input,
                                         model.input, quantile.selected.input,
-                                        horizon.input){
+                                        horizon.input, smoothing.input){
 
 #------------------------------------------------------------------------------#
 # Reading in the inputs from the function --------------------------------------
@@ -58,6 +58,11 @@ formatted.forecast.function <- function(quantile.input, data.input,
   # Forecasting horizon #
   #######################
   horizon.input.FF <- horizon.input
+  
+  ###################
+  # Smoothing input #
+  ###################
+  smoothing.input.FF <- smoothing.input
   
 #------------------------------------------------------------------------------#
 # Preparing for the formatted forecast list ------------------------------------
@@ -163,8 +168,23 @@ formatted.forecast.function <- function(quantile.input, data.input,
     # Determining which quantile to pull 
     chosenQuantile <- quantile.selected.FF
     
+    # Smoothing input indicator
+    if(is.null(smoothing.input.FF)){
+      
+      smoothingIndicator <- 0
+      
+    }else if(0 <= smoothing.input.FF & smoothing.input.FF <= 1){
+      
+      smoothingIndicator <- 0
+      
+    }else{
+      
+      smoothingIndicator <- 1
+      
+    }
+    
     # Dates for forecast file
-    if(model.FF == "ARIMA"){
+    if(model.FF == "ARIMA" || (smoothingIndicator == 1 & model.FF != "Prophet")){
       
       datesFinal <- forecastDates
       
@@ -222,6 +242,12 @@ formatted.forecast.function <- function(quantile.input, data.input,
     
     # Fixing names
     names(formattedForecast) <- c("Date", "data", "median", "LB", "UB")
+    
+    # Rounding
+    formattedForecast <- formattedForecast %>%
+      dplyr::mutate(median = round(median, 2), # Rounding Median
+                    LB = round(LB, 2), # Rounding LB
+                    UB = round(UB, 2)) # Rounding UB
     
     #############################################
     # Saving the formatted data frame in a list #

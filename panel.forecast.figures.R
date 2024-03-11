@@ -11,7 +11,8 @@
 #------------------------------------------------------------------------------#
 #                         By: Amanda Bleichrodt                                #
 #------------------------------------------------------------------------------#
-panel.forecast.figures <- function(formatted.forecast.input, data.type.input){
+panel.forecast.figures <- function(formatted.forecast.input, data.type.input,
+                                   smoothing.input) {
   
 #------------------------------------------------------------------------------#
 # Reading in inputs from the main script ---------------------------------------
@@ -29,6 +30,11 @@ panel.forecast.figures <- function(formatted.forecast.input, data.type.input){
   # Date type #
   #############
   date.Figure <- data.type.input
+  
+  ###################
+  # Smoothing input #
+  ###################
+  smoothing.Figure <- smoothing.input
   
   ###########################
   # Creating the empty list #
@@ -82,10 +88,25 @@ for(i in 1:length(formatted.forecast.Figure)){
       
       }
   
+  # Smoothing input indicator
+  if(is.null(smoothing.Figure)){
+    
+    smoothingIndicator <- 0
+    
+  }else if(0 <= smoothing.Figure & smoothing.Figure <= 1){
+    
+    smoothingIndicator <- 0
+    
+  }else{
+    
+    smoothingIndicator <- 1
+    
+  }
+  
   ###############################################
   # Handling the NAs in the data - ARIMA models #
   ###############################################
-  if(model.Figure == "ARIMA"){
+  if(model.Figure == "ARIMA" || (smoothingIndicator == 1 & model.Figure != "Prophet")){
     
     # Data for plot 
     data.for.plot <- formatted.forecast.Figure[[i]] %>% # Re-naming the orginal data 
