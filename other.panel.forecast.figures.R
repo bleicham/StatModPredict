@@ -444,6 +444,13 @@ other.panel.forecast.figures <- function(formatted.forecast.input,
             # X-axis breaks
             xAxisBreaks <- scale_x_continuous(breaks = seq(min(dataFiltered$Date), max(dataFiltered$Date), by = 1))  # X-axis breaks
             
+            # Checking for a large number of dates 
+            if(length(xAxisBreaks) > 5){
+              
+              xAxisBreaks <- scale_x_continuous(breaks = seq(min(dataFiltered$Date), max(dataFiltered$Date), by = 3))  # X-axis breaks
+              
+            }
+            
           }
           
           ##############
@@ -466,9 +473,31 @@ other.panel.forecast.figures <- function(formatted.forecast.input,
 # and forecast date. It then is saved to the list of figures that is           #
 # outputted to the main dashboard.                                             #
 #------------------------------------------------------------------------------#
+  
+  ###################################################
+  # Determining the order to show the model figures #
+  ###################################################
           
+  # Filtering to include only the ARIMA, GLM, GAM and Prophet models
+  modelsFilteredFirst <- dataFiltered %>%
+            dplyr::filter(Model %in% c("ARIMA", "GLM", "GAM", "Prophet"))
+  
+  # Filtering to include non-baseline models
+  modelsFilteredSecond <- dataFiltered %>%
+    dplyr::filter(Model %!in% c("ARIMA", "GLM", "GAM", "Prophet"))
+  
+  # Order to show model figures 
+  distinctModels <- c(unique(modelsFilteredFirst$Model), unique(modelsFilteredSecond$Model))
+  
+  # Ordering the Model variable as a factor 
+  dataFiltered <- dataFiltered %>%
+            mutate(Model = factor(Model, levels = distinctModels))
+
+  #################################
+  # Plotting the forecast figures #
+  #################################
   panel <- ggplot(dataFiltered, aes(x = Date, y = median)) +
-            facet_wrap(~Model, scales = "free_y") +
+            facet_wrap(~Model) +
             geom_ribbon(aes(ymin = LB, ymax = UB), fill = "grey90") + # 95% PI ribbon
             geom_line(aes(x = Date, y = UB), linetype = "dashed", size = 0.65) + # UB
             geom_line(aes(x = Date, y = LB), linetype = "dashed", size = 0.65) + # LB
@@ -491,6 +520,13 @@ other.panel.forecast.figures <- function(formatted.forecast.input,
           # Adding Forecast date loop figures to list #
           #############################################
           listData[f] <- list(panel)
+          
+          # Checking if the title includes ARIMA, GLM, GAM, or Prophet
+          if(grepl('ARIMA|GLM|GAM|Propet', title1)){
+            
+            title1 <- paste0("a", title1)
+              
+          }
           
           # Adding label to list element
           names(listData)[f] <- paste0(title1, "-",indexedCalibration, "-", indexedHorizon)   

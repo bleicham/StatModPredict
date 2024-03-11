@@ -5,7 +5,7 @@
 #------------------------------------------------------------------------------#
 #                         By: Amanda Bleichrodt                                #
 #------------------------------------------------------------------------------#
-Otherforecast.figures <- function(formatted.forecast.input, date.type.input){
+Otherforecast.figures <- function(formattedForecastInput, date.type.input){
   
 #------------------------------------------------------------------------------#
 # Reading in inputs from the main script ---------------------------------------
@@ -17,7 +17,7 @@ Otherforecast.figures <- function(formatted.forecast.input, date.type.input){
   ###########################
   # Formatted Forecast list #
   ###########################
-  formatted.forecast.Figure <- formatted.forecast.input
+  formatted.forecast.Figure <- formattedForecastInput
   
   #############
   # Date type #
@@ -174,6 +174,7 @@ Otherforecast.figures <- function(formatted.forecast.input, date.type.input){
     names(figureList)[i] <- title
     
   } # End of loop
+
   
   ######################
   # Returning the list #

@@ -1885,6 +1885,43 @@ server <- function(input, output, session) {
     })
     
   }) # End of 'observeEvent'
+  
+#------------------------------------------------------------------------------#
+# Error to appear when using smoothing and Prophet model -----------------------
+#------------------------------------------------------------------------------#
+# About: This section returns a message if smoothing data and have the model   #
+# Prophet selected.                                                            #
+#------------------------------------------------------------------------------#
+  
+  ########################################
+  # Observing changes in reactive values #
+  ########################################
+  observe({
+    
+    ###############################
+    # Running if not error occurs #
+    ###############################
+    tryCatch({
+      
+      # Returning error if smoothing and Prophet model 
+      if(input$smoothingInput > 1 & "Prophet" %in% c(input$modelType)){
+        
+        shinyalert("The data smoothing will not be applied to the calibration period
+                   for the Prophet model. It will apply for any other selected model.", 
+                   type = "info")
+        
+      }
+      
+    ###########################
+    # Returns if error occurs #
+    ###########################
+    }, error = function(e){
+      
+      NULL
+      
+    })
+    
+  }) # End of tryCatch
    
 #------------------------------------------------------------------------------#
 # Reading in the data frame ----------------------------------------------------
@@ -1895,7 +1932,7 @@ server <- function(input, output, session) {
 #------------------------------------------------------------------------------#
   
   file <- reactive({
-    
+
     tryCatch({
     
     ############################################
@@ -2324,8 +2361,6 @@ server <- function(input, output, session) {
     ))
   })
   
-
-  
 #------------------------------------------------------------------------------#
 # Creating the time series figure ----------------------------------------------
 #------------------------------------------------------------------------------#
@@ -2439,7 +2474,7 @@ server <- function(input, output, session) {
                 # Plot to return
                 timeFig <- ggplotly(TimeseriesInteractive, tooltip = "text") %>%
                   config(edits = list(axisTitleText= TRUE)) 
-
+#AMANDA
                 # Returning the figure
                 return(timeFig)
 
@@ -2677,10 +2712,10 @@ server <- function(input, output, session) {
       if(dateValues$dates %in% c("year", "index")){
         
         # Earliest possible date
-        data_min_date <<- as.numeric(min(na.omit(as.numeric(file()[,1]))))
+        data_min_date <- as.numeric(min(na.omit(as.numeric(file()[,1]))))
         
         # Latest possible date
-        data_max_date <<- as.numeric(max(na.omit(as.numeric(file()[,1]))))
+        data_max_date <- as.numeric(max(na.omit(as.numeric(file()[,1]))))
         
         ##########################################
         # Create the sliderInput for the UI Side #
@@ -3430,7 +3465,7 @@ server <- function(input, output, session) {
                ########################
                # Calling the function #
                ########################
-               GAMListQuantile <- GAM(calibration.input = calibration.period.list$calibrations, # List of calibration periods 
+               GAMListQuantile <<- GAM(calibration.input = calibration.period.list$calibrations, # List of calibration periods 
                                       horizon.input = input$forecastHorizon, # Forecasting horizon 
                                       date.Type.input = dateSeq, # Date type 
                                       smoothing.input = input$smoothingInput, # Data smoothing 
@@ -4146,7 +4181,8 @@ server <- function(input, output, session) {
                                                                     dateType.input = dateValues$dates, # Type of date data
                                                                     model.input = input$modelType, # Selected model 
                                                                     quantile.selected.input = input$quantileSelection, # Selected quantile
-                                                                    horizon.input = input$forecastHorizon) # Horizon 
+                                                                    horizon.input = input$forecastHorizon,
+                                                                    smoothing.input = input$smoothingInput) # Data smoothing
                
                # Saving the exported list to a reactive value
                foremattedForecasts$forecasts <- formattedForecastList
@@ -4510,7 +4546,8 @@ server <- function(input, output, session) {
              # Individual figures #
              ######################
              individual <- forecast.figures(formatted.forecast.input = foremattedForecasts$forecasts, 
-                                            data.type.input = dateValues$dates)
+                                            data.type.input = dateValues$dates,
+                                            smoothing.input = input$smoothingInput)
              
              ###########################################################
              # Returning an error if there are infinities in the plots #
@@ -4621,7 +4658,8 @@ server <- function(input, output, session) {
              # Panel figures #
              #################
              panelOutput <- panel.forecast.figures(formatted.forecast.input = foremattedForecasts$forecasts, # Formatted figures
-                                                   data.type.input = dateValues$dates) # Date type 
+                                                   data.type.input = dateValues$dates, # Date type 
+                                                   smoothing.input = input$smoothingInput)
              
              # Reversing the order of the list
              panelOutput <- rev(panelOutput)
@@ -4716,7 +4754,7 @@ server <- function(input, output, session) {
            }
            
            # Extracting the figure
-           figure <- indexedFigure[[i]]
+           figure <- indexedFigure[[i]] 
            
            # Determining if it should be added to the show list
            if(locationGroupNames %in% c(input$locationFigures)){
@@ -4872,7 +4910,11 @@ server <- function(input, output, session) {
        }else{
          
          # Rendering the figure
-         return(ggplotly(FiguresForecastListToShow$listFormatted[[current_index_formatted()]], tooltip = "text"))
+         return(
+           
+           ggplotly(FiguresForecastListToShow$listFormatted[[current_index_formatted()]], tooltip = "text") 
+           
+           )
          
        } # End of 'if-else'
      
@@ -5136,7 +5178,7 @@ server <- function(input, output, session) {
          
          shinyalert("Model fit metrics are not avaliable for ARIMA models", type = "error")
          
-       } # End of 'if' producing error
+       }
        
        #####################################################
        # Adding the forecast metrics to the reactive value #
@@ -6892,7 +6934,7 @@ server <- function(input, output, session) {
    # 
    # })
    
-  
+
 #------------------------------------------------------------------------------#
 # Reading in multiple files ----------------------------------------------------
 #------------------------------------------------------------------------------#
@@ -6900,22 +6942,34 @@ server <- function(input, output, session) {
 # models. This is the background behind reading in the multiple files.         #
 #------------------------------------------------------------------------------#
    
-   filesOtherModels <- reactive({
+   fileOtherReactive <- reactive({
+
+     ####################################################
+     # Creating an empty list to fill in with data sets #
+     ####################################################
+     filesOtherLst <- list()
      
+     #######################################
+     # Runs if there is there is no errors #
+     #######################################
      tryCatch({
        
-       ####################################################
-       # Creating an empty list to fill in with data sets #
-       ####################################################
-       lst <- list()
+       # List of files read in 
+       files <- input$dataset2
        
-       ######################################
-       # Looping through uploaded data sets #
-       ######################################
-       for (i in 1:length(input$dataset2[, 1])) {
+       #####################################
+       # Looping through the read-in files #
+       #####################################
+       for(i in 1:nrow(files)){
+         
+         # Indexed fie 
+         indexedFile <- files$datapath[i]
+         
+         # Indexed file name
+         indexedFileName <- files$name[i]
          
          # Extract the extension of the file
-         ext <- tools::file_ext(input$dataset2[i,4])
+         ext <- tools::file_ext(indexedFileName)
          
          ######################################################
          # Produces an error if a '.csv' file is not selected #
@@ -6925,36 +6979,43 @@ server <- function(input, output, session) {
            # Produced error
            showModal(modalDialog(
              title = "Error",
-             paste("File", input$dataset2[i,1], "is not a '.csv' file. Please upload only '.csv' files."),
+             paste("File", indexedFileName, "is not a '.csv' file. Please upload only '.csv' files."),
              easyClose = TRUE
            ))
            
-           # Return null so the user has to re-upload
            return(NULL)
            
          }
-
-         #######################
-         # Reading in the data #
-         #######################
-         lst[[i]] <- read.csv(input$dataset2[i,4], header = TRUE, check.names = FALSE)
          
-         # Assigning a name to the list
-         names(lst)[i] <- input$dataset2[i,1]
+         # Reading in the data
+         data <- read.csv(indexedFile, header = T)
+         
+         # Saving the files to a list 
+         filesOtherLst[[i]] <- data
+         
+         # Adding the name of the file
+         names(filesOtherLst)[i] <- indexedFileName
+         
        }
-
-       ###################################
-       # Returning a list of data frames #
-       ###################################
-       return(lst)
        
+       ###############################
+       # Returning the list of files #
+       ###############################
+       return(filesOtherLst)
+       
+       ###########################
+       # Runs if an error occurs #
+       ###########################
        }, error = function(e) {
        
-       NULL
-       
-     })
+         # Message that prints to the console 
+         print("The other forecast files did not read in correctly.")
+         
+       })
      
    })
+      
+ 
    
 #------------------------------------------------------------------------------#
 # Creating the individual forecast figures -------------------------------------
@@ -6974,12 +7035,13 @@ server <- function(input, output, session) {
    observe({
      
      tryCatch({
-       
+    
+
      #######################################################
      # Function to produce the individual forecast figures #
      #######################################################
-     otherIndividual <- Otherforecast.figures(formatted.forecast.input = filesOtherModels(),
-                                               date.type.input = dateValues$dates)
+     otherIndividual <- Otherforecast.figures(formattedForecastInput = fileOtherReactive(),
+                                              date.type.input = dateValues$dates)
      
      # Saving the output to the reactive value list
      individualOtherPlots$figures <- otherIndividual
@@ -6987,6 +7049,7 @@ server <- function(input, output, session) {
      }, error = function(e){
        
        NULL
+       
      })
      
    })
@@ -7210,9 +7273,9 @@ server <- function(input, output, session) {
       #######################################################
       # Function to produce the individual forecast figures #
       #######################################################
-      OtherpanelOutput <<- other.panel.forecast.figures(formatted.forecast.input = foremattedForecasts$forecasts, # Formatted figures
+      OtherpanelOutput <- other.panel.forecast.figures(formatted.forecast.input = foremattedForecasts$forecasts, # Formatted figures
                                                        date.type.input = dateValues$dates, # Date type
-                                                       formatted.forecast.Other.input = filesOtherModels()) # Read in forecasts
+                                                       formatted.forecast.Other.input = fileOtherReactive()) # Read in forecasts
 
       # Saving the output to the reactive value list
       PanelOtherPlots$figures <- OtherpanelOutput
@@ -7442,65 +7505,65 @@ server <- function(input, output, session) {
 # the files are names correctly.                                               #
 #------------------------------------------------------------------------------#
   
-  metricsOtherFiles <- reactive({
-    
-    tryCatch({
-      
-      ####################################################
-      # Creating an empty list to fill in with data sets #
-      ####################################################
-      lst <- list()
-      
-      ######################################
-      # Looping through uploaded data sets #
-      ######################################
-      for (i in 1:length(input$metricsOther[, 1])) {
-        
-        # Extract the extension of the file
-        ext <- tools::file_ext(input$metricsOther[i,4])
-        
-        ######################################################
-        # Produces an error if a '.csv' file is not selected #
-        ######################################################
-        if (ext != "csv") {
-          
-          # Produced error
-          showModal(modalDialog(
-            title = "Error",
-            paste("File", input$metricsOther[i,1], "is not a '.csv' file. Please upload only '.csv' files."),
-            easyClose = TRUE
-          ))
-          
-          # Return null so the user has to re-upload
-          return(NULL)
-          
-        }
-        
-        #######################
-        # Reading in the data #
-        #######################
-        lst[[i]] <- read.csv(input$metricsOther[i,4], header = TRUE, check.names = FALSE)
-        
-        # Assigning a name to the list
-        names(lst)[i] <- input$metricsOther[i,1]
-      }
-      
-      ###################################
-      # Returning a list of data frames #
-      ###################################
-      return(lst)
-     
-    ###########################
-    # Runs if an error occurs #
-    ###########################
-    }, error = function(e) {
-      
-      NULL
-      
-    })
-    
-  })
-  
+  # metricsOtherFiles <- reactive({
+  #   
+  #   tryCatch({
+  #     
+  #     ####################################################
+  #     # Creating an empty list to fill in with data sets #
+  #     ####################################################
+  #     lst <- list()
+  #     
+  #     ######################################
+  #     # Looping through uploaded data sets #
+  #     ######################################
+  #     for (i in 1:length(input$metricsOther[, 1])) {
+  #       
+  #       # Extract the extension of the file
+  #       ext <- tools::file_ext(input$metricsOther[i,4])
+  #       
+  #       ######################################################
+  #       # Produces an error if a '.csv' file is not selected #
+  #       ######################################################
+  #       if (ext != "csv") {
+  #         
+  #         # Produced error
+  #         showModal(modalDialog(
+  #           title = "Error",
+  #           paste("File", input$metricsOther[i,1], "is not a '.csv' file. Please upload only '.csv' files."),
+  #           easyClose = TRUE
+  #         ))
+  #         
+  #         # Return null so the user has to re-upload
+  #         return(NULL)
+  #         
+  #       }
+  #       
+  #       #######################
+  #       # Reading in the data #
+  #       #######################
+  #       lst[[i]] <- read.csv(input$metricsOther[i,4], header = TRUE, check.names = FALSE)
+  #       
+  #       # Assigning a name to the list
+  #       names(lst)[i] <- input$metricsOther[i,1]
+  #     }
+  #     
+  #     ###################################
+  #     # Returning a list of data frames #
+  #     ###################################
+  #     return(lst)
+  #    
+  #   ###########################
+  #   # Runs if an error occurs #
+  #   ###########################
+  #   }, error = function(e) {
+  #     
+  #     NULL
+  #     
+  #   })
+  #   
+  # })
+  # 
 #------------------------------------------------------------------------------#
 # Combining crude metrics ------------------------------------------------------
 #------------------------------------------------------------------------------#
@@ -7513,40 +7576,40 @@ server <- function(input, output, session) {
 # produced in the toolbox, they will have their own column.                    #
 #------------------------------------------------------------------------------#
   
-  ########################################
-  # Observing changes in reactive values #
-  ########################################
-  observe({
-    
-    #################
-    # Error checker #
-    #################
-    tryCatch({
-      
-      # Crude metrics (fit) - ARIMA, GLM, GAM, Prophet
-      crudeMetricsFitAGGP <- modelFitMetricsList$fitMetrics
-      
-      # Crude metrics (forecast) - ARIMA, GLM, GAM, Prophet
-      crudeMetricsForecastAGGP <- forecastMetricsListCrude$forecastMetrics
-      
-      # Other metrics
-      otherMetrics <- metricsOtherFiles()
-      
-      # Date type 
-      dateType <- dateValues$dates
-
-
-    ###########################
-    # Runs if an error occurs #
-    ###########################
-    }, error = function(e){
-      
-      # Returning NULL
-      NULL
-      
-    })
-    
-  })
+  # ########################################
+  # # Observing changes in reactive values #
+  # ########################################
+  # observe({
+  #   
+  #   #################
+  #   # Error checker #
+  #   #################
+  #   tryCatch({
+  #     
+  #     # Crude metrics (fit) - ARIMA, GLM, GAM, Prophet
+  #     crudeMetricsFitAGGP <- modelFitMetricsList$fitMetrics
+  #     
+  #     # Crude metrics (forecast) - ARIMA, GLM, GAM, Prophet
+  #     crudeMetricsForecastAGGP <- forecastMetricsListCrude$forecastMetrics
+  #     
+  #     # Other metrics
+  #     otherMetrics <- metricsOtherFiles()
+  #     
+  #     # Date type 
+  #     dateType <- dateValues$dates
+  # 
+  # 
+  #   ###########################
+  #   # Runs if an error occurs #
+  #   ###########################
+  #   }, error = function(e){
+  #     
+  #     # Returning NULL
+  #     NULL
+  #     
+  #   })
+  #   
+  # })
   
   
   
