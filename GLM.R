@@ -41,27 +41,27 @@ GLM <- function(calibration.input, horizon.input, date.Type.input,
   ##############################################
   # Reading in the list of calibration periods #
   ##############################################
-  calibration.list.GLM <<- calibration.input
+  calibration.list.GLM <- calibration.input
   
   ##################################
   # Saving the forecasting horizon #
   ##################################
-  horizon.input.GLM <<- horizon.input
+  horizon.input.GLM <- horizon.input
   
   #############
   # Date type #
   #############
-  date.Type.input.GLM <<- date.Type.input
+  date.Type.input.GLM <- date.Type.input
   
   #####################
   # Smoothing of data #
   #####################
-  smoothing.input.GLM <<- smoothing.input
+  smoothing.input.GLM <- smoothing.input
   
   ###############
   # Error input #
   ###############
-  error.input.GLM <<- error.input
+  error.input.GLM <- error.input
   
   ########################################
   # Creating an empty list for quantiles #
@@ -313,7 +313,8 @@ GLM <- function(calibration.input, horizon.input, date.Type.input,
                     `upper.80%` = `u 0.2`,
                     `upper.90%` = `u 0.1`,
                     `upper.95%` = `u 0.05`,
-                    `upper.98%` = `u 0.02`)
+                    `upper.98%` = `u 0.02`) %>%
+      mutate_all(~ round(., 2))
     
     ########################################
     # Handling when data smoothing is used #

@@ -410,7 +410,8 @@ Prophet <- function(calibration.input, horizon.input, date.type.input,
                       `upper.80%`,
                       `upper.90%`,
                       `upper.95%`,
-                      `upper.98%`)
+                      `upper.98%`) %>%
+        mutate_all(~ round(., 2))
       
       
 #------------------------------------------------------------------------------#

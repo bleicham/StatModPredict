@@ -332,7 +332,8 @@ GAM <- function(calibration.input, horizon.input, date.Type.input,
                     `upper.80%` = `u 0.2`,
                     `upper.90%` = `u 0.1`,
                     `upper.95%` = `u 0.05`,
-                    `upper.98%` = `u 0.02`)
+                    `upper.98%` = `u 0.02`) %>%
+      mutate_all(~ round(., 2))
     
     ########################################
     # Handling when data smoothing is used #

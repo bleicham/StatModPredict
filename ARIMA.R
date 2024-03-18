@@ -308,19 +308,19 @@ ARIMA <- function(calibration.input, horizon.input,
       fcst <- forecast::forecast(fit, h=horizon.input.A, level=levels)
       
       # Creating a variable that includes the forecasted values/means
-      means <- fcst$mean
+      means <- round(fcst$mean, 2)
       
       # Changing all neg. forecasted values to 0
       means[means<0] <- 0
       
       # Creating a variable that includes the lower PI values
-      lower <- fcst$lower
+      lower <- round(fcst$lower, 2)
       
       # Changing all neg. lower CI values to 0
       lower[lower<0] <- 0
       
       # Creating a variable that contains the upper PI values
-      upper <- fcst$upper
+      upper <- round(fcst$upper, 2)
       
       # Changing all neg. upper PI values to 0
       upper[upper<0] <- 0
