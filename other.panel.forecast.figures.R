@@ -18,6 +18,12 @@ other.panel.forecast.figures <- function(formatted.forecast.input,
                                          formatted.forecast.Other.input,
                                          date.type.input){
   
+  `%!in%` <- function(x, y) {
+    
+    !(x %in% y)
+    
+  }
+  
 #------------------------------------------------------------------------------#
 # Reading in inputs from the main script ---------------------------------------
 #------------------------------------------------------------------------------#
@@ -421,7 +427,7 @@ other.panel.forecast.figures <- function(formatted.forecast.input,
           if(date.Figure %in% c("week", "day")){
             
             # Vertical line
-            breakLine <- anytime::anydate(dataFiltered$ForecastDate)
+            breakLine <- unique(anytime::anydate(dataFiltered$ForecastDate))
             
             # X-axis breaks 
             xAxisBreaks <- scale_x_continuous(breaks = seq.Date(min(anytime::anydate(dataFiltered$Date)), max(anytime::anydate(dataFiltered$Date)), by = 7))  # X-axis breaks
@@ -439,7 +445,7 @@ other.panel.forecast.figures <- function(formatted.forecast.input,
           }else{
 
             # Vertical line
-            breakLine <- as.numeric(dataFiltered$ForecastDate)
+            breakLine <- unique(as.numeric(dataFiltered$ForecastDate))
             
             # X-axis breaks
             xAxisBreaks <- scale_x_continuous(breaks = seq(min(dataFiltered$Date), max(dataFiltered$Date), by = 1))  # X-axis breaks
@@ -566,10 +572,10 @@ other.panel.forecast.figures <- function(formatted.forecast.input,
   # Adding Names #
   ################
   for(i in 1:length(ListtoExport)){
-    
+
     # Update figure name
     names(ListtoExport)[i] <- ListtoExport[[i]][["labels"]][["title"]]
-    
+
   }
 
   ############################
