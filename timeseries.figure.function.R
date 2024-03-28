@@ -12,7 +12,8 @@
 #------------------------------------------------------------------------------#
 timeseries.figure.function <- function(timeseries.input, location.input,
                                        dateType.input, forecastLineShow,
-                                       forecastDatesStart, forecastDatesEnd){
+                                       forecastDatesStart, forecastDatesEnd,
+                                       scaleYAxis, yAxisLabel, dateBreaks) {
   
 #------------------------------------------------------------------------------#
 # Reading in the inputs --------------------------------------------------------
@@ -24,32 +25,47 @@ timeseries.figure.function <- function(timeseries.input, location.input,
 #########################
 # Timeseries data input #
 #########################
-timeseries.data <- timeseries.input
+timeseries.data <<- timeseries.input
 
 #######################
 # Location data input #
 #######################
-locations <- location.input
+locations <<- location.input
 
 ###################
 # Date Type input #
 ###################
-dateType <- dateType.input
+dateType <<- dateType.input
 
 ###############################################
 # Indicator if forecast lines should be shown #
 ###############################################
-lineIndicator <- forecastLineShow
+lineIndicator <<- forecastLineShow
 
 #########################
 # Start forecast period #
 #########################
-startForecastPeriod <- forecastDatesStart
+startForecastPeriod <<- forecastDatesStart
 
 #######################
 # End forecast period #
 #######################
-EndForecastPeriod <- forecastDatesEnd
+EndForecastPeriod <<- forecastDatesEnd
+
+###################
+# Scale indicator #
+###################
+scaleTimeseries <<- scaleYAxis 
+
+################
+# Y-axis label #
+################
+yAxisInput <<- yAxisLabel
+
+#####################
+# Date breaks input #
+#####################
+numOfDateBreaks <<- dateBreaks
 
 ####################
 # List for figures #
@@ -69,6 +85,25 @@ if(length(locations) == 0){
   return("No location has been selected. Please select at least one location prior to running forecasts.")
   
 }
+
+#------------------------------------------------------------------------------#
+# Fixing the scale for the time series data -------------------------------------
+#------------------------------------------------------------------------------#
+# About: This section handles the scale variable, and ensures that something   #
+# is specified and can be used below.                                          #    
+#------------------------------------------------------------------------------#
+  
+  # Indicator for to use the original scale 
+  if(scaleTimeseries == "Original" || is.null(scaleTimeseries) || is.null(scaleTimeseries)){
+    
+    scaleIndicator <- 0
+  
+  # Indicator to use the log-10 scale   
+  }else if(scaleTimeseries == "Log(Base 10)"){
+    
+    scaleIndicator <- 1
+    
+  }
 
 #------------------------------------------------------------------------------#
 # Filtering data based on selected locations -----------------------------------
@@ -96,30 +131,115 @@ data.for.plot <- timeseries.data %>%
 # types of data.                                                               #
 #------------------------------------------------------------------------------#
 
-######################################################
-# Adjusting the y-axis - determining the max y value #
-######################################################
-maxValue <- max(data.for.plot[,-c(1,2)], na.rm = T)
+#------------------------------------------------------------------------------#
+# Adjusting the scale of the y-axis --------------------------------------------
+#------------------------------------------------------------------------------#
+# About: This section adjusts the scale of the y-axis based upon the user's    #
+# choice or lack of choice in the main dashboard. The default setting is the   #
+# is the original scale. However, multiple options are available.              #
+#------------------------------------------------------------------------------#
 
-########################################
-# Determining the breaks in the y-axis #
-########################################
-breaks.graph <- ifelse(maxValue/10 + 5 == 0, 1, floor(maxValue/10 + 5))
+if(scaleIndicator == 0){
+  
+  ##################################
+  # Variable to use for the y-axis #
+  ##################################
+  y_variable <- data.for.plot$Count
+  
+  ######################################################
+  # Adjusting the y-axis - determining the max y value #
+  ######################################################
+  maxValue <- max(data.for.plot[,-c(1,2)], na.rm = T)
+  
+  ########################################
+  # Determining the breaks in the y-axis #
+  ########################################
+  breaks.graph <- ifelse(maxValue/10 + 5 == 0, 1, floor(maxValue/10 + 5))
+  
+}else{
+  
+  #######################################
+  # Adding the log-transformed variable #
+  #######################################
+  data.for.plot$logCount <- log10(data.for.plot$Count + 1)
+  
+  ##################################
+  # Variable to use for the y-axis #
+  ##################################
+  y_variable <- data.for.plot$logCount
+  
+  ######################################################
+  # Adjusting the y-axis - determining the max y value #
+  ######################################################
+  maxValue <- max(data.for.plot[,-c(1:3)], na.rm = T)
+  
+  ########################################
+  # Determining the breaks in the y-axis #
+  ########################################
+  breaks.graph <- ifelse(maxValue/10 < 1, 0.5, floor(maxValue/10))
+  
+  
+}
 
-###################################
-# Handling dates - Weeks and Days #
-###################################
-if(dateType %in% c("week", "day")){
+#------------------------------------------------------------------------------#
+# Handling dates ---------------------------------------------------------------
+#------------------------------------------------------------------------------#
+# About: This section prepares the labels for the dates, including if the user #
+# does not change the number of date breaks.                                   #
+#------------------------------------------------------------------------------#
+
+
+##########################
+# Handling dates - Weeks #
+##########################
+if(dateType %in% c("week")){
   
-  # Dates on x-axis
-  data.for.plot <- data.for.plot %>%
-    mutate(Dates = anytime::anydate(Dates)) # Handling dates if working with weekly and daily data
+    # Dates on x-axis
+    data.for.plot <- data.for.plot %>%
+      mutate(Dates = anytime::anydate(Dates)) # Handling dates if working with weekly data
+    
+    # Breaks
+    if(numOfDateBreaks < 1 || is.na(numOfDateBreaks) || is.null(numOfDateBreaks)){
+      
+      breaksLabel <- paste0(1, " week")
+      
+    }else{
+      
+      breaksLabel <- paste0(numOfDateBreaks, " weeks")
+      
+    }
+    
+    # X-axis breaks 
+    xAxisBreaks <- scale_x_continuous(breaks = seq.Date(min(data.for.plot$Dates), max(data.for.plot$Dates), by = breaksLabel))  # X-axis breaks
+    
+    # Creating the vector of line breaks
+    lineBreaksVector <- seq.Date(anytime::anydate(startForecastPeriod), anytime::anydate(EndForecastPeriod), by = breaksLabel)
+
+  #########################
+  # Handling dates - Days #
+  #########################
+  }else if(dateType %in% c("day")){
   
-  # X-axis breaks 
-  xAxisBreaks <- scale_x_continuous(breaks = seq.Date(min(data.for.plot$Dates), max(data.for.plot$Dates), by = 7))  # X-axis breaks
-  
-  # Creating the vector of line breaks
-  lineBreaksVector <- seq.Date(anytime::anydate(startForecastPeriod), anytime::anydate(EndForecastPeriod), by = 7)
+    # Dates on x-axis
+    data.for.plot <- data.for.plot %>%
+      mutate(Dates = anytime::anydate(Dates)) # Handling dates if working with daily data
+    
+    # Breaks
+    if(numOfDateBreaks < 1 || is.na(numOfDateBreaks) || is.null(numOfDateBreaks)){
+      
+      breaksLabel <- paste0(1, " day")
+      
+    }else{
+      
+      breaksLabel <- paste0(numOfDateBreaks, " days")
+      
+    }
+    
+    # X-axis breaks 
+    xAxisBreaks <- scale_x_continuous(breaks = seq.Date(min(data.for.plot$Dates), max(data.for.plot$Dates), by = breaksLabel))  # X-axis breaks
+    
+    # Creating the vector of line breaks
+    lineBreaksVector <- seq.Date(anytime::anydate(startForecastPeriod), anytime::anydate(EndForecastPeriod), by = breaksLabel)
     
   ##########################################
   # Handling dates - Years or Time Indexes #  
@@ -130,11 +250,22 @@ if(dateType %in% c("week", "day")){
     data.for.plot <- data.for.plot %>%
       mutate(Dates = as.numeric(Dates)) # Changing years and time index to numeric 
     
+    # Breaks
+    if(numOfDateBreaks < 1 || is.na(numOfDateBreaks) || is.null(numOfDateBreaks)){
+      
+      breaksLabel <- 1
+      
+    }else{
+      
+      breaksLabel <- as.numeric(numOfDateBreaks)
+      
+    }
+    
     # X-axis breaks 
-    xAxisBreaks <- scale_x_continuous(breaks = seq(min(data.for.plot$Dates), max(data.for.plot$Dates), by = 1))  # X-axis breaks
+    xAxisBreaks <- scale_x_continuous(breaks = seq(min(data.for.plot$Dates), max(data.for.plot$Dates), by = breaksLabel))  # X-axis breaks
     
     # Creating the vector of line breaks
-    lineBreaksVector <- seq(as.numeric(startForecastPeriod), as.numeric(EndForecastPeriod), by = 1)
+    lineBreaksVector <- seq(as.numeric(startForecastPeriod), as.numeric(EndForecastPeriod), by = breaksLabel)
     
   }
 
@@ -148,18 +279,35 @@ if(dateType %in% c("week", "day")){
 ######################
 # Plotting the lines #
 ######################
-if(lineIndicator == T){
+if(lineIndicator == F || is.null(lineIndicator)){
   
-  plottedLines <- geom_vline(xintercept  = lineBreaksVector, color = "black", linetype = "dashed") 
+    plottedLines <- NULL
   
   ##########################
   # Not plotting the lines #
   ##########################
   }else{
   
-  plottedLines <- NULL
+    plottedLines <- geom_vline(xintercept  = lineBreaksVector, color = "black", linetype = "dashed") 
+  
+  }
+
+#------------------------------------------------------------------------------#
+# Label for y-axis -------------------------------------------------------------
+#------------------------------------------------------------------------------#
+# About: This section allows the user to customize the label for the y-axis.   #
+# If no y-axis label is selected, than the default is "Cases".                 #
+#------------------------------------------------------------------------------#
+if(is.null(yAxisInput) || is.na(yAxisInput)){
+  
+  yAxisLabelFinal <- "Count"
+  
+}else{
+  
+  yAxisLabelFinal <- yAxisInput
   
 }
+
 
 #------------------------------------------------------------------------------#
 # Plotting the time series -----------------------------------------------------
@@ -167,15 +315,16 @@ if(lineIndicator == T){
 # About: This section uses the data from above to plot the time series data    #
 # for the locations selected by the user.                                      #
 #------------------------------------------------------------------------------#
-figure <- ggplot(data.for.plot, aes(x = Dates, y = Count, color = Location)) +
+
+figure <- ggplot(data.for.plot, aes(x = Dates, y = y_variable, color = Location)) +
   plottedLines + 
   geom_line(aes(group= 1, text = paste('Date: ', Dates,
                              '<br>Count:', Count))) +
-  
   xAxisBreaks + # X axis breaks (i.e., dates)
   scale_y_continuous(breaks = seq(0, maxValue + breaks.graph, by = breaks.graph), # Y-axis breaks
                      limits = c(0, maxValue)) + # Y-axis limits
-  labs(color = "") + 
+  labs(color = "",
+       y = yAxisLabelFinal) + 
   theme_classic() + # Base theme
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1), # Switching x-axis labels horizontal
         plot.title = element_text(hjust = 0.5, face = "bold", size = 10), # Plot title
@@ -183,13 +332,14 @@ figure <- ggplot(data.for.plot, aes(x = Dates, y = Count, color = Location)) +
         axis.title.x=element_blank()) # Removing the x-axis label
 
 # GGPLOT version 
-figure1 <- ggplot(data.for.plot, aes(x = Dates, y = Count, color = Location)) +
+figure1 <- ggplot(data.for.plot, aes(x = Dates, y = y_variable, color = Location)) +
   plottedLines + 
   geom_line() +
   xAxisBreaks + # X axis breaks (i.e., dates)
   scale_y_continuous(breaks = seq(0, maxValue + breaks.graph, by = breaks.graph), # Y-axis breaks
                      limits = c(0, maxValue)) + # Y-axis limits
-  labs(color = "") + 
+  labs(color = "",
+       y = yAxisLabelFinal) + 
   theme_classic() + # Base theme
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1), # Switching x-axis labels horizontal
         plot.title = element_text(hjust = 0.5, face = "bold", size = 10), # Plot title

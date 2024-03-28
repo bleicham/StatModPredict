@@ -94,14 +94,14 @@ if(average.input){
   
   metricsForScores <- allMetrics %>%
     dplyr::group_by(Model, Location) %>% # Grouping by location and model
-    dplyr::mutate(meanMSE = mean(meanMSE), # Avg. MSE
-                  meanMAE = mean(meanMAE), # Avg. MAE
-                  `Avg. Winkler` = mean(`Avg. Winkler`), # Avg. PI
-                  meanWIS = mean(meanWIS)) %>% # Avg. WIS
+    dplyr::mutate(meanMSE = round(mean(meanMSE), 2),  # Avg. MSE
+                  meanMAE = round(mean(meanMAE), 2), # Avg. MAE
+                  `Avg. Winkler` = round(mean(`Avg. Winkler`), 2), # Avg. PI
+                  meanWIS = round(mean(meanWIS), 2)) %>% # Avg. WIS
     dplyr::filter(Model %in% c(benchmark.input, comparison.input)) %>% # Filtering to include the needed models
     dplyr::filter(Location %in% c(location.input)) %>% # Filtering to include the selected locations 
     tidyr::pivot_longer(-c(Location, Model, `Forecast Date`), names_to = "Metric", values_to = "Value") %>%
-    tidyr::pivot_wider(names_from = "Model", values_from = "Value")
+    tidyr::pivot_wider(names_from = "Model", values_from = "Value") 
  
 #####################
 # For crude metrics #
@@ -170,15 +170,21 @@ finalSS <- metricsForScores[, c(1:3, (ncol(metricsForScores) - length(comparison
 # Renaming and ordered variables #
 ##################################
 finalSS <- separate(finalSS, Comparison, into = c("Benchmark Model", "Comparison Model"), sep = "-") %>%
-  dplyr::select(Location, `Forecast Date`, `Benchmark Model`, `Comparison Model`, MSE, MAE, `Winkler Score`, WIS)
+  dplyr::select(Location, `Forecast Date`, `Benchmark Model`, `Comparison Model`, MSE, MAE, `Winkler Score`, WIS) %>%
+  dplyr::mutate(MSE = round(MSE, 2), # Rounded MSE
+                MAE = round(MAE, 2), # Rounded MAE
+                `Winkler Score` = round(`Winkler Score`, 2), # Rounded Winkler Score 
+                WIS = round(WIS, 2)) # Rounded WIS
 
-############################################################
-# Removing the date column if working with average metrics #
-############################################################
+############################################################################
+# Removing the date column and repeat rows if working with average metrics #
+############################################################################
 if(average.input){
   
   finalSS <- finalSS %>%
-    dplyr::select(-`Forecast Date`)
+    dplyr::select(-`Forecast Date`) %>% # Removing date column
+    dplyr::distinct(Location, `Benchmark Model`, `Comparison Model`, .keep_all = T)
+    
   
 }
 

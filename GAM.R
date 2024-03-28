@@ -39,37 +39,37 @@ GAM <- function(calibration.input, horizon.input, date.Type.input,
   ##############################################
   # Reading in the list of calibration periods #
   ##############################################
-  calibration.list.GAM <- calibration.input
+  calibration.list.GAM <<- calibration.input
   
   ##################################
   # Saving the forecasting horizon #
   ##################################
-  horizon.input.G <- horizon.input
+  horizon.input.G <<- horizon.input
   
   #############
   # Date type #
   #############
-  date.Type.input.G <- date.Type.input
+  date.Type.input.G <<- date.Type.input
   
   #####################
   # Smoothing of data #
   #####################
-  smoothing.input.G <- smoothing.input
+  smoothing.input.G <<- smoothing.input
   
   ###############
   # Error input #
   ###############
-  error.input.G <- error.input
+  error.input.G <<- error.input
   
   #############################
   # Number of basis functions #
   #############################
-  k.input.G <- as.numeric(k.input)
+  k.input.G <<- as.numeric(k.input)
   
   ##################
   # Smoothing term #
   ##################
-  smoothing.term.G <- smoothingTerm.input
+  smoothing.term.G <<- smoothingTerm.input
   
   ########################################
   # Creating an empty list for quantiles #

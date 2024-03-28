@@ -56,37 +56,37 @@ Prophet <- function(calibration.input, horizon.input, date.type.input,
   ######################################
   # Reading in the calibration periods #
   ######################################
-  calibration.input.P <- calibration.input
+  calibration.input.P <<- calibration.input
   
   ##################################
   # Saving the forecasting horizon #
   ##################################
-  horizon.input.P <- horizon.input
+  horizon.input.P <<- horizon.input
   
   #############
   # Date type #
   #############
-  date.Type.input.P <- date.type.input
+  date.Type.input.P <<- date.type.input
   
   #####################
   # Smoothing of data #
   #####################
-  smoothing.input.P <- smoother.input
+  smoothing.input.P <<- smoother.input
   
   ###############
   # Growth type #
   ###############
-  growth.input.P <- growthTrend.input
+  growth.input.P <<- growthTrend.input
   
   #######################
   # Seasonality Prophet #
   #######################
-  seasonality.input.P <- seasonalityProphet.input
+  seasonality.input.P <<- seasonalityProphet.input
   
   #################
   # Holiday dates #
   #################
-  holidayDates.input.P <- holidayDates.input
+  holidayDates.input.P <<- holidayDates.input
   
   ########################################
   # Creating an empty list for quantiles #
@@ -295,7 +295,10 @@ Prophet <- function(calibration.input, horizon.input, date.type.input,
         ##############################
         # Creating a prophet object. #
         ##############################
-        
+
+        # Checking for the error
+        test <- try(
+          
         # Fitting a prophet model that does not assume weekly seasonality
         prophet_object_current <- prophet::prophet(data1, 
                                                    interval.width = uncertainty_level_current, 
@@ -305,7 +308,15 @@ Prophet <- function(calibration.input, horizon.input, date.type.input,
                                                    weekly.seasonality = seasonalDataFrame[2],
                                                    daily.seasonality = seasonalDataFrame[3])
         
+        )
         
+        if (inherits(test, 'try-error')) {
+          
+          break
+          
+        }
+        
+
 #------------------------------------------------------------------------------#
 # Producing Prophet Forecasts --------------------------------------------------
 #------------------------------------------------------------------------------#
@@ -421,6 +432,22 @@ Prophet <- function(calibration.input, horizon.input, date.type.input,
 # to a list with the best-fit models. Each forecast is labeled with its        #
 # location and forecast period.                                                #
 #------------------------------------------------------------------------------#
+      
+      #######################
+      # If the error occurs #
+      #######################
+      if (inherits(test, 'try-error')) {
+        
+        # Saving an NA in the list
+        quantileListLocations[[p]] <- NA
+        
+        # Adding names to list data frames
+        names(quantileListLocations)[p] <- paste0("Prophet-", location.index, "-", forecast.period.date)
+        
+        # Skipping to next loop
+        next
+        
+      }
 
       ############################################
       # Adding the forecast to the quantile list #

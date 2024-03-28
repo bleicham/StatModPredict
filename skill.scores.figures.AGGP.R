@@ -91,9 +91,9 @@ if(crudeScores == 1){
     
     xAxisBreaks <- scale_x_continuous(breaks = seq.Date(min(anytime::anydate(skillScores.input$`Forecast Date`)), max(anytime::anydate(skillScores.input$`Forecast Date`)), by = 7))  # X-axis breaks
     
-    ##############################################
-    # Handling the dates - Yearly and time index #
-    ##############################################
+  ##############################################
+  # Handling the dates - Yearly and time index #
+  ##############################################
   }else{
     
     xAxisBreaks <- scale_x_continuous(breaks = seq(min(skillScores.input$`Forecast Date`), max(skillScores.input$`Forecast Date`), by = 1))  # X-axis breaks
@@ -282,7 +282,7 @@ if(crudeScores == 1){
          y = "",
          x = "") + 
     theme_bw() +
-    theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1),
+    theme(axis.text.x = element_blank(),
           panel.grid.minor = element_blank(),
           panel.grid.major = element_line(color = "grey97"),
           legend.position = "none")
@@ -299,6 +299,7 @@ if(crudeScores == 1){
          x = "") + 
     theme_bw() +
     theme(axis.text.x = element_blank(),
+          axis.text.y = element_blank(),
           panel.grid.minor = element_blank(),
           panel.grid.major = element_line(color = "grey97"),
           legend.position = "none")
@@ -311,7 +312,7 @@ if(crudeScores == 1){
     scale_fill_gradient(low = "grey70", high = "blue") +
     geom_text(data=skillScores.input, aes(x = `Comparison Model`, y = Location,label = round(WIS, 2)), color = "grey90", size = 10) +
     labs(title = bquote(bold("C")~"  Weighted Interval Score (WIS)"),
-         y = "Skill Score") + 
+         y = "") + 
     theme_bw() +
     theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1),
           panel.grid.minor = element_blank(),
@@ -326,9 +327,10 @@ if(crudeScores == 1){
     scale_fill_gradient(low = "grey70", high = "blue") +
     geom_text(data=skillScores.input, aes(x = `Comparison Model`, y = Location,label = round(`Winkler Score`, 2)), color = "grey90", size = 10) +
     labs(title = bquote(bold("D")~"  Winkler Scores"),
-         y = "Skill Score") + 
+         y = "") + 
     theme_bw() +
     theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1),
+          axis.text.y = element_blank(), 
           panel.grid.minor = element_blank(),
           panel.grid.major = element_line(color = "grey97"),
           legend.position = "none")
@@ -354,8 +356,6 @@ if(crudeScores == 1){
 # About: This section returns either the list of crude skill scores or the     #
 # corresponding figure panel for the average skill scores.                     #
 #------------------------------------------------------------------------------#
-  
-  
   
   #################################
   # Returning the list of figures #

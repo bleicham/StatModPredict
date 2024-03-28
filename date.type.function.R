@@ -26,7 +26,7 @@ date.type.function <- function(dates.input){
 ###########################################
 # Reading in the dates from the main code #
 ###########################################
-dates.input.T <- dates.input
+dates.input.T <<- dates.input
 
 #------------------------------------------------------------------------------#
 # Determining the "type" of dates ----------------------------------------------
@@ -129,6 +129,7 @@ if(date.length == 4){
     }
   }
 }
+
 
 ###########################
 # Returning the date.type #

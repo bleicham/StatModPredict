@@ -25,7 +25,7 @@ winkler.scores.AGGP <- function(formattedForecasts){
 ######################################
 # Reading in the formatted forecasts #
 ######################################
-formatted.forecast.input <<- formattedForecasts
+formatted.forecast.input <- formattedForecasts
 
 ##########################################
 # Data frame to fill with winkler scores #
@@ -163,7 +163,7 @@ for(w in 1:length(formatted.forecast.input)){
       dplyr::mutate(CalibrationIndicator = ifelse(Date <= `Forecast Date`, 1, 0)) %>% # Indicator for calibration period 
       dplyr::select(Location, Model, Date, `Forecast Date`, `Winkler Score`, CalibrationIndicator) %>% # Selecting needed variables 
       dplyr::group_by(CalibrationIndicator) %>% # Grouping by forecast period type 
-      dplyr::mutate(`Avg. Winkler` = mean(`Winkler Score`)) # Average Winkler score across forecast or calibration periods 
+      dplyr::mutate(`Avg. Winkler` = round(mean(`Winkler Score`), 2)) # Average Winkler score across forecast or calibration periods 
   
   # If working with yearly or time index data  
   }else{
@@ -174,7 +174,7 @@ for(w in 1:length(formatted.forecast.input)){
       dplyr::mutate(CalibrationIndicator = ifelse(Date <= `Forecast Date`, 1, 0)) %>% # Indicator for calibration period 
       dplyr::select(Location, Model, Date, `Forecast Date`, `Winkler Score`, CalibrationIndicator) %>% # Selecting needed variables 
       dplyr::group_by(CalibrationIndicator) %>% # Grouping by forecast period type 
-      dplyr::mutate(`Avg. Winkler` = mean(`Winkler Score`)) # Average Winkler score across forecast or calibration periods 
+      dplyr::mutate(`Avg. Winkler` = round(mean(`Winkler Score`), 2)) # Average Winkler score across forecast or calibration periods
     
   }
   

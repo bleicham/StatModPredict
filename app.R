@@ -230,7 +230,7 @@ menuItem("Forecasting Specifications",
         
          
          # Starting with the menu closed 
-         startExpanded = F
+         startExpanded = T
          
 ), # End of Menu item
 
@@ -916,14 +916,11 @@ fluidRow(
               # Download button for figure time-series
               div(style = "margin-right: 10px", actionButton("figureTimeseries", "Download Timeseries Figure", icon = icon("download"))),
               
-              # Check-mark to see data
-              div(style = "margin-right: 10px", checkboxInput("timeseriesCheckBox", "Show Underlying Data")),
-              
               # Edit legend names 
-              div(style = "margin-right: 10px", actionButton("editLegendLabels", "Edit Legend Labels")), 
+              div(style = "margin-right: 10px", actionButton("editLegendLabels", "Figure Options")), 
               
-              # Check mark for forecast lines
-              div(checkboxInput("forecastLines", "Show Forecast Dates"))
+              # Check-mark to see data
+              div(style = "margin-right: 10px", checkboxInput("timeseriesCheckBox", "Show Underlying Data"))
               
           ) # End of main style row
           
@@ -2226,7 +2223,7 @@ server <- function(input, output, session) {
     ###############################
     }, error = function(e){
 
-      NULL
+      timeseriesData$dataList <- NULL
 
     }) # End of 'tryCatch'
 
@@ -2304,7 +2301,7 @@ server <- function(input, output, session) {
     ###########################################
     }, error = function(e){
       
-      NULL
+      output$timeseries <- renderDataTable({NULL})
       
     }) # End of 'tryCatch'
     
@@ -2350,17 +2347,81 @@ server <- function(input, output, session) {
 # 'plotly' figure.                                                             #
 #------------------------------------------------------------------------------#
   
+  ############################################
+  # Reactive value for the y-axis scale type #
+  ############################################
+  scaleY <- reactiveValues(logScale = "Original") 
+  
+  #######################################
+  # Reactive value for the y-axis label #
+  #######################################
+  yAxisLab <- reactiveValues(lab = "Count")
+  
+  ################################################
+  # Reactive value for the number of date breaks #
+  ################################################
+  dateBreaksReactive <- reactiveValues(breaksDate = "1")
+  
+  #############################################
+  # Reactive value for showing forecast lines #
+  #############################################
+  forecastLinesReactive <- reactiveValues(indicator = F)
+  
   ##############################
   # Creating the button pop-up #
   ##############################
   observeEvent(input$editLegendLabels, {
     
     showModal(modalDialog(
-      title = "Coming Soon!",
-     
+      title = "Figure Options",
+      pickerInput("logScale", "Scale for Y-Axis:", c("Original", "Log(Base 10)"), selected = scaleY$logScale), # Scale of y-axis
+      textInput("yaxisTimeSeries", "Label for Y-Axis:", value = yAxisLab$lab), # Label for y-axis
+      textInput("dateBreaksTS", "Number of Date Breaks (Label):", value = dateBreaksReactive$breaksDate), # Number of date breaks  
+      checkboxInput("forecastLines", "Show Forecast Dates", value = forecastLinesReactive$indicator) # Show forecast lines 
     ))
+    
   })
   
+  ###############################################
+  # Update the reactive value - scale of y-axis #
+  ###############################################
+  observeEvent(input$logScale, {
+    
+    # Updating the scale
+    scaleY$logScale <- input$logScale
+    
+  })
+  
+  ###############################################################
+  # Update the reactive value - Y-axis for the timeseries label #
+  ###############################################################
+  observeEvent(input$yaxisTimeSeries, {
+    
+    # Updating the y-axis label
+    yAxisLab$lab <- input$yaxisTimeSeries
+    
+  })
+  
+  #####################################################
+  # Update the reactive value - Number of date breaks #
+  #####################################################
+  observeEvent(input$dateBreaksTS,{
+    
+    # Updating the number of date breaks
+    dateBreaksReactive$breaksDate <- input$dateBreaksTS
+    
+  })
+  
+  ##########################################
+  # Update the reactive value - Show dates #
+  ##########################################
+  observeEvent(input$forecastLines, {
+    
+    # Update the check box
+    forecastLinesReactive$indicator <- input$forecastLines
+    
+  })
+
 #------------------------------------------------------------------------------#
 # Creating the time series figure ----------------------------------------------
 #------------------------------------------------------------------------------#
@@ -2393,7 +2454,10 @@ server <- function(input, output, session) {
                                                      dateType.input = dateValues$dates, # Type of data
                                                      forecastLineShow = input$forecastLines, # Show forecast lines
                                                      forecastDatesStart = input$forecast.period[1], # Start of slider
-                                                     forecastDatesEnd = input$forecast.period[2]) # End of slider
+                                                     forecastDatesEnd = input$forecast.period[2], # End of slider
+                                                     scaleYAxis = scaleY$logScale, # Scale for y-axis
+                                                     yAxisLabel = input$yaxisTimeSeries, # Y-axis label 
+                                                     dateBreaks = input$dateBreaksTS) # Number of date breaks
       
       # Saving figure list to reactive value variable - Plotly figure
       timeseriesFigureList$figureInteractive <- timeseriesFigure[[1]]
@@ -2434,23 +2498,19 @@ server <- function(input, output, session) {
     ##############################
     tryCatch({
       
+      event_trigger <- reactive({
+        list(input$run, input$forecastLines, scaleY$logScale, input$yaxisTimeSeries, input$dateBreaksTS)
+      })
+      
       #################################
       # Running if "Run" has been hit #
       #################################
-      observeEvent(input$run | input$forecastLines, {
-        
-        # Isolating the behavior
-        isolate({
-          
-          # Data to render 
-          TimeseriesInteractive <-  timeseriesFigureList$figureInteractive
-          
-        })
-        
+      observeEvent(ignoreInit = TRUE, event_trigger(), {
+                   
           ################################################
           # Rendering a NULL object if the check is true #
           ################################################
-          if(length(TimeseriesInteractive[[1]]) == 0 || is.null(TimeseriesInteractive[[1]]) || is.character(TimeseriesInteractive[[1]])){
+          if(length(timeseriesFigureList$figureInteractive[[1]]) == 0 || is.null(timeseriesFigureList$figureInteractive[[1]]) || is.character(timeseriesFigureList$figureInteractive[[1]])){
             
             # Isolating behaviors until the button is clicked
             isolate({
@@ -2471,12 +2531,13 @@ server <- function(input, output, session) {
               # Render statement
               output$timeseriesPlot <- renderPlotly({
                 
+                isolate({
                 # Plot to return
-                timeFig <- ggplotly(TimeseriesInteractive, tooltip = "text") %>%
-                  config(edits = list(axisTitleText= TRUE)) 
-#AMANDA
+                timeFig <- ggplotly(timeseriesFigureList$figureInteractive, tooltip = "text") 
+                
                 # Returning the figure
                 return(timeFig)
+                })
 
                 })
 
@@ -2485,25 +2546,6 @@ server <- function(input, output, session) {
           } # End of NULL rendering
         
       }) # End of "run" observe event 
-      
-      #############################################
-      # Determining what the new y-axis should be #
-      #############################################
-      observeEvent(event_data("plotly_relayout"), {
-
-        # Y-axis title
-        yAxisTitle <- event_data("plotly_relayout")
-
-        print(yAxisTitle)
-
-        # Saving the resulting character in a reactive value
-        yAxisTitleObj$titleFig <- as.character(yAxisTitle[1])
-
-        # Showing the new plot
-        plotlyProxy("plot", session) %>%
-          plotlyProxyInvoke("relayout", list(yaxis = list(yaxis = list(title = yAxisTitle[[1]]))))
-
-      })
       
       ###########################################
       # Returns NULL the above code can not run #
@@ -2588,19 +2630,9 @@ server <- function(input, output, session) {
     # Function to save the file #
     #############################
     content = function(file) {
-      
-      # Updating the figure y-axis title if needed
-      if(!is.null(yAxisTitleObj$titleFig)){
-        
-        figure <- timeseriesFigureList$figureStatic +
-          labs(y = yAxisTitleObj$titleFig)
-        
-      }else{
         
         figure <- timeseriesFigureList$figureStatic 
-        
-      }
-      
+
       # Running with compression if using a '.tiff'
       if(input$extFig == 'tiff'){
         
@@ -3628,8 +3660,37 @@ server <- function(input, output, session) {
                                       holidayDates.input = input$holidays, # Holidays 
                                       growthTrend.input = input$growthTrends) # Type of growth pattern 
                
-               # Adding it to the reactive value
-               ProphetList$prophet <- prophetList$Forecasts
+               #########################################################
+               # Returning an error if calibration period is too small #
+               #########################################################
+               
+               # Checking for NAs 
+               isNAProphet <- prophetList$Forecasts[is.na(prophetList$Forecasts)]
+               
+               # Pulling the names with issues
+               namesErrorProphet <- c(names(isNAProphet))
+               
+               #####################################################
+               # Error if there are any forecasts that did not run #
+               #####################################################
+               if(length(namesErrorProphet) > 0){
+                 
+                 # Error 
+                 shinyalert("Unable to run the following Prophet forecasts (i.e., not enough data): ", 
+                            paste(namesErrorProphet, collapse = "\n"), type = "error")
+                 
+               }
+               
+               
+               #####################################################
+               # Returning the list of lists if Prophet model runs #
+               #####################################################
+               
+               # Determining which Prophet are not NA
+               notNAProphet <- prophetList$Forecasts[!is.na(prophetList$Forecasts)]
+               
+               # Saving list of lists to reactive value 
+               ProphetList$prophet <- notNAProphet
                
              }) # End of inner 'isolate'
              
@@ -6865,14 +6926,15 @@ server <- function(input, output, session) {
 #------------------------------------------------------------------------------#
 # Resetting the index value  ---------------------------------------------------
 #------------------------------------------------------------------------------#
-# About: This section resets the current index to zero if the average metrics  #
+# About: This section resets the current index to one if the average metrics   #
 # button is hit.                                                               #
 #------------------------------------------------------------------------------#
    
    ########################################
    # Observing changes in reactive values #
    ########################################
-   observe({
+   output$SSFigureAGGP <- renderPlot({
+     
      
      # Runs if no errors occur 
      tryCatch({
@@ -6880,8 +6942,11 @@ server <- function(input, output, session) {
          # Running if working with average figure
          if(length(skillScoresFigs$figList) == 1 | is.na(skillScoresFigs$figList) | is.null(skillScoresFigs$figList) | length(skillScoresFigs$figList) == 0){
            
-           current_index_skillScores(1)
+           return(skillScoresFigs$figList)
            
+         }else{
+           
+           return(skillScoresFigs$figList[[current_index_skillScores()]])
          }
        
        }, error = function(e){
@@ -6892,48 +6957,50 @@ server <- function(input, output, session) {
      
      }) # End of observe
    
-#------------------------------------------------------------------------------#
-# Rendering the plot for skill scores ------------------------------------------
-#------------------------------------------------------------------------------#
-# About: This section renders the skill scores figure, either the average plot #
-# or indexed crude plot.                                                       #
-#------------------------------------------------------------------------------#
-   
-   output$SSFigureAGGP <- renderPlot({
-     
-     
-      return(skillScoresFigs$figList[[current_index_skillScores()]])
-       
-     
-   })
-     
 # Reading in additional models -------------------------------------------------
    
 #------------------------------------------------------------------------------#
 # Data Formatting Pop-up Message -----------------------------------------------
 #------------------------------------------------------------------------------#
-# 
+# About: This section creates a pop-up message that appears when a user clicks #
+# on the "Model Comparison" page. It first makes sure that the users know to   #
+# go to the instructions page to set up their data prior to running the page.  #
+#------------------------------------------------------------------------------#
    
+   #####################################################################
+   # Pop-up to show when the "Model Comparison" page button in clicked #
+   #####################################################################
+   observeEvent(input$my_picker, {
    
-   # observeEvent(input$my_picker, {
-   # 
-   #   isolate({
-   #  if(input$my_picker == "Model Comparison"){
-   # 
-   # modalDialog(
-   #   "...",
-   #   title = NULL,
-   #   footer = modalButton("Dismiss"),
-   #   size = c("l"),
-   #   easyClose = FALSE
-   # )
-   #    
-   #  }
-   # 
-   #   })
-   # 
-   # })
-   
+     #################################################
+     # Pop-up only if on the "Model Comparison" page #
+     #################################################
+     if(input$my_picker == "Model Comparison"){
+       
+       # Instructions for model comparisons page
+       showModal(modalDialog(
+         
+         title = "Instructions",
+         HTML("<p>Welcome to the Model Comparison page. This page allows users to 
+           create forecast figures and panels and compare performance metrics 
+           for models not included in the dashboard to the forecasts conducted 
+           within the dashboard.</p>
+           
+           <p>To use this feature, please ensure your data follows the correct 
+           setup. Instructions for the proper data format can be found on the 
+           `Instructions` tab of the dashboard.</p>
+           
+           <p>All options MUST be selected and forecasts run on the primary dashboard 
+           page before comparing models and reading in outside forecasts.</p>"
+         ),
+         
+        easyClose = TRUE
+        
+      ))
+
+    }
+     
+     })
 
 #------------------------------------------------------------------------------#
 # Reading in multiple files ----------------------------------------------------
@@ -7014,8 +7081,24 @@ server <- function(input, output, session) {
        })
      
    })
-      
- 
+   
+#------------------------------------------------------------------------------#
+# Checking the format of the forecast files ------------------------------------
+#------------------------------------------------------------------------------#
+# About: This section checks the format of the forecasts read into the code by #
+# the user. It checks the names of the column, and returns the date, horizon,  #
+# calibration period, disease/object of interest.                              #
+#------------------------------------------------------------------------------#
+   
+   ########################################
+   # Observing changes in reactive values #
+   ########################################
+   observe({
+     
+     formattedForecastInputTEST <<- fileOtherReactive()
+     date.type.inputTEST <<- dateValues$dates
+     
+   })
    
 #------------------------------------------------------------------------------#
 # Creating the individual forecast figures -------------------------------------
@@ -7036,7 +7119,6 @@ server <- function(input, output, session) {
      
      tryCatch({
     
-
      #######################################################
      # Function to produce the individual forecast figures #
      #######################################################
@@ -7273,7 +7355,7 @@ server <- function(input, output, session) {
       #######################################################
       # Function to produce the individual forecast figures #
       #######################################################
-      OtherpanelOutput <- other.panel.forecast.figures(formatted.forecast.input = foremattedForecasts$forecasts, # Formatted figures
+      OtherpanelOutput <<- other.panel.forecast.figures(formatted.forecast.input = foremattedForecasts$forecasts, # Formatted figures
                                                        date.type.input = dateValues$dates, # Date type
                                                        formatted.forecast.Other.input = fileOtherReactive()) # Read in forecasts
 
@@ -7505,65 +7587,79 @@ server <- function(input, output, session) {
 # the files are names correctly.                                               #
 #------------------------------------------------------------------------------#
   
-  # metricsOtherFiles <- reactive({
-  #   
-  #   tryCatch({
-  #     
-  #     ####################################################
-  #     # Creating an empty list to fill in with data sets #
-  #     ####################################################
-  #     lst <- list()
-  #     
-  #     ######################################
-  #     # Looping through uploaded data sets #
-  #     ######################################
-  #     for (i in 1:length(input$metricsOther[, 1])) {
-  #       
-  #       # Extract the extension of the file
-  #       ext <- tools::file_ext(input$metricsOther[i,4])
-  #       
-  #       ######################################################
-  #       # Produces an error if a '.csv' file is not selected #
-  #       ######################################################
-  #       if (ext != "csv") {
-  #         
-  #         # Produced error
-  #         showModal(modalDialog(
-  #           title = "Error",
-  #           paste("File", input$metricsOther[i,1], "is not a '.csv' file. Please upload only '.csv' files."),
-  #           easyClose = TRUE
-  #         ))
-  #         
-  #         # Return null so the user has to re-upload
-  #         return(NULL)
-  #         
-  #       }
-  #       
-  #       #######################
-  #       # Reading in the data #
-  #       #######################
-  #       lst[[i]] <- read.csv(input$metricsOther[i,4], header = TRUE, check.names = FALSE)
-  #       
-  #       # Assigning a name to the list
-  #       names(lst)[i] <- input$metricsOther[i,1]
-  #     }
-  #     
-  #     ###################################
-  #     # Returning a list of data frames #
-  #     ###################################
-  #     return(lst)
-  #    
-  #   ###########################
-  #   # Runs if an error occurs #
-  #   ###########################
-  #   }, error = function(e) {
-  #     
-  #     NULL
-  #     
-  #   })
-  #   
-  # })
-  # 
+  metricsOtherReactive <- reactive({
+    
+    ####################################################
+    # Creating an empty list to fill in with data sets #
+    ####################################################
+    filesOtherLst <- list()
+    
+    #######################################
+    # Runs if there is there is no errors #
+    #######################################
+    tryCatch({
+      
+      # List of files read in 
+      files <- input$metricsOther
+      
+      #####################################
+      # Looping through the read-in files #
+      #####################################
+      for(i in 1:nrow(files)){
+        
+        # Indexed fie 
+        indexedFile <- files$datapath[i]
+        
+        # Indexed file name
+        indexedFileName <- files$name[i]
+        
+        # Extract the extension of the file
+        ext <- tools::file_ext(indexedFileName)
+        
+        ######################################################
+        # Produces an error if a '.csv' file is not selected #
+        ######################################################
+        if (ext != "csv") {
+          
+          # Produced error
+          showModal(modalDialog(
+            title = "Error",
+            paste("File", indexedFileName, "is not a '.csv' file. Please upload only '.csv' files."),
+            easyClose = TRUE
+          ))
+          
+          return(NULL)
+          
+        }
+        
+        # Reading in the data
+        data <- read.csv(indexedFile, header = T)
+        
+        # Saving the files to a list 
+        filesOtherLst[[i]] <- data
+        
+        # Adding the name of the file
+        names(filesOtherLst)[i] <- indexedFileName
+        
+      }
+      
+      ###############################
+      # Returning the list of files #
+      ###############################
+      return(filesOtherLst)
+      
+      ###########################
+      # Runs if an error occurs #
+      ###########################
+    }, error = function(e) {
+      
+      # Message that prints to the console 
+      print("The other metric files did not read in correctly.")
+      
+    })
+    
+  })
+  
 #------------------------------------------------------------------------------#
 # Combining crude metrics ------------------------------------------------------
 #------------------------------------------------------------------------------#
@@ -7575,6 +7671,8 @@ server <- function(input, output, session) {
 # the forecast date. If there are additionally statistics outside those        #
 # produced in the toolbox, they will have their own column.                    #
 #------------------------------------------------------------------------------#
+  
+  observe({ lisTest <<- metricsOtherReactive() })
   
   # ########################################
   # # Observing changes in reactive values #
