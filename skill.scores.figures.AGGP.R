@@ -24,7 +24,7 @@ skill.scores.figures.AGGP <- function(skillScores){
 #######################
 # Skill scores inputs #
 #######################
-skillScores.input <<- skillScores
+skillScores.input <- skillScores
 
 ################################
 # List of skill scores figures #

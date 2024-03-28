@@ -25,47 +25,47 @@ timeseries.figure.function <- function(timeseries.input, location.input,
 #########################
 # Timeseries data input #
 #########################
-timeseries.data <<- timeseries.input
+timeseries.data <- timeseries.input
 
 #######################
 # Location data input #
 #######################
-locations <<- location.input
+locations <- location.input
 
 ###################
 # Date Type input #
 ###################
-dateType <<- dateType.input
+dateType <- dateType.input
 
 ###############################################
 # Indicator if forecast lines should be shown #
 ###############################################
-lineIndicator <<- forecastLineShow
+lineIndicator <- forecastLineShow
 
 #########################
 # Start forecast period #
 #########################
-startForecastPeriod <<- forecastDatesStart
+startForecastPeriod <- forecastDatesStart
 
 #######################
 # End forecast period #
 #######################
-EndForecastPeriod <<- forecastDatesEnd
+EndForecastPeriod <- forecastDatesEnd
 
 ###################
 # Scale indicator #
 ###################
-scaleTimeseries <<- scaleYAxis 
+scaleTimeseries <- scaleYAxis 
 
 ################
 # Y-axis label #
 ################
-yAxisInput <<- yAxisLabel
+yAxisInput <- yAxisLabel
 
 #####################
 # Date breaks input #
 #####################
-numOfDateBreaks <<- dateBreaks
+numOfDateBreaks <- dateBreaks
 
 ####################
 # List for figures #
