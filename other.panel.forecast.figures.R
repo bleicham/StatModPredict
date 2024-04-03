@@ -16,7 +16,19 @@
 #------------------------------------------------------------------------------#
 other.panel.forecast.figures <- function(formatted.forecast.input, 
                                          formatted.forecast.Other.input,
-                                         date.type.input){
+                                         date.type.input, yAxisScale.input,
+                                         yAxisLabel.input, dateBreaks.input,
+                                         startY.input, dataDot.input,
+                                         errorGLM.input){
+  
+
+  
+#------------------------------------------------------------------------------#
+# Creating the 'not-in' function -----------------------------------------------
+#------------------------------------------------------------------------------#
+# About: This section creates the 'not-in' function. Therefore, `%!in%` now    #
+# can be used as the inverse of the built-in `%in%` function.                  #
+#------------------------------------------------------------------------------#
   
   `%!in%` <- function(x, y) {
     
@@ -34,18 +46,48 @@ other.panel.forecast.figures <- function(formatted.forecast.input,
   ###########################
   # Formatted Forecast list #
   ###########################
-  formatted.forecast.Figure <<- formatted.forecast.input
+  formatted.forecast.Figure <- formatted.forecast.input
   
   ############################################
   # Reading in the other formatted forecasts #
   ############################################
-  other.formatted.forecasts <<- formatted.forecast.Other.input
+  other.formatted.forecasts <- formatted.forecast.Other.input
   
   #############
   # Date type #
   #############
-  date.Figure <<- date.type.input
+  date.Figure <- date.type.input
   
+  ################
+  # Y-axis scale #
+  ################
+  yAxis.scale <- yAxisScale.input
+  
+  ################
+  # Y-axis label #
+  ################
+  yAxisLabel <- yAxisLabel.input
+  
+  ###############
+  # Date breaks #
+  ###############
+  dateBreaks <- dateBreaks.input
+  
+  #################################
+  # Starting point for the y-axis #
+  #################################
+  startY <- startY.input 
+  
+  ####################
+  # Size of data dot #
+  ####################
+  sizeDataDot <- dataDot.input
+  
+  ####################
+  # Error term - GLM #
+  ####################
+  errorGLM <- errorGLM.input 
+    
   ###############################################################
   # Creating and empty list for figures - Forecast period dates #
   ###############################################################
@@ -71,6 +113,43 @@ other.panel.forecast.figures <- function(formatted.forecast.input,
   #########################
   finalList <- list()
   
+#------------------------------------------------------------------------------#
+# Fixing the scale for the time series data -------------------------------------
+#------------------------------------------------------------------------------#
+# About: This section handles the scale variable, and ensures that something   #
+# is specified and can be used below.                                          #    
+#------------------------------------------------------------------------------#
+  
+  # Indicator for to use the original scale 
+  if(yAxis.scale == "Original" || is.null(yAxis.scale) || is.null(yAxis.scale)){
+    
+    scaleIndicator <- 0
+    
+  # Indicator to use the log-10 scale   
+  }else if(yAxis.scale == "Log(Base 10)"){
+    
+    scaleIndicator <- 1
+    
+  }
+  
+#------------------------------------------------------------------------------#
+# Fixing the input for data dot size -------------------------------------------
+#------------------------------------------------------------------------------#
+# About: This section works with the data size variable. It sets the default   #
+# size to 2, unless the user specifies otherwise.                              #
+#------------------------------------------------------------------------------#
+  
+  # Default 
+  if(sizeDataDot == 2 || is.null(sizeDataDot) || is.null(sizeDataDot) || sizeDataDot == 0){
+    
+    sizeOfDataPoint <- 2
+    
+  # User specified 
+  }else{
+    
+    sizeOfDataPoint <- sizeDataDot
+    
+  }
   
 #------------------------------------------------------------------------------#
 # Cleaning the other models ----------------------------------------------------
@@ -81,7 +160,7 @@ other.panel.forecast.figures <- function(formatted.forecast.input,
 #------------------------------------------------------------------------------#
   
   # Creating the empty data frame for merging - Other Forecasts
-  allOtherForecasts <- NA
+  allOtherForecasts <- NULL
   
   #####################################
   # Looping through the read-in files #
@@ -159,10 +238,6 @@ other.panel.forecast.figures <- function(formatted.forecast.input,
     
   }
   
-  #################################
-  # Removing the first row of NAs #
-  #################################
-  allOtherForecasts <- allOtherForecasts[-1,]
   
 #------------------------------------------------------------------------------#
 # Cleaning the ARIMA/GLM/GAM/Prophet models ------------------------------------
@@ -174,7 +249,7 @@ other.panel.forecast.figures <- function(formatted.forecast.input,
 #------------------------------------------------------------------------------#
   
   # Creating the empty data frame for merging - ARIMA/GLM/GAM/Prophet Forecasts
-  allForecasts <- NA
+  allForecasts <- NULL
   
   ###############################################################
   # Running only if ARIMA/GLM/GAM/Prophet forecasts are entered #
@@ -281,10 +356,6 @@ other.panel.forecast.figures <- function(formatted.forecast.input,
     
   } # End of loop for figure data 
     
-  #################################
-  # Removing the first rows of NA #
-  #################################
-  allForecasts <- allForecasts[-1, ]
   
   } # End of if-statement
   
@@ -403,73 +474,242 @@ other.panel.forecast.figures <- function(formatted.forecast.input,
             next
             
           }
-            
+        
+          
 #------------------------------------------------------------------------------#
-# Preparing for plotting -------------------------------------------------------
+# Adjusting the scale of the y-axis --------------------------------------------
 #------------------------------------------------------------------------------#
-# About: This section prepares the y-axis, x-axis, and vertical line for each  #
-# of the individual figures included in the panel.                             #
+# About: This section adjusts the scale of the y-axis based upon the user's    #
+# choice or lack of choice in the main dashboard. The default setting is the   #
+# is the original scale. However, multiple options are available.              #
 #------------------------------------------------------------------------------#
           
-          ####################################
-          # Setting up for graphing the data #
-          ####################################
-          
-          # Adjusting the y-axis
-          maxValue <- max(dataFiltered[,-c(1, 6:10)], na.rm = T)
-          
-          # Determining the breaks in the y-axis
-          breaks.graph <- ifelse(maxValue/10 + 5 == 0, 1, floor(maxValue/10 + 5))
-          
-          ########################################################
-          # Handling dates in the forecast files - weeks or days #
-          ########################################################
-          if(date.Figure %in% c("week", "day")){
+    if(scaleIndicator == 0){
             
-            # Vertical line
-            breakLine <- unique(anytime::anydate(dataFiltered$ForecastDate))
-            
-            # X-axis breaks 
-            xAxisBreaks <- scale_x_continuous(breaks = seq.Date(min(anytime::anydate(dataFiltered$Date)), max(anytime::anydate(dataFiltered$Date)), by = 7))  # X-axis breaks
-            
-            # Checking for large number of dates
-            if(length(xAxisBreaks) > 5){
-              
-              xAxisBreaks <- scale_x_continuous(breaks = seq.Date(min(anytime::anydate(dataFiltered$Date)), max(anytime::anydate(dataFiltered$Date)), by = "2 weeks"))  # X-axis breaks
-              
-            }
-            
-          ##############################################################
-          # Handling dates in the forecast files - years or time index #
-          ##############################################################
-          }else{
+      ##################################
+      # Variable to use for the y-axis #
+      ##################################
+      dataFiltered$medianVar <- dataFiltered$median
+      
+      ##########################
+      # Variable to use for UB #
+      ##########################
+      dataFiltered$UBVar <- dataFiltered$UB
+      
+      ##########################
+      # Variable to use for LB #
+      ##########################
+      dataFiltered$LBVar <- dataFiltered$LB
+      
+      ############################
+      # Variable to use for data #
+      ############################
+      dataFiltered$dataVar <- dataFiltered$data
+      
+      ######################################################
+      # Adjusting the y-axis - determining the max y value #
+      ######################################################
+      maxValue <- max(dataFiltered[,-c(1, 6:10)], na.rm = T)
+      
+      ####################################################################
+      # Min value of y-axis: Used if user does not want to start at zero #
+      ####################################################################
+      minValue <- floor(min(dataFiltered[,-c(1, 6:10)], na.rm = T))
+      
+      ########################################
+      # Determining the breaks in the y-axis #
+      ########################################
+      breaks.graph <- ifelse(maxValue/6 < 1, 1, floor(maxValue/6))
+      
+      ############################
+      # Handling the ARIMA Model #
+      ############################
+      dataFiltered <- dataFiltered %>%
+        dplyr::mutate(LB = ifelse(Model == "ARIMA" & is.na(LB), data, LB),
+                      UB = ifelse(Model == "ARIMA" & is.na(UB), data, UB))
+      
+    }else{
+      
+      ################################################
+      # Adding the log-transformed variable - Median #
+      ################################################
+      dataFiltered$logMedian <- log10(dataFiltered$median + 1)
+      
+      ############################################
+      # Adding the log-transformed variable - UB #
+      ############################################
+      dataFiltered$logUB <- log10(dataFiltered$UB + 1)
+      
+      ############################################
+      # Adding the log-transformed variable - LB #
+      ############################################
+      dataFiltered$logLB <- log10(dataFiltered$LB + 1)
+      
+      ##############################################
+      # Adding the log-transformed variable - Data #
+      ##############################################
+      dataFiltered$logData <- log10(dataFiltered$data + 1)
 
-            # Vertical line
-            breakLine <- unique(as.numeric(dataFiltered$ForecastDate))
-            
-            # X-axis breaks
-            xAxisBreaks <- scale_x_continuous(breaks = seq(min(dataFiltered$Date), max(dataFiltered$Date), by = 1))  # X-axis breaks
-            
-            # Checking for a large number of dates 
-            if(length(xAxisBreaks) > 5){
-              
-              xAxisBreaks <- scale_x_continuous(breaks = seq(min(dataFiltered$Date), max(dataFiltered$Date), by = 3))  # X-axis breaks
-              
-            }
-            
-          }
+      ##################################
+      # Variable to use for the y-axis #
+      ##################################
+      dataFiltered$medianVar <- dataFiltered$logMedian
+      
+      ##########################
+      # Variable to use for UB #
+      ##########################
+      dataFiltered$UBVar <- dataFiltered$logUB
+      
+      ##########################
+      # Variable to use for LB #
+      ##########################
+      dataFiltered$LBVar <- dataFiltered$logLB
+      
+      ############################
+      # Variable to use for data #
+      ############################
+      dataFiltered$dataVar <- dataFiltered$logData
+      
+      ######################################################
+      # Adjusting the y-axis - determining the max y value #
+      ######################################################
+      maxValue <- max(dataFiltered[,-c(1:10)], na.rm = T)
+      
+      ####################################################################
+      # Min value of y-axis: Used if user does not want to start at zero #
+      ####################################################################
+      minValue <- floor(min(dataFiltered[,-c(1:10)], na.rm = T))
+      
+      ########################################
+      # Determining the breaks in the y-axis #
+      ########################################
+      breaks.graph <- ifelse(maxValue/6 < 1.5, 0.50, floor(maxValue/6))
+      
+      ############################
+      # Handling the ARIMA Model #
+      ############################
+      dataFiltered <- dataFiltered %>%
+        dplyr::mutate(logLB = ifelse(Model == "ARIMA" & is.na(logLB), logData, logLB),
+                      logUB = ifelse(Model == "ARIMA" & is.na(logUB), logData, logUB))
+      
+    }
+  
+#------------------------------------------------------------------------------#
+# Determining the starting for the y-axis --------------------------------------
+#------------------------------------------------------------------------------#
+# About: This section determines whether the start the y-axis at zero or the   #
+# minimum value of the data set.                                               #
+#------------------------------------------------------------------------------#
+
+    ########################################################
+    # Runs if the user selects to start the y-axis at zero #
+    ########################################################
+    if(startY == "0" || is.null(startY) || is.na(startY)){
+      
+      # Start value
+      start <- 0
+      
+    ################################################################
+    # Runs if the user does not select to start the y-axis at zero #
+    ################################################################
+    }else{
+      
+      # Start value
+      start <- minValue
+      
+    }
           
-          ##############
-          # Plot Title #
-          ##############
-          title1  <- paste0(dataFiltered[1,9], "-", dataFiltered[1,10])
+#------------------------------------------------------------------------------#
+# Cleaning up, and preparing the dates -----------------------------------------
+#------------------------------------------------------------------------------#
+# About: This section prepares the dates for panel figure. It allows users to  #
+# select the number of breaks in the date labels.                              #
+#------------------------------------------------------------------------------#
+
+    ################################################
+    # Handling dates in the forecast files - Weeks #
+    ################################################
+    if(date.Figure %in% c("week")){
+            
+      # Vertical line
+      breakLine <- unique(anytime::anydate(dataFiltered$ForecastDate))
+      
+      # Breaks
+      if(dateBreaks < 1 || is.na(dateBreaks) || is.null(dateBreaks)){
+        
+        breaksLabel <- paste0(1, " week")
+        
+      }else{
+        
+        breaksLabel <- paste0(dateBreaks, " weeks")
+        
+      }
+            
+      # X-axis breaks 
+      xAxisBreaks <- scale_x_continuous(breaks = seq.Date(min(anytime::anydate(dataFiltered$Date)), max(anytime::anydate(dataFiltered$Date)), by = breaksLabel))  # X-axis breaks
+     
+      ###############################################
+      # Handling dates in the forecast files - Days #
+      ###############################################    
+      }else if(date.Figure %in% c("week")){
+      
+      # Vertical line
+      breakLine <- unique(anytime::anydate(dataFiltered$ForecastDate))
+      
+      # Breaks
+      if(dateBreaks < 1 || is.na(dateBreaks) || is.null(dateBreaks)){
+        
+        breaksLabel <- paste0(1, " day")
+        
+      }else{
+        
+        breaksLabel <- paste0(dateBreaks, " days")
+        
+      }
+      
+      # X-axis breaks 
+      xAxisBreaks <- scale_x_continuous(breaks = seq.Date(min(anytime::anydate(dataFiltered$Date)), max(anytime::anydate(dataFiltered$Date)), by = breaksLabel))  # X-axis breaks
+      
+      ##############################################################
+      # Handling dates in the forecast files - years or time index #
+      ##############################################################
+      }else{
+
+        # Vertical line
+        breakLine <- unique(as.numeric(dataFiltered$ForecastDate))
+        
+        # Breaks
+        if(dateBreaks < 1 || is.na(dateBreaks) || is.null(dateBreaks)){
           
-          ############################
-          # Handling the ARIMA Model #
-          ############################
-          dataFiltered <- dataFiltered %>%
-            dplyr::mutate(LB = ifelse(Model == "ARIMA" & is.na(LB), data, LB),
-                          UB = ifelse(Model == "ARIMA" & is.na(UB), data, UB))
+          breaksLabel <- 1
+          
+        }else{
+          
+          breaksLabel <- as.numeric(dateBreaks)
+          
+        }
+            
+        # X-axis breaks
+        xAxisBreaks <- scale_x_continuous(breaks = seq(min(dataFiltered$Date), max(dataFiltered$Date), by = breaksLabel))  # X-axis breaks
+            
+      }
+          
+#------------------------------------------------------------------------------#
+# Y-Axis Label -----------------------------------------------------------------
+#------------------------------------------------------------------------------#
+# About: This section allows for the customization of the y-axis by users. The #
+# value used here is what is selected by users in the UI side.                 #
+#------------------------------------------------------------------------------#
+          
+  if(is.null(yAxisLabel) || is.na(yAxisLabel)){
+            
+    yAxisLabelFinal <- "Count"
+            
+  }else{
+            
+    yAxisLabelFinal <- yAxisLabel
+            
+   }
           
 #------------------------------------------------------------------------------#
 # Plotting the panel figure ----------------------------------------------------
@@ -484,13 +724,17 @@ other.panel.forecast.figures <- function(formatted.forecast.input,
   # Determining the order to show the model figures #
   ###################################################
           
+  # Adjusting for SLR
+  dataFiltered <- dataFiltered %>%
+    dplyr::mutate(Model = ifelse(errorGLM == "Normal" & Model == "GLM", "SLR", Model)) # Changing GLM to SLR if Normal 
+          
   # Filtering to include only the ARIMA, GLM, GAM and Prophet models
   modelsFilteredFirst <- dataFiltered %>%
-            dplyr::filter(Model %in% c("ARIMA", "GLM", "GAM", "Prophet"))
+            dplyr::filter(Model %in% c("ARIMA", "GLM","SLR", "GAM", "Prophet"))
   
   # Filtering to include non-baseline models
   modelsFilteredSecond <- dataFiltered %>%
-    dplyr::filter(Model %!in% c("ARIMA", "GLM", "GAM", "Prophet"))
+    dplyr::filter(Model %!in% c("ARIMA", "GLM","SLR", "GAM", "Prophet"))
   
   # Order to show model figures 
   distinctModels <- c(unique(modelsFilteredFirst$Model), unique(modelsFilteredSecond$Model))
@@ -502,19 +746,19 @@ other.panel.forecast.figures <- function(formatted.forecast.input,
   #################################
   # Plotting the forecast figures #
   #################################
-  panel <- ggplot(dataFiltered, aes(x = Date, y = median)) +
+  panel <- ggplot(dataFiltered, aes(x = Date, y = medianVar)) +
             facet_wrap(~Model) +
-            geom_ribbon(aes(ymin = LB, ymax = UB), fill = "grey90") + # 95% PI ribbon
-            geom_line(aes(x = Date, y = UB), linetype = "dashed", size = 0.65) + # UB
-            geom_line(aes(x = Date, y = LB), linetype = "dashed", size = 0.65) + # LB
+            geom_ribbon(aes(ymin = LBVar, ymax = UBVar), fill = "grey90") + # 95% PI ribbon
+            geom_line(aes(x = Date, y = UBVar), linetype = "dashed", size = 0.65) + # UB
+            geom_line(aes(x = Date, y = LBVar), linetype = "dashed", size = 0.65) + # LB
             geom_line(color = "red", size = 0.9) + # Median line
-            geom_point(aes(x = Date, y = data, text = paste('Date: ', Date, '<br>Count:', data)), color = "black", shape = 1, size = 2) +  # Data points
+            geom_point(aes(x = Date, y = dataVar), color = "black", shape = 1, size = as.numeric(sizeOfDataPoint)) +  # Data points
             geom_vline(xintercept = breakLine, linetype = "dashed") + # Vertical line
             xAxisBreaks + # X axis breaks (i.e., Date)
-            scale_y_continuous(breaks = seq(0, maxValue + breaks.graph, by = breaks.graph), # Y-axis breaks
-                               limits = c(0, maxValue)) +  # Y-axis limits
-            labs(title = title1, # Title
-                 y = "Counts")  + # Y-axis labels
+            scale_y_continuous(breaks = seq(start, maxValue + start, by = breaks.graph), # Y-axis breaks
+                               limits = c(start, maxValue)) +  # Y-axis limits
+            labs(title = "", # Title
+                 y = yAxisLabelFinal)  + # Y-axis labels
             theme_classic() + # Base theme
             theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1), # Switching x-axis labels horizontal
                   plot.title = element_text(hjust = 0.5, face = "bold", size = 10), # Plot title
@@ -526,9 +770,12 @@ other.panel.forecast.figures <- function(formatted.forecast.input,
           # Adding Forecast date loop figures to list #
           #############################################
           listData[f] <- list(panel)
+  
+          # Title
+          title1  <- paste0(dataFiltered[1,9], "-", dataFiltered[1,10])
           
-          # Checking if the title includes ARIMA, GLM, GAM, or Prophet
-          if(grepl('ARIMA|GLM|GAM|Propet', title1)){
+          # Checking if the title includes ARIMA, GLM, GAM, SLR, or Prophet
+          if(grepl('ARIMA|GLM|GAM|Propet|SLR', title1)){
             
             title1 <- paste0("a", title1)
               
@@ -572,9 +819,12 @@ other.panel.forecast.figures <- function(formatted.forecast.input,
   # Adding Names #
   ################
   for(i in 1:length(ListtoExport)){
+    
+    # Label for list
+    titleList <- paste0(unique(ListtoExport[[i]][["data"]][["Location"]]), " - ", ListtoExport[[i]][["layers"]][[6]][["data"]][["xintercept"]])
 
     # Update figure name
-    names(ListtoExport)[i] <- ListtoExport[[i]][["labels"]][["title"]]
+    names(ListtoExport)[i] <- titleList
 
   }
 
