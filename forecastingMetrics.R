@@ -62,10 +62,10 @@ forecastingMetrics <- function(crude.data.input, horizon.input,
   forecastMetrics <- data.frame(Location = NA, 
                                 Model = NA, 
                                 Date = NA, 
-                                meanMSE = NA, 
-                                meanMAE = NA, 
+                                MSE = NA, 
+                                MAE = NA, 
                                 mean95PI = NA, 
-                                meanWIS = NA)
+                                WIS = NA)
   
   ##############################################
   # Empty list for metrics that can not be run #
@@ -147,7 +147,6 @@ forecastingMetrics <- function(crude.data.input, horizon.input,
       
     }
 
-    
     ##################################
     # Checking if metrics can be run #
     ##################################
@@ -208,12 +207,12 @@ forecastingMetrics <- function(crude.data.input, horizon.input,
     PI_MSE_MAE <- quantileForecastCleaned %>%
       dplyr::mutate(inCoverage = ifelse(observed <= `upper.95%` & observed >= `lower.95%`, 1, 0), # Determining if in coverage
                     PercentCoverage = (sum(inCoverage)/horizon.input.FM)*100, # Calculating the percent coverage
-                    mean95PI = mean(PercentCoverage)) %>% # Avg 95% PI
+                    mean95PI = round(mean(PercentCoverage), 2)) %>% # Avg 95% PI
       dplyr::select(observed, means, mean95PI) %>% # Selected needed variables 
       dplyr::mutate(MSE = ((observed-means)^2), # Calculating MSE
                     MAE = (abs(observed - means)), # Calculating MAE
-                    meanMAE = mean(MAE), # Avg MAE
-                    meanMSE = mean(MSE)) %>% # Avg MSE
+                    meanMAE = round(mean(MAE), 2), # Avg MAE
+                    meanMSE = round(mean(MSE), 2)) %>% # Avg MSE
       dplyr::select(meanMSE, meanMAE, mean95PI) %>% # Selecting the needed variables 
       dplyr::distinct(.keep_all = T) # Keeping only unique rows 
     
@@ -316,11 +315,14 @@ forecastingMetrics <- function(crude.data.input, horizon.input,
     # Combining all metrics #
     #########################
     allMetrics <- PI_MSE_MAE %>%
-      dplyr::mutate(meanWIS = mean(WISF[,1]),
+      dplyr::mutate(meanWIS = round(mean(WISF[,1]), 2), 
                     Model = modelName,
                     Location = location,
                     Date = forecastPeriod) %>%
-      dplyr::select(Location, Model, Date, meanMSE, meanMAE, mean95PI, meanWIS)
+      dplyr::select(Location, Model, Date, meanMSE, meanMAE, mean95PI, meanWIS) %>%
+      dplyr::rename("MSE" = meanMSE,
+                    "MAE" = meanMAE,
+                    "WIS" = meanWIS)
     
     ##################################
     # Adding the metrics to the list #
@@ -329,6 +331,12 @@ forecastingMetrics <- function(crude.data.input, horizon.input,
 
     
   } # End of calibration loop
+  
+  ##############################
+  # Renaming the 95% PI Column #
+  ##############################
+  forecastMetrics <- forecastMetrics %>%
+    dplyr::rename("95%PI" = mean95PI)
     
 
 #------------------------------------------------------------------------------#

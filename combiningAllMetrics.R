@@ -20,7 +20,9 @@
 #------------------------------------------------------------------------------#
 combiningAllMetrics <- function(otherMetrics.input, modelFit.input, 
                                 modelForecast.input, horizon.input, 
-                                calibration.input, locations.input) {
+                                calibration.input, locations.input,
+                                formattedForecastOrignal.input,
+                                date.type.input){
   
 #------------------------------------------------------------------------------#
 # Creating the 'not-in' function -----------------------------------------------
@@ -72,6 +74,134 @@ calibrationInput <<- calibration.input
 ##############################
 locationsOrg <<- locations.input
 
+#############################
+# Loading the original data #
+#############################
+orignalData.input <<- formattedForecastOrignal.input
+
+###################
+# Date type input #
+###################
+dateTypeData <<- date.type.input
+
+
+
+#------------------------------------------------------------------------------#
+# Error for running the figures without the dashboard results ------------------
+#------------------------------------------------------------------------------#
+# About: This section returns an error if a user trys to load other files      #
+# prior to running the full dashboard.                                         #
+#------------------------------------------------------------------------------#
+
+if(all(any(is.null(orignalData.input) || length(orignalData.input) == 0) & !is.null(otherMetricsList))){
+  
+  # Error to return
+  return("ERROR1")
+  
+}
+
+#------------------------------------------------------------------------------#
+# Potential errors with the loaded data ----------------------------------------
+#------------------------------------------------------------------------------#
+# About: This section checks for errors in the column names and file names of  #
+# the loaded data.                                                             #
+#------------------------------------------------------------------------------#
+
+for(i in 1:length(otherMetricsList)){
+  
+  # Indexed file
+  data <- otherMetricsList[[i]]
+  
+  #############################
+  # Checking the column names #
+  #############################
+  
+  # Expected
+  expectedNames <- "Model"
+  
+  # Observed
+  observedNames <- c(colnames(data))[1]
+  
+  # Checking if they match each other
+  if(any(expectedNames != observedNames)){
+    
+    # Returning an error
+    return("ERROR2")
+    
+  }
+  
+  ##########################
+  # Checking the file name #
+  ##########################
+  
+  # Indexed file name
+  dataName <- names(otherMetricsList)[i]
+  
+  # Pulling the word performance
+  performanceWord <- qdapRegex::ex_between(dataName, "", "-")[[1]][1]
+  
+  # Pulling the metric type 
+  metricTypeWord <- qdapRegex::ex_between(dataName, paste0(performanceWord, "-"), "-")[[1]][1]
+  
+  # Pulling the word horizon
+  horizonWord <- qdapRegex::ex_between(dataName, paste0(metricTypeWord, "-"), "-")[[1]][1]
+  
+  # Pulling the horizon number
+  horizonNumber <- qdapRegex::ex_between(dataName, paste0(horizonWord, "-"), "-")[[1]][1]
+  
+  # Pulling the word calibration
+  calibrationWord <- qdapRegex::ex_between(dataName, paste0(horizonNumber, "-"), "-")[[1]][1]
+  
+  # Checking if they match what is expected
+  if(any(performanceWord != "Performance" || metricTypeWord %!in% c("Fit", "Forecast") || horizonWord != "horizon" ||
+         calibrationWord != "calibration")){
+    
+    # Returning an error
+    return("ERROR3")
+    
+  }
+  
+
+  # Pulling the calibration period length
+  caliLength <- qdapRegex::ex_between(dataName, paste0(calibrationWord, "-"), "-")[[1]][1]
+  
+  # Pulling the location
+  locationWord <- qdapRegex::ex_between(dataName, paste0(calibrationWord, "-", caliLength, "-"), "-")[[1]][1]
+  
+  ##########################
+  # Checking the locations #
+  ##########################
+  if(locationWord %!in% c(locationsOrg)){
+    
+    # Returning an error 
+    return("ERROR5")
+    
+  }
+  
+  ###############################
+  # Checking date specification #
+  ###############################
+  
+  # Pulling the date
+  date <- qdapRegex::ex_between(dataName,  paste0(locationWord, "-"), ".csv")[[1]][1]
+  
+  # Checking the date
+  if(all(dateTypeData == 'year' & nchar(date) != 4)){
+    
+    # Returning an Error
+    return("ERROR4")
+    
+  }else if(all(dateTypeData %in% c("week", "day") & nchar(date) != 10)){
+    
+    # Returning an error 
+    return("ERROR4")
+    
+  }
+  
+
+  
+}
+
 
 #-------------------------------------------------------------------------------
 # Looping through the other files for cleaning ---------------------------------
@@ -104,12 +234,6 @@ for(i in 1:length(otherMetricsList)){
   # Pulling information from the file name #
   ##########################################
   
-  # Type of performance metrics
-  metricType <- qdapRegex::ex_between(metricSetName, "Performance-", "-")[[1]][1]
-  
-  # Forecast horizon
-  horizon <- qdapRegex::ex_between(metricSetName, "horizon-", "-calibration")[[1]][1]
-  
   # Calibration size 
   calibration <- qdapRegex::ex_between(metricSetName, "calibration-", "-")[[1]][1]
   
@@ -123,6 +247,12 @@ for(i in 1:length(otherMetricsList)){
     return("Error2")
     
   }
+  
+  # Type of performance metrics
+  metricType <- qdapRegex::ex_between(metricSetName, "Performance-", "-")[[1]][1]
+  
+  # Forecast horizon
+  horizon <- qdapRegex::ex_between(metricSetName, "horizon-", "-calibration")[[1]][1]
   
   # Forecast period date
   forecastPeriodDate <- qdapRegex::ex_between(metricSetName, paste0(location, "-"), ".csv")[[1]][1]
@@ -145,6 +275,7 @@ for(i in 1:length(otherMetricsList)){
   # Creating the new data set 
   combinedOtherOne <- metricSet %>%
     dplyr::mutate(PerformanceType = metricType, # Model fit or forecast metrics
+                  Model = Model, # Model Type 
                   Location = location, # Location
                   Calibration = calibration, # Calibration length
                   Horizon = horizon, # Forecast horizon
@@ -162,7 +293,7 @@ for(i in 1:length(otherMetricsList)){
 # About: This section switches the other performance metrics data set from     #
 # wide-to-long format. This is to allow for easy merging in later steps.       #
 #------------------------------------------------------------------------------#
-longOtherMetrics <- pivot_longer(data = otherPerformanceMetrics, -c(Model, PerformanceType, Location, Calibration, Horizon, Date), names_to = "Metric", values_to = "Value")
+longOtherMetrics <- pivot_longer(data = otherPerformanceMetrics, -c(PerformanceType, Model, Location, Calibration, Horizon, Date), names_to = "Metric", values_to = "Value")
 
 #------------------------------------------------------------------------------#
 # Preparing the ARIMA, GLM, GAM, and Prophet Metrics ---------------------------
@@ -179,14 +310,14 @@ longOtherMetrics <- pivot_longer(data = otherPerformanceMetrics, -c(Model, Perfo
 
 # Organizing the main data set 
 modelFitAGGP <- fitMetrics %>%
-  dplyr::mutate(MSE = meanMSE, # Renaming MSE
-                MAE = meanMAE, # Renaming MAE
-                Coverage.95.PI = mean95PI, # Renaming 95% PI Coverage
-                WIS = meanWIS, # Renaming WIS
+  dplyr::mutate(MSE = MSE, # Renaming MSE
+                MAE = MAE, # Renaming MAE
+                Coverage.95.PI = `95%PI`, # Renaming 95% PI Coverage
+                WIS = WIS, # Renaming WIS
                 PerformanceType = "Fit", # Performance metric type
                 Calibration = calibrationInput, # Calibration period size
                 Horizon = horizonInput) %>% # Forecasting horizon
-  dplyr::select(Model, MAE, MSE, Coverage.95.PI, WIS, PerformanceType, Location, Calibration, Horizon, Date) # Ordering needed variables 
+  dplyr::select(PerformanceType, Model, MAE, MSE, Coverage.95.PI, WIS, Location, Calibration, Horizon, Date) # Ordering needed variables 
 
 # Handling dates
 if(nchar(fitMetrics$Date[1]) > 4){
@@ -205,14 +336,14 @@ if(nchar(fitMetrics$Date[1]) > 4){
 
 # Organizing the main data set 
 modelForecastAGGP <- metricsForecast %>%
-  dplyr::mutate(MSE = meanMSE, # Renaming MSE
-                MAE = meanMAE, # Renaming MAE
-                Coverage.95.PI = mean95PI, # Renaming 95% PI Coverage
-                WIS = meanWIS, # Renaming WIS
+  dplyr::mutate(MSE = MSE, # Renaming MSE
+                MAE = MAE, # Renaming MAE
+                Coverage.95.PI = `95%PI`, # Renaming 95% PI Coverage
+                WIS = WIS, # Renaming WIS
                 PerformanceType = "Forecast", # Performance metric type
                 Calibration = calibrationInput, # Calibration period size
                 Horizon = horizonInput) %>% # Forecasting horizon
-  dplyr::select(Model, MAE, MSE, Coverage.95.PI, WIS, PerformanceType, Location, Calibration, Horizon, Date) # Ordering needed variables 
+  dplyr::select(PerformanceType, Model, MAE, MSE, Coverage.95.PI, WIS, Location, Calibration, Horizon, Date) # Ordering needed variables 
 
 # Handling dates
 if(nrow(modelForecastAGGP) == 0){
@@ -245,7 +376,7 @@ AGGPMetrics <- rbind(modelFitAGGP, modelForecastAGGP)
 ####################################
 # Wide to long performance metrics #
 ####################################
-longAGGPMetrics <- pivot_longer(data = AGGPMetrics, -c(Model, PerformanceType, Location, Calibration, Horizon, Date), names_to = "Metric", values_to = "Value")
+longAGGPMetrics <- pivot_longer(data = AGGPMetrics, -c(PerformanceType, Model, Location, Calibration, Horizon, Date), names_to = "Metric", values_to = "Value")
 
 #------------------------------------------------------------------------------#
 # Combining the other and dashboard metrics ------------------------------------
@@ -263,12 +394,15 @@ allMetrics <- rbind(longOtherMetrics, longAGGPMetrics)
 # Rounding the metrics values to two digits
 allMetrics <- allMetrics %>%
   dplyr::mutate(Value = round(Value, 2)) %>%
-  dplyr::filter(Location %in% c(locationsOrg))
+  dplyr::filter(Location %in% c(locationsOrg)) %>%
+  dplyr::select(PerformanceType, Model, Location, Calibration, Horizon, Date, Metric, Value) %>% # Ordering variables 
+  dplyr::rename("Performance Metric Type" = PerformanceType)
 
 #######################################
 # Preparing the final data for export #
 #######################################
-finalMetrics <- pivot_wider(allMetrics, names_from = Metric, values_from = Value)
+finalMetrics <- pivot_wider(allMetrics, names_from = Metric, values_from = Value) 
+
 
 # Returning the final list
 return(finalMetrics)

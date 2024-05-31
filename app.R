@@ -50,6 +50,7 @@ source("calibration.period.function.R")
 source("timeseries.figure.function.R")
 source("ARIMA.R") 
 source("formatted.forecast.function.R") 
+source("filteringFormattedForecasts.R")
 source("forecast.figures.R") 
 source("GAM.R")
 source("GLM.R") 
@@ -64,9 +65,20 @@ source("Otherforecast.figures.R")
 source("other.panel.forecast.figures.R")
 source("winkler.scores.AGGP.R") 
 source("winkler.figure.AGGP.R")
-source("skill.scores.AGGP.R")
+source("skillScoresMain.R")
 source("skill.scores.figures.AGGP.R")
 source("combiningAllMetrics.R")
+source("filterOtherMetrics.R")
+source("crudeMetricsFigureOther.R")
+source("avgAllMetrics.R")
+source("avgMetricsFigureOther.R")
+source("Winkler.Scores.Model.Comparison.R")
+source("filterOtherWinkler.R")
+source("filteringFormattedIndivFigs.R")
+source("filteringQuantileForecasts.R")
+source("filterMetrics.R")
+source("filterMetricsCRUDE.R")
+source("skillScoresOther.R")
 
 #------------------------------------------------------------------------------#
 #                             Needed Packages                                  #
@@ -75,7 +87,7 @@ pacman::p_load(MASS, shiny, shinydashboard, shinyWidgets, bslib, plotly, anytime
                shinyalert, shinyjs, shinybusy, editData, shinyBS, DT, stringr,
                tidyverse, forstringr, mgcv, processx, ggpubr, forecast, 
                prophet, zip, glue, shinyjqui, patchwork, ggplot2, zoo, gridExtra,
-               viridis, qdapRegex)
+               viridis, qdapRegex, RColorBrewer)
 
 #------------------------------------------------------------------------------#
 #                            User Interface                                    #
@@ -96,7 +108,7 @@ dashboardHeader(
  # Adding the Small Header - Left Header #
  #########################################
                       
- title = span("Forecasting Toolbox",  # Title 
+ title = span("StatModPredict",  # Title 
               style = "font-family: Arial; # Setting font-type
                        font-size: 18px;" # Setting font size 
               ) 
@@ -214,7 +226,7 @@ menuItem("Forecasting Specifications",
                                                style = "color:#FFFFFF;",
                                                title = "Indicate the length of forecast you wish to produce.")),
                       value = 1, # Initial starting period
-                      min = 1 # Setting the minimum possible calibration period to zero
+                      min = 1 # Setting the minimum possible horizon to 1
          ),
          
          #####################################
@@ -284,7 +296,7 @@ menuItem("Model Specifications",
            # Rows of parameters
            fluidRow(
              
-             # Row One - P parameter 
+             # Row One - p parameter 
              splitLayout(
                
                # Width of cells
@@ -297,7 +309,20 @@ menuItem("Model Specifications",
                uiOutput("pMax")
              ),
              
-             # Row Two - Q Parameter 
+             # Row two - P parameter 
+             splitLayout(
+               
+               # Width of cells
+               cellWidths = c("49%", "49%"),
+               
+               # Min P 
+               uiOutput("PMin"),
+               
+               # Max P
+               uiOutput("PMax")
+             ),
+             
+             # Row three - q Parameter 
              splitLayout(
                
                # Width of cells 
@@ -308,12 +333,29 @@ menuItem("Model Specifications",
                
                # Max Q
                uiOutput("qMax")
+             ),
+             
+             # Row Four - Q Parameter 
+             splitLayout(
+               
+               # Width of cells 
+               cellWidths = c("49%", "49%"),
+               
+               # Min Q
+               uiOutput("QMin"),
+               
+               # Max Q
+               uiOutput("QMax")
              )
+             
              
              ), # End of Fluid Row 
            
-           # Differences parameter 
-           uiOutput("differences")
+           # Differences parameter - Non Seasonal  
+           uiOutput("differences"),
+           
+           # Differences parameter - Seasonal  
+           uiOutput("Seasonaldifferences")
            
          ), # End of ARIMA options 
          
@@ -389,6 +431,7 @@ menuItem("Model Specifications",
 #############################
 # Creating the 'Run' button #
 #############################
+
 column(
   width = 1, 
   shiny::actionButton("run",
@@ -543,18 +586,10 @@ conditionalPanel(
                  # Width 
                  width = 12, 
                
-                 ################################################
-                 # Conditiona Panel: Rendering title for panels #
-                 ################################################
-                 conditionalPanel(
-                   
-                   # Condition
-                   condition = "input.panelModelsForecasts",
-                 
-                   # Rendering the title 
-                   textOutput("panelForecastTitle")
-                   
-                 ) # End of conditional panel
+                 ##############################
+                 # Rendering title for panels #
+                 ##############################
+                 textOutput("panelForecastTitle")
                  
                ) # End of column 
                  
@@ -605,28 +640,30 @@ conditionalPanel(
                      ################################
                      div(actionButton("forecastFigure", "Download Forecast Figure(s)", icon = icon("download"), style = "margin-right: 10px;")),
                      
-                     #################################
-                     # Creating the locations button #
-                     #################################
-                     div(uiOutput("locationsForecastFigs")), 
+                     #################################################
+                     # Creating the action button for figure options #
+                     #################################################
+                     div(style = "margin-right: 10px;", actionButton("editForecastFigures", "Figure Options")),
                      
-                     ###################################
-                     # Conditional panel: Model Filter #
-                     ###################################
+                     ##########################################################
+                     # Conditional Panel: Creating the See Filter Data Button #
+                     ##########################################################
                      conditionalPanel(
                        
                        # Condition
                        condition = "!input.panelModelsForecasts",
                        
-                       # Creating the models
-                       div(style = "margin-left: 10px;", uiOutput("modelsForecastFigs"))
+                       # Creating the underlying data check box
                        
-                     ), # End of conditional panel
-                     
+                       div(style = "margin-right: 10px;", actionButton("filterFormattedForecasts", "Filtering Options")),
+                       
+                     ),
+                
                      #################################
                      # Creating the panel check mark #
                      #################################
                      div(style = "margin-left: 10px;",
+                         
                          checkboxInput("panelModelsForecasts", "See Panels", value = F, width = NULL)),
                      
                      ###################################################
@@ -814,11 +851,7 @@ fluidRow(
                   # Rendering the download button 
                   div(downloadButton("download_quantile_forecasts", "Download Quantile Forecasts"), style = "margin-right:10px"),
                   
-                  # Rendering the location button 
-                  div(uiOutput("locationsQuantile"), style = "margin-right:10px"),
-                  
-                  # Rendering the model button
-                  div(uiOutput("modelQuantile"), style = "margin-right:10px")
+                  div(style = "margin-right: 10px;", actionButton("filterQuantileForecasts", "Filtering Options"))
                   
               ) # End of main style
               
@@ -932,6 +965,11 @@ fluidRow(
       #####################################################
       # Showing the data rather than the time series plot #
       #####################################################
+      conditionalPanel(
+        
+        # Condition
+        condition = "input.timeseriesCheckBox",
+        
       fluidRow(
         
         # Width of row
@@ -950,6 +988,8 @@ fluidRow(
           
           div(style = "display: flex; justify-content: flex-start; align-items: center;",
               uiOutput("downloadTimeseries")))
+        
+      )
         
       ) # End of fluidRow
       
@@ -1117,9 +1157,17 @@ conditionalPanel(
                   # Condition
                   condition = "!input.AvgFigure",
                   
-                  # Creating the download button 
-                  div(style = "margin-right: 10px",
-                      downloadButton("download_AvgMetrics", "Download Average Metrics"))
+                  # Row style 
+                  div(style = "display:flex; vertical-aline: top",
+                  
+                    # Creating the download button 
+                    div(style = "margin-right: 10px",
+                        downloadButton("download_AvgMetrics", "Download Average Metrics")),
+                    
+                    # Filtering data 
+                    div(style = "margin-right: 10px;", actionButton("filterAvgMetrics", "Filtering Options"))
+                    
+                  )
                   
                 ), # End of condition
                 
@@ -1131,21 +1179,19 @@ conditionalPanel(
                   # Condition
                   condition = "input.AvgFigure", 
                   
-                  #Download Button
-                  div(style = "margin-right: 10px",
-                      actionButton("download_AvgmetricsFig", "Download Average Metrics Figure", icon = icon("download")))
+                  # Aligning buttons
+                  div(style = "display:flex; vertical-aline: top",
+                  
+                    #Download Button
+                    div(style = "margin-right: 10px",
+                        actionButton("download_AvgmetricsFig", "Download Average Metrics Figure", icon = icon("download"))),
+                    
+                    # Edit figures button
+                    div(style = "margin-right: 10px", actionButton("editAvgMetrics", "Figure Options")) 
+                  
+                  )
                   
                 ), # End of condition
-                
-                ######################
-                # Location drop-down #
-                ######################
-                div(uiOutput("locationsAvgMetrics"), style = "margin-right:10px"),
-                
-                ####################
-                # Models drop-down #
-                ####################
-                div(uiOutput("modelAvgMetrics"), style = "margin-right:10px"),
                 
                 #########################
                 # Show figure check-box #
@@ -1295,9 +1341,17 @@ conditionalPanel(
                   # Condition
                   condition = "!input.crudeFigure",
                   
-                  # Download Button
-                  div(style = "margin-right: 10px",
-                      downloadButton("download_metrics", "Download Crude Metrics"))
+                  # Row column
+                  div(style = "display:flex; vertical-aline: top",
+                      
+                    # Download Button
+                    div(style = "margin-right: 10px",
+                        downloadButton("download_metrics", "Download Crude Metrics")),
+                        
+                    # Filtering data 
+                    div(style = "margin-right: 10px;", actionButton("filterCrudeMetrics", "Filtering Options"))    
+                    
+                  )
                   
                 ), # End of condition
                 
@@ -1309,21 +1363,19 @@ conditionalPanel(
                   # Condition
                   condition = "input.crudeFigure",
                   
-                  # Download Button
-                  div(style = "margin-right: 10px",
-                      actionButton("download_metricsFig", "Download Crude Metrics Figure", icon = icon("download")))
+                  # Aligning buttons
+                  div(style = "display:flex; vertical-aline: top",
+                  
+                    # Download Button
+                    div(style = "margin-right: 10px",
+                        actionButton("download_metricsFig", "Download Crude Metrics Figure", icon = icon("download"))),
+                    
+                    # Edit figures button
+                    div(style = "margin-right: 10px", actionButton("figOptCRUDEMetrics", "Figure Options"))
+                    
+                  )
                   
                 ), # End of condition
-                
-                ######################
-                # Location drop-down #
-                ######################
-                div(uiOutput("locationsMetrics"), style = "margin-right:10px"),
-                
-                ####################
-                # Models drop-down #
-                ####################
-                div(uiOutput("modelMetrics"), style = "margin-right:10px"),
                 
                 #########################
                 # Show figure check-box #
@@ -1357,35 +1409,42 @@ conditionalPanel(
     ), # End of crude metrics box
     
 #------------------------------------------------------------------------------#
-# Box 3 and 4: Winkler Scores and Skill Score ----------------------------------
+# Box 3: Winkler Scores Box ----------------------------------------------------
 #------------------------------------------------------------------------------#
+# About: This section creates the box to host the Winkler Scores data, along   #
+# with the associated figure and user options.                                 #
+#------------------------------------------------------------------------------#
+
+##########################################
+# Row 3 (Page) : Overall row of the page #
+##########################################
 fluidRow(
-  
-  #######################################
-  # Creating the box for Winkler Scores #
-  #######################################
+
+  ###########################################
+  # Creating the box for Winkler Score Data #
+  ###########################################
   tabBox(
     
     # Box title 
-    title = NULL, 
+    title = "", 
     
     # ID of the box 
-    id = "otherMeasures",
+    id = "winklerMeasures",
     
     # Width of the box 
     width = 12,
     
-    ################################
-    # Rendering the Winkler Scores #
-    ################################
-    tabPanel(id = "winklerScores",
+    #####################################
+    # Rendering the Winkler Scores Data #
+    #####################################
+    tabPanel(id = "winklerScoresData",
              
              # Title of box 
              title = "Winkler Scores", 
              
-             ###############################################
-             # Row 1: Rendering the Winkler Scores Figures #
-             ###############################################
+             ############################################
+             # Row 1: Rendering the Winkler Scores Data #
+             ############################################
              fluidRow(
                
                ####################
@@ -1393,38 +1452,15 @@ fluidRow(
                ####################
                column(
                  
+                 # Width of column 
                  width = 12, 
                  
-                 ########################################################
-                 # Conditional Panel: Rendering the Winkler Scores Data #
-                 ########################################################
-                 conditionalPanel(
-                   
-                   # Condition
-                   condition = "!input.WinklerFigure",
-                   
                    # Rendering the data frame
                    dataTableOutput("winklerDataTableAGGP")
-                   
-                 ), # End of condition for data
                  
-                 ########################################################
-                 # Conditional Panel: Rendering the Winkler Scores Data #
-                 ########################################################
-                 conditionalPanel(
-                   
-                   # Condition
-                   condition = "input.WinklerFigure",
-                   
-                   # Rendering the data frame
-                   plotOutput("winklerFigureAGGP")
-                   
-                 ), # End of condition for data
-                 
-                 
-               ) # End of Alignment Column 
+               ) # End of alignment column 
                
-             ), # End of row creating the Winkler Scores figures 
+             ), # End of first row of data tab 
              
              ####################################
              # Row 2: Creating the user options #
@@ -1445,126 +1481,56 @@ fluidRow(
                      #######################################
                      # Creating the download button - Data #
                      #######################################
-                     conditionalPanel(
-                       
-                       # Condition
-                       condition = "!input.WinklerFigure",
-                       
-                       # Creating the download button - Data
-                       div(downloadButton("downloadWinkerData", "Download Scores", style = "margin-right: 10px"))
-                       
-                     ),
-                     
-                     #########################################
-                     # Creating the download button - Figure #
-                     #########################################
-                     conditionalPanel(
-                       
-                       # Condition
-                       condition = "input.WinklerFigure",
-                       
-                       # Creating the download button - Data
-                       div(actionButton("downloadWinklerAGGP", "Download Figures", style = "margin-right: 10px"))
-                       
-                     ),
+                     div(downloadButton("downloadWinkerData", "Download Scores", style = "margin-right: 10px")),
                      
                      ###################################
-                     # Creating the location drop-down #
+                     # Creating the data filter option #
                      ###################################
-                     div(uiOutput("locationsWinklerMain"), style = "margin-right: 10px"),
+                     div(style = "margin-right: 10px", actionButton("filterWinklerDataMain", "Filtering Options")), 
                      
-                     ################################
-                     # Creating the model drop-down #
-                     ################################
-                     div(uiOutput("modelsWinklerMain"),  style = "margin-right: 10px"),
+                     #########################################################
+                     # Creating the check-mark to see average Winkler Scores #
+                     #########################################################
+                     div(checkboxInput("seeAverageWinklerMain", "Use Average Metrics"))
                      
-                     #######################################
-                     # Creating the check-mark for figures #
-                     #######################################
-                     div(checkboxInput("WinklerFigure", "Show Figure"))
-                     
-                 ) # End of style
+                 ), # End of style for row 
+                 
+               ) # End of alignment column
+               
+             ) # End of Row 2
+             
+    ), # End of Winkler data tab 
+    
+    #######################################
+    # Rendering the Winkler Scores Figure #
+    #######################################
+    tabPanel(id = "winklerScoresFigure",
+             
+             # Title of box 
+             title = "Figure(s)", 
+             
+             ##############################################
+             # Row 1: Rendering the Winkler Scores Figure #
+             ##############################################
+             fluidRow(
+               
+               ####################
+               # Alignment column #
+               ####################
+               column(
+                 
+                 # Width of column 
+                 width = 12, 
+                 
+                 # Rendering the figure
+                 plotOutput("winklerFigureAGGP")
                  
                ) # End of alignment column 
                
-             ) # End of options row
-             
-    ), # End of Winkler Scores Box
-    
-    ################################
-    # Rendering the Winkler Scores #
-    ################################
-    tabPanel(id = "skillScores",
-             
-             # Title of box 
-             title = "Skill Scores",
-             
-             #############################################
-             # Row 1: Rendering the skill Scores Figures #
-             #############################################
-             fluidRow(
-               
-               ####################
-               # Alignment column #
-               ####################
-               column(
-                 
-                 width = 12, 
-                 
-                 #############################
-                 # Check for average metrics #
-                 #############################
-                 div(checkboxInput("avgSSOptions", "Use Average Metrics"), 
-                     style = "margin-right: 10px;justify-content: flex-end")
-                 
-               )
-               
-             ), # End of Row 1
-             
-             #############################################
-             # Row 2: Rendering the skill Scores Figures #
-             #############################################
-             fluidRow(
-               
-               ####################
-               # Alignment column #
-               ####################
-               column(
-                 
-                 width = 12, 
-                 
-                 ######################################################
-                 # Conditional Panel: Rendering the Skill Scores Data #
-                 ######################################################
-                 conditionalPanel(
-                   
-                   # Condition
-                   condition = "!input.SSFig",
-                   
-                   # Rendering the data frame
-                   dataTableOutput("skillScoresAGGPData")
-                   
-                 ), # End of condition for data
-                 
-                 ########################################################
-                 # Conditional Panel: Rendering the Skill Scores Figure #
-                 ########################################################
-                 conditionalPanel(
-                   
-                   # Condition
-                   condition = "input.SSFig",
-                   
-                   # Rendering the data frame
-                   plotOutput("SSFigureAGGP")
-                   
-                 ), # End of condition for data
-                 
-               ) # End of Alignment Column 
-               
-             ), # End of row creating the Winkler Scores figures 
+             ), # End of first row of data tab 
              
              ####################################
-             # Row 3: Creating the user options #
+             # Row 2: Creating the user options #
              ####################################
              fluidRow(
                
@@ -1574,7 +1540,94 @@ fluidRow(
                column( 
                  
                  # Column width 
-                 width = 11, 
+                 width = 12, 
+                 
+                 # Overall style for row 
+                 div(style = "display:flex; vertical-aline: top",
+                     
+                     #########################################
+                     # Creating the download button - Figure #
+                     #########################################
+                     div(actionButton("downloadWinklerMainFig", "Download Figures", style = "margin-right: 10px"))
+                     
+                 ) # End of style for row 
+                 
+               ) # End of alignment column
+               
+             ) # End of Row 2
+             
+    ) # End of Winkler figure tab 
+    
+  ) # End of Winkler Box
+  
+),  # End of Row containing Winkler Scores
+
+#------------------------------------------------------------------------------#
+# Box 4: Skill Scores Box ------------------------------------------------------
+#------------------------------------------------------------------------------#
+# About: This section creates the box to host the Skill Scores data, along     #
+# with the associated figure and user options.                                 #
+#------------------------------------------------------------------------------#
+
+##########################################
+# Row 3 (Page) : Overall row of the page #
+##########################################
+fluidRow(
+  
+  #########################################
+  # Creating the box for Skill Score Data #
+  #########################################
+  tabBox(
+    
+    # Box title 
+    title = "", 
+    
+    # ID of the box 
+    id = "SkillScoresMeasures",
+    
+    # Width of the box 
+    width = 12,
+    
+    ###################################
+    # Rendering the Skill Scores Data #
+    ###################################
+    tabPanel(id = "winklerScoresData",
+             
+             # Title of box 
+             title = "Skill Scores", 
+             
+             ##########################################
+             # Row 1: Rendering the Skill Scores Data #
+             ##########################################
+             fluidRow(
+               
+               ####################
+               # Alignment column #
+               ####################
+               column(
+                 
+                 # Width of column 
+                 width = 12, 
+                 
+                 # Rendering the data frame
+                 dataTableOutput("skillScoresAGGPData")
+                 
+               ) # End of alignment column 
+               
+             ), # End of first row of data tab 
+             
+             ####################################
+             # Row 2: Creating the user options #
+             ####################################
+             fluidRow(
+               
+               ####################
+               # Alignment column #
+               ####################
+               column( 
+                 
+                 # Column width 
+                 width = 12, 
                  
                  # Overall style for row 
                  div(style = "display:flex; vertical-aline: top",
@@ -1582,85 +1635,98 @@ fluidRow(
                      #######################################
                      # Creating the download button - Data #
                      #######################################
-                     conditionalPanel(
-                       
-                       # Condition
-                       condition = "!input.SSFig",
-                       
-                       # Creating the download button - Data
-                       div(downloadButton("downloadSSData", "Download Scores", style = "margin-right: 10px"))
-                       
-                     ),
+                     div(style = "margin-right: 10px", downloadButton("downloadSSMetrics", "Download Skill Scores")),
+                     
+                     ###################################
+                     # Creating the data filter option #
+                     ###################################
+                     div(style = "margin-right: 10px", actionButton("filterSSDataMain", "Filtering Options")), 
+                     
+                     ##################################################################
+                     # Creating the check-mark to use average metrics in skill Scores #
+                     ##################################################################
+                     div(checkboxInput("seeAvgSS", "Use Average Metrics"))
+                     
+                 ), # End of style for row 
+                 
+               ) # End of alignment column
+               
+             ) # End of Row 2
+             
+    ), # End of Skill Scores data tab 
+    
+    #####################################
+    # Rendering the Skill Scores Figure #
+    #####################################
+    tabPanel(id = "SkillScoresFigure",
+             
+             # Title of box 
+             title = "Figure(s)", 
+             
+             ############################################
+             # Row 1: Rendering the Skill Scores Figure #
+             ############################################
+             fluidRow(
+               
+               ####################
+               # Alignment column #
+               ####################
+               column(
+                 
+                 # Width of column 
+                 width = 12, 
+                 
+                 "This feature is not yet available.",
+                 
+                 # Rendering the figure
+                 plotOutput("SSFigureAGGP")
+                 
+               ) # End of alignment column 
+               
+             ), # End of first row of data tab 
+             
+             ####################################
+             # Row 2: Creating the user options #
+             ####################################
+             fluidRow(
+               
+               ####################
+               # Alignment column #
+               ####################
+               column( 
+                 
+                 # Column width 
+                 width = 12, 
+                 
+                 # Overall style for row 
+                 div(style = "display:flex; vertical-aline: top",
                      
                      #########################################
                      # Creating the download button - Figure #
                      #########################################
-                     conditionalPanel(
-                       
-                       # Condition
-                       condition = "input.SSFig",
-                       
-                       # Creating the download button - Data
-                       #div(actionButton("downloadSSAGGP", "Download Figures", style = "margin-right: 10px"))
-                       
-                     ),
+                     div(actionButton("downloadSSAGGP", "Download Figures", style = "margin-right: 10px")),
                      
-                     ###################################
-                     # Creating the location drop-down #
-                     ###################################
-                     div(uiOutput("locationsSSMain"), style = "margin-right: 10px"),
+                     ####################################
+                     # Creating the edit figures button #
+                     ####################################
+                     div(style = "margin-right: 10px", actionButton("figureOptionsSSMain", "Figure Options")), 
                      
-                     ################################
-                     # Creating the model drop-down #
-                     ################################
-                     div(uiOutput("BenchmarkSSMain"),  style = "margin-right: 10px"),
+                     #######################################################################
+                     # Creating the check-mark to use the average metrics for skill scores #
+                     #######################################################################
+                     div(checkboxInput("seeAverageSSMainFIG", "Use Average Metrics"))
                      
-                     ###########################################
-                     # Creating the comparison model drop-down #
-                     ###########################################
-                     div(uiOutput("ComparisonSSMain"),  style = "margin-right: 10px"),
-                     
-                     #######################################
-                     # Creating the check-mark for figures #
-                     #######################################
-                     div(checkboxInput("SSFig", "Show Figure"))
-                     
-                 ) # End of style
+                 ) # End of style for row 
                  
-               ), # End of column 
+               ) # End of alignment column
                
-               ##################################################
-               # Conditional Panel: Creating arrows if crude SS #
-               ##################################################
-               
-               # Alignment column
-               column(
-                 
-                 # Width 
-                 width = 1,
-                 
-                 # Conditional panel 
-                 conditionalPanel(
-                   
-                   # Condition
-                   condition = "!input.avgSSOptions & input.SSFig",
-                   
-                   # Creating the buttons 
-                   div(style = "display: flex; justify-content: flex-end; align-items: center;",
-                       actionButton(inputId = "PreviousSS", label = icon("arrow-left")),
-                       actionButton(inputId = "NextSS", label = icon("arrow-right")))
-                   
-                 ), # End of condition
-                 
-               ) # End of alignment column 
-               
-             ) # End of options row
+             ) # End of Row 2
              
-    ) # End of tab box
+    ) # End of Winkler figure tab 
     
-  ) # End of "Tabbox"
+  ) # End of Winkler Box
   
-) # End of fluidRow
+),  # End of Row containing Winkler Scores
 
 
   ) # Column alignment overall
@@ -1751,7 +1817,7 @@ conditionalPanel(
                       div(style = "display:flex; vertical-aline: top",
                           
                           # Download button for figure for panel forecasts - Other 
-                          div(style = "margin-right: 10px", actionButton("downloadOtherForecastsFigs", "Download Figures", style = "margin-right: 10px")),
+                          div(actionButton("downloadOtherForecastsFigs", "Download Figures", style = "margin-right: 10px")),
                           
                           # Edit legend names 
                           div(style = "margin-right: 10px", actionButton("editLegendLabelsOther", "Figure Options")), 
@@ -1829,7 +1895,7 @@ conditionalPanel(
                      div(style = "display:flex; vertical-aline: top",
                          
                          # Download button for figure for panel forecasts - Other 
-                         div(style = "margin-right: 10px", actionButton("downloadOtherForecastsPanels", "Download Figures", style = "margin-right: 10px")),
+                         div(actionButton("downloadOtherForecastsPanels", "Download Figures", style = "margin-right: 10px")),
                          
                          # Edit legend names 
                          div(style = "margin-right: 10px", actionButton("editLegendLabelsOtherPanel", "Figure Options")), 
@@ -1874,9 +1940,9 @@ conditionalPanel(
     # Width of the box 
     width = 12, 
     
-    #######################################
-    # Creating the Crude metrics Data Tab #
-    #######################################
+    #########################################
+    # Creating the average metrics Data Tab #
+    ########################################
     tabPanel(id = "averageMetricsOtherData",
              
              # Title for box
@@ -1919,7 +1985,7 @@ conditionalPanel(
                      ############################################
                      
                      # Download button for the combined crude metrics 
-                     div(style = "margin-right: 10px", downloadButton("downloadAverageMetrics", "Download Avg. Metrics", style = "margin-right: 10px")),
+                     div(downloadButton("downloadAverageMetrics", "Download Avg. Metrics", style = "margin-right: 10px")),
                      
                      # Filtering for the crude metrics 
                      div(style = "margin-right: 10px", actionButton("filterAvgCombinedMetrics", "Filtering Options")), 
@@ -1932,9 +1998,9 @@ conditionalPanel(
              
     ), # End of 'tabPanel' for the crude metrics data 
     
-    ##########################################
-    # Creating the Crude metrics figures tab #
-    ##########################################
+    ############################################
+    # Creating the average metrics figures tab #
+    ############################################
     tabPanel(id = "AverageMetricsOtherFigure",
              
              # Title for box
@@ -1949,7 +2015,13 @@ conditionalPanel(
                column(
                  
                  # Width of column
-                 width = 12
+                 width = 12,
+                 
+                 # Rendering the title
+                 textOutput("avgMetricOtherPanelTitle"),
+                 
+                 # Creating the plot
+                 plotOutput("avgMetricOtherPanel")
                  
                )
                
@@ -1966,18 +2038,35 @@ conditionalPanel(
                  # Width of column
                  width = 12,
                  
-                 # Overall style for row 
-                 div(style = "display:flex; vertical-aline: top",
+                 #############################
+                 # Overall style for the row #
+                 #############################
+                 div(style = "display: flex; justify-content: space-between; align-items: center; width: 100%;", 
                      
+                 
                      ############################################
                      # Creating the download and filter buttons #
                      ############################################
-                     
+                     div(style = "display:flex; vertical-aline: top",
+                    
                      # Download button for the combined crude metrics figure
-                     div(style = "margin-right: 10px", actionButton("downloadOtherCombinedMetricsFigAvg", "Download Figures", style = "margin-right: 10px")),
+                     div(actionButton("downloadOtherCombinedMetricsFigAvg", "Download Figures", style = "margin-right: 10px")),
                      
                      # Filtering for the crude metrics 
-                     div(style = "margin-right: 10px", actionButton("figOptCombAvgMetrics", "Figure Options")), 
+                     div(style = "margin-right: 10px", actionButton("figOptCombAvgMetrics", "Figure Options"))
+                     
+                     ), # End of download and filter button
+                     
+                     #############################################
+                     # Creating the forward and backwards arrows #
+                     #############################################
+                     div(
+                       
+                       style = "display: flex; justify-content: flex-end; align-items: center;",
+                       actionButton(inputId = "otheravgMetricPanelsPrevious", label = icon("arrow-left")),
+                       actionButton(inputId = "otheravgMetricPanelsNext", label = icon("arrow-right"))
+                       
+                     ) # End of arrow format
                      
                  ) # End of overall style for row 
                  
@@ -2052,7 +2141,7 @@ tabBox(
                    ############################################
                    
                    # Download button for the combined crude metrics 
-                   div(style = "margin-right: 10px", downloadButton("downloadCrudeMetrics", "Download Crude Metrics", style = "margin-right: 10px")),
+                   div(downloadButton("downloadCrudeMetrics", "Download Crude Metrics", style = "margin-right: 10px")),
                    
                    # Filtering for the crude metrics 
                    div(style = "margin-right: 10px", actionButton("filterCrudeCombinedMetrics", "Filtering Options")), 
@@ -2082,7 +2171,105 @@ tabBox(
              column(
                
                # Width of column
-               width = 12
+               width = 12,
+               
+               # Rendering the title
+               textOutput("crudeMetricOtherPanelTitle"),
+               
+               # Creating the plot
+               plotOutput("crudeMetricOtherPanel")
+               
+             )
+             
+           ),
+           
+           ##########################################################
+           # Second row of box - Options for filtering, downloading #
+           ##########################################################
+           fluidRow(
+             
+             # Alignment column
+             column(
+               
+               # Width of column
+               width = 12,
+               
+               #############################
+               # Overall style for the row #
+               #############################
+               div(style = "display: flex; justify-content: space-between; align-items: center; width: 100%;", 
+                 
+                 ############################################
+                 # Creating the download and filter buttons #
+                 ############################################
+                 div(style = "display:flex; vertical-aline: top",
+                     
+                     # Download button for the combined crude metrics figure
+                     div(actionButton("downloadOtherCombinedMetricsFig", "Download Figures", style = "margin-right: 10px")),
+                     
+                     # Filtering for the crude metrics 
+                     div(style = "margin-right: 10px", actionButton("figOptCombCrudeMetrics", "Figure Options"))
+                     
+                 ),
+               
+                 #############################################
+                 # Creating the forward and backwards arrows #
+                 #############################################
+                 div(
+                   
+                   style = "display: flex; justify-content: flex-end; align-items: center;",
+                   actionButton(inputId = "otherCrudeMetricPanelsPrevious", label = icon("arrow-left")),
+                   actionButton(inputId = "otherCrudeMetricPanelsNext", label = icon("arrow-right"))
+                   
+                 )
+                 
+               ) # End of style for row 
+               
+             ) # End of alignment column 
+             
+           ) # End of row with figure options 
+           
+  ), # End of 'tabPanel' for the crude metrics figure 
+  
+), # End of 'tabbox' for the crude metrics 
+
+#------------------------------------------------------------------------------#
+# Creating the Winkler Score and Skill Score Box -------------------------------
+#------------------------------------------------------------------------------#
+# About: This section creates the skill scores and Winkler scores data.        #
+#------------------------------------------------------------------------------#
+tabBox(
+  
+  # Box title 
+  title = NULL, 
+  
+  # ID of the box 
+  id = "box3",
+  
+  # Width of the box 
+  width = 12, 
+  
+  ########################################
+  # Creating the Winkler Scores Data Box #
+  ########################################
+  tabPanel(id = "WinklerScoresOtherData",
+           
+           # Title for box
+           title = "Winkler Scores",
+           
+           #####################################
+           # First row of the box - Data table #
+           #####################################
+           fluidRow(
+             
+             # Alignment column
+             column(
+               
+               # Width of column
+               width = 12,
+               
+               # Rendering the data table
+               dataTableOutput("winklerScoresOther")
                
              )
              
@@ -2106,30 +2293,92 @@ tabBox(
                    # Creating the download and filter buttons #
                    ############################################
                    
-                   # Download button for the combined crude metrics figure
-                   div(style = "margin-right: 10px", actionButton("downloadOtherCombinedMetricsFig", "Download Figures", style = "margin-right: 10px")),
+                   # Download button for the combined crude metrics 
+                   div(style = "margin-right: 10px", downloadButton("downloadWinklerMetrics", "Download Winkler Scores")),
                    
                    # Filtering for the crude metrics 
-                   div(style = "margin-right: 10px", actionButton("figOptCombCrudeMetrics", "Figure Options")), 
+                   div(style = "margin-right: 10px", actionButton("filterWinklerOtherMetrics", "Filtering Options")), 
+                   
+                   # Check-mark for average Winkler scores
+                   div(checkboxInput("winklerOtherAvg", "See Avg. Winkler Scores"))
                    
                ) # End of overall style for row 
                
              ) # End of alignment column 
              
-           ) # End of row with figure options 
+           ) # End of row with filtering options 
            
-           ), # End of 'tabPanel' for the crude metrics figure 
+  ), # End of 'tabPanel' for the crude metrics data 
   
-  ) # End of 'tabbox' for the crude metrics 
+  ######################################
+  # Creating the Skill Scores Data Box #
+  ######################################
+  tabPanel(id = "skillScoresOtherData",
+           
+           # Title for box
+           title = "Skill Scores",
+           
+           #####################################
+           # First row of the box - Data table #
+           #####################################
+           fluidRow(
+             
+             # Alignment column
+             column(
+               
+               # Width of column
+               width = 12,
+               
+               # Rendering the data table
+               dataTableOutput("skillScoresOtherOUTPUT")
+               
+             )
+             
+           ),
+           
+           ##########################################################
+           # Second row of box - Options for filtering, downloading #
+           ##########################################################
+           fluidRow(
+             
+             # Alignment column
+             column(
+               
+               # Width of column
+               width = 12,
+               
+               # Overall style for row 
+               div(style = "display:flex; vertical-aline: top",
+                   
+                   ############################################
+                   # Creating the download and filter buttons #
+                   ############################################
+                   
+                   # Download button skill scores 
+                   div(style = "margin-right: 10px", downloadButton("downloadSSMetricsOther", "Download Skill Scores")),
+                   
+                   # Filtering for the skill scores
+                   div(style = "margin-right: 10px", actionButton("filterSkillScoresOtherMetrics", "Filtering Options")), 
+                   
+                   # Check-mark for average skill scores
+                   div(checkboxInput("seeAvgSSOther", "See Avg. Skill Scores"))
+                   
+               ) # End of overall style for row 
+               
+             ) # End of alignment column 
+             
+           ) # End of row with filtering options 
+           
+  ), # End of 'tabPanel' for the skill scores data 
   
-  
-  
-  ) # End of other page 
-    
-  
-  
+) # End of 'tabbox' for the skill scores
 
-  
+               
+               
+                   
+                   
+) # End of other page 
+    
 
 ) # End of dashboard body
 
@@ -2210,6 +2459,11 @@ server <- function(input, output, session) {
 # The file is selected using the 'fileInput' picker.                           #
 #------------------------------------------------------------------------------#
   
+  ###################################
+  # Reactive value to track changes #
+  ###################################
+  crudeDataChanger <- reactiveValues()
+  
   file <- reactive({
 
     tryCatch({
@@ -2218,6 +2472,9 @@ server <- function(input, output, session) {
     # Name of file from the 'fileInput' picker #
     ############################################
     file1 <- input$dataset
+    
+    # Saving in reactive value
+    crudeDataChanger$data <- file1
     
     #########################################
     # Extracting the extension of file name #
@@ -2270,6 +2527,8 @@ server <- function(input, output, session) {
     #########################################
     tryCatch({
       
+      if(!is.null(file())){
+        
       ##################################################
       # Saving the user selected data under a new name #
       ##################################################
@@ -2287,6 +2546,8 @@ server <- function(input, output, session) {
                          label = "Location/Group", # Label for picker 
                          choices = c(location.names), # Location choices 
                          multiple = T)) # Allowing more than one choice 
+      
+      }
       
       ####################################################
       # Picker that pops up until a data set is selected #
@@ -2384,11 +2645,6 @@ server <- function(input, output, session) {
   ###########################################
   observe({
     
-    ##################################################
-    # If-Else Statement to determined what to render #
-    ##################################################
-    if(input$timeseriesCheckBox){
-      
       ########################################
       # Creating the button to download data #
       ########################################
@@ -2399,22 +2655,6 @@ server <- function(input, output, session) {
         
       }) # End of render UI
       
-    #######################################################
-    # Returning Null (no button) if check-mark is not hit #
-    #######################################################
-    }else{
-      
-      ######################################
-      # Making the download button go away #
-      ######################################
-      output$downloadTimeseries <- 
-        
-        # Download button 
-        NULL
-        
-       # End of render UI()
-      
-    } # End of else 
     
   }) # End of observe statement 
   
@@ -2479,13 +2719,13 @@ server <- function(input, output, session) {
       ################################
       # Reading in the original data #
       ################################
-      data1 <- file()
+      observeEvent(input$run, {data1 <- file()
       
       #############################################################
       # Filtering the data shown based on user selected locations #
       #############################################################
 
-      if(!is.null(data1)){
+      if(nrow(data1) > 0){
         
           data.for.table <- data1 %>%
             dplyr::select(names(data1)[1], all_of(input$locations))
@@ -2493,13 +2733,18 @@ server <- function(input, output, session) {
       }else{
         
         data.for.table <- NULL
+        
       }
+      
+      ############################################
+      # Saving the results to the reactive value #
+      ############################################
+      isolate({ timeseriesData$dataList <- data.for.table })
+      
+      })
 
-        ############################################
-        # Saving the results to the reactive value #
-        ############################################
-        timeseriesData$dataList <- data.for.table
-
+        
+        
     ###############################
     # Error portion of 'tryCatch' #
     ###############################
@@ -2510,6 +2755,20 @@ server <- function(input, output, session) {
     }) # End of 'tryCatch'
 
   }) # End of 'observe'
+  
+#------------------------------------------------------------------------------#
+# Clearing the time series data   ----------------------------------------------
+#------------------------------------------------------------------------------#
+# About: This section clears the time series data if the original data set is  #
+# changed.                                                                     #
+#------------------------------------------------------------------------------#
+  
+  observeEvent(file(), {
+    
+    # Resetting the time series data
+    timeseriesData$dataList <- NULL
+    
+  })
 
 #------------------------------------------------------------------------------#
 # Rendering the data table for the timeseries ----------------------------------
@@ -2518,76 +2777,9 @@ server <- function(input, output, session) {
 # show the data frame.                                                         #
 #------------------------------------------------------------------------------#
   
-  ########################################
-  # Observing changes in reactive values #
-  ########################################
-  observe({
-
-    ##############################
-    # Running if no errors occur #
-    ##############################
-    tryCatch({
-      
-      #################################
-      # Running if "Run" has been hit #
-      #################################
-      observeEvent(input$run, {
-        
-        # Isolating the behavior
-        isolate({
-          
-          # Data to render 
-          data1 <-  timeseriesData$dataList
-          
-        })
-        
-        #########################################
-        # Running if the check has been clicked #
-        #########################################
-        observeEvent(input$timeseriesCheckBox, {
-          
-          ###########################################
-          # Rendering the data if the check is true #
-          ###########################################
-          if(input$timeseriesCheckBox){
-            
-            # Isolating behaviors until the button is clicked
-            isolate({
-              
-              # Render statement
-              output$timeseries <- renderDataTable({data1})
-              
-            }) # End of 'isolate'
-            
-            ######################################
-            # Rendering NULL if check is not hit #
-            ######################################
-          }else{
-            
-            # Isolating behaviors
-            isolate({
-              
-              # Render statement
-              output$timeseries <- renderDataTable({NULL})
-              
-            }) # End of isolate
-            
-          } # End of NULL rendering
-          
-        }) # End of "check" observe event
-        
-      }) # End of "run" observe event 
-      
-    ###########################################
-    # Returns NULL the above code can not run #
-    ###########################################
-    }, error = function(e){
-      
-      output$timeseries <- renderDataTable({NULL})
-      
-    }) # End of 'tryCatch'
-    
-  }) # End of 'observe'
+  
+  # Render statement
+  output$timeseries <- renderDataTable({timeseriesData$dataList})
   
 #------------------------------------------------------------------------------#
 # Downloading the time series data as a '.csv' ---------------------------------
@@ -2758,6 +2950,23 @@ server <- function(input, output, session) {
     
   }) # End of 'observe'
   
+#------------------------------------------------------------------------------#
+# Clearing the time series image   ---------------------------------------------
+#------------------------------------------------------------------------------#
+# About: This section clears the time series image if the orignal data set is  #
+# changed.                                                                     #
+#------------------------------------------------------------------------------#
+  
+  observeEvent(file(), {
+    
+    # Resetting the interactive form of the image
+    timeseriesFigureList$figureInteractive <- NULL
+    
+    # Resetting the static form of the image
+    timeseriesFigureList$figureStatic <- NULL
+    
+  })
+  
   
 #------------------------------------------------------------------------------#
 # Rendering the time-series figure ---------------------------------------------
@@ -2781,7 +2990,9 @@ server <- function(input, output, session) {
     tryCatch({
       
       event_trigger <- reactive({
-        list(input$run, input$forecastLines, scaleY$logScale, input$yaxisTimeSeries, input$dateBreaksTS)
+        
+        list(timeseriesData$dataList, input$forecastLines, scaleY$logScale, input$yaxisTimeSeries, input$dateBreaksTS, file())
+        
       })
       
       #################################
@@ -2792,46 +3003,38 @@ server <- function(input, output, session) {
           ################################################
           # Rendering a NULL object if the check is true #
           ################################################
-          if(length(timeseriesFigureList$figureInteractive[[1]]) == 0 || is.null(timeseriesFigureList$figureInteractive[[1]]) || is.character(timeseriesFigureList$figureInteractive[[1]])){
+          if(is.null(timeseriesFigureList$figureInteractive)){
             
             # Isolating behaviors until the button is clicked
-            isolate({
-              
+
               # Render statement
               output$timeseriesPlot <- NULL
               
-            }) # End of 'isolate'
-            
+              
           #######################################################
           # Rendering the timeseries figure if check is not hit #
           #######################################################
           }else{
-            
-            # Isolating behaviors
-            isolate({
-
-              # Render statement
-              output$timeseriesPlot <- renderPlotly({
-                
-                isolate({
-                # Plot to return
-                timeFig <- ggplotly(timeseriesFigureList$figureInteractive, tooltip = "text") 
-                
-                # Returning the figure
-                return(timeFig)
-                })
-
-                })
-
-            }) # End of isolate
+          
+            # Render statement
+            output$timeseriesPlot <- renderPlotly({
+              
+              
+              # Plot to return
+              timeFig <- ggplotly(timeseriesFigureList$figureInteractive, tooltip = "text") 
+              
+              # Returning the figure
+              return(timeFig)
+              
+            })
             
           } # End of NULL rendering
         
       }) # End of "run" observe event 
-      
-      ###########################################
-      # Returns NULL the above code can not run #
-      ###########################################
+              
+    ###########################################
+    # Returns NULL the above code can not run #
+    ###########################################
     }, error = function(e){
       
       NULL
@@ -2840,44 +3043,7 @@ server <- function(input, output, session) {
     
   }) # End of 'observe'
 
-#------------------------------------------------------------------------------#
-# Handling when the data set is changed ----------------------------------------
-#------------------------------------------------------------------------------#
-# About: This section of code clears any existing output when the data set is  #
-# changed by the user.                                                         #
-#------------------------------------------------------------------------------#
-  
-  ########################################
-  # Observing changes in reactive output #
-  ########################################
-  observe({
-    
-    ##############################
-    # Running if no errors occur #
-    ##############################
-    tryCatch({
-      
-      # Clearing output if the data is changed 
-      if(names(timeseriesData$dataList)[-1] %!in% c(input$locations) | length(input$locations) == 0){
-        
-        # Clearing plot output 
-        output$timeseriesPlot <- NULL
-        
-        # Clearing timeseries data output 
-        output$timeseries <- NULL
-        
-        } # End of "else" 
-      
-      ###########################
-      # Running if error occurs #
-      ###########################
-      }, error = function(e){
-        
-        NULL
-        
-        }) # End of 'tryCatch'
-    
-    }) # End of 'observe'
+
   
 #------------------------------------------------------------------------------#
 # Downloading the timeseries figure --------------------------------------------
@@ -3038,7 +3204,7 @@ server <- function(input, output, session) {
                            label = tags$span("Forecasting Date(s) ", # Input label
                                              tags$i(class = "glyphicon glyphicon-info-sign",
                                                     style = "color:#FFFFFF;",
-                                                    title = "The forecasting period corresponds the last week of data included in the calibration period (i.e., the week the forecast is conducted).")
+                                                    title = "The forecasting date corresponds the last week of data included in the calibration period (i.e., the week the forecast is conducted).")
                            ),
                            min = data_min_date,
                            max = data_max_date,
@@ -3058,7 +3224,7 @@ server <- function(input, output, session) {
                            label = tags$span("Forecasting Date(s) ", # Input label
                                              tags$i(class = "glyphicon glyphicon-info-sign",
                                                     style = "color:#FFFFFF;",
-                                                    title = "The forecasting period corresponds the last week of data included in the calibration period (i.e., the week the forecast is conducted).")
+                                                    title = "The forecasting date corresponds the last week of data included in the calibration period (i.e., the week the forecast is conducted).")
                            ),
                            min = data_min_date,
                            max = data_max_date,
@@ -3074,10 +3240,10 @@ server <- function(input, output, session) {
       
       # Outputted slider input
       return(sliderInput("forecast.period",
-                         label = tags$span("Forecasting Period(s) ", # Input label
+                         label = tags$span("Forecasting Date(s) ", # Input label
                                            tags$i(class = "glyphicon glyphicon-info-sign",
                                                   style = "color:#FFFFFF;",
-                                                  title = "The forecasting period corresponds the last week of data included in the calibration period (i.e., the week the forecast is conducted).")
+                                                  title = "The forecasting date corresponds the last week of data included in the calibration period (i.e., the week the forecast is conducted).")
                          ),
                          min = 0,
                          max = 1,
@@ -3129,7 +3295,7 @@ server <- function(input, output, session) {
       # Rendering the 'pickerInput' #
       ###############################
       pickerInput("calibrationPeriod", # ID
-                  label = tags$span("Calibration period:", # Input label
+                  label = tags$span("Calibration period length:", # Input label
                                     tags$i(
                                       class = "glyphicon glyphicon-info-sign",
                                       style = "color:#FFFFFF;",
@@ -3146,7 +3312,7 @@ server <- function(input, output, session) {
       ###############################
       pickerInput(
         "calibrationPeriod", # Choosing the calibration period length
-        label = tags$span("Calibration period:", # Input label
+        label = tags$span("Calibration period length:", # Input label
                           tags$i(
                             class = "glyphicon glyphicon-info-sign",
                             style = "color:#FFFFFF;",
@@ -3192,6 +3358,8 @@ server <- function(input, output, session) {
         ##################################
         data <- file()
         
+        if(nrow(data) > 0 & !is.null(data)){
+          
         # Extracting the date column
         dateHeader <- names(data)[1]
         
@@ -3257,6 +3425,12 @@ server <- function(input, output, session) {
         #########################################
         return(calibration.period.list$calibrations)
         
+        }else{
+          
+          return(NULL)
+          
+        }
+        
       }) # End of 'observeEvent' statement 
       
     ##############################
@@ -3293,128 +3467,124 @@ server <- function(input, output, session) {
     
     }) # End of 'renderUI' statement
   
-  ###############################################
-  # Creating the UI parameter outputs - P/p Min #
-  ###############################################
+  #############################################
+  # Creating the UI parameter outputs - p Min #
+  #############################################
   output$pMin <- renderUI({
     
-    ##############################################################################
-    # Determines which parameter to show based on seasonality and selected model #
-    ##############################################################################
+    #####################################
+    # Creating the numeric input - pMin #
+    #####################################
+    numericInput("pMin", label = "p min", value = 0)
     
-    # Label for parameter entry 
-    label <- switch(input$seasonality,
-                    "1" = "p Min",
-                    "P Min")
-    
-    # Value for parameter entry
-    value <- switch(input$seasonality,
-                    "1" = 0,
-                    1)
-    
-    ##############################
-    # Creating the numeric input #
-    ##############################
-    numericInput("pMin", label = label, value = value)
-    
-    }) # End of 'renderUI' statment 
+    }) # End of 'renderUI' statement 
   
-  ###############################################
-  # Creating the UI parameter outputs - P/p Min #
-  ###############################################
+  #############################################
+  # Creating the UI parameter outputs - P Min #
+  #############################################
+  output$PMin <- renderUI({
+    
+    #####################################
+    # Creating the numeric input - pMin #
+    #####################################
+    numericInput("PMin", label = "P Min", value = 0)
+    
+  }) # End of 'renderUI' statment 
+  
+  #############################################
+  # Creating the UI parameter outputs - p Max #
+  #############################################
   output$pMax <- renderUI({
     
-    ##############################################################################
-    # Determines which parameter to show based on seasonality and selected model #
-    ##############################################################################
+    ##############################
+    # Creating the numeric input #
+    ##############################
+    numericInput("pMax", label = "p Max", value = 10)
     
-    # Label for parameter entry 
-    label <- switch(input$seasonality,
-                    "1" = "p Max",
-                    "P Max")
-    
-    # Value for parameter entry
-    value <- switch(input$seasonality,
-                    "1" = 10,
-                    3)
+    }) # End of 'renderUI' statement
+  
+  #############################################
+  # Creating the UI parameter outputs - P Max #
+  #############################################
+  output$PMax <- renderUI({
     
     ##############################
     # Creating the numeric input #
     ##############################
-    numericInput("pMax", label = label, value = value)
+    numericInput("PMax", label = "P Max", value = 3)
     
-    }) # End of 'renderUI' statement
+  }) # End of 'renderUI' statement
   
-  ###############################################
-  # Creating the UI parameter outputs - Q/q Min #
-  ###############################################
+  #############################################
+  # Creating the UI parameter outputs - q Min #
+  #############################################
   output$qMin <- renderUI({
     
-    ##############################################################################
-    # Determines which parameter to show based on seasonality and selected model #
-    ##############################################################################
-    
-    # Label for parameter entry 
-    label <- switch(input$seasonality,
-                    "1" = "q Min",
-                    "Q Min")
-    
-    # Value for parameter entry
-    value <- switch(input$seasonality,
-                    "1" = 0,
-                    1)
-    
     ##############################
     # Creating the numeric input #
     ##############################
-    numericInput("qMin", label = label, value = value)
+    numericInput("qMin", label = "q Min", value = 0)
     
     }) # End of 'renderUI' statement
   
-  ###############################################
-  # Creating the UI parameter outputs - Q/q Min #
-  ###############################################
-  output$qMax <- renderUI({
-    
-    ##############################################################################
-    # Determines which parameter to show based on seasonality and selected model #
-    ##############################################################################
-    
-    # Label for parameter entry 
-    label <- switch(input$seasonality,
-                    "1" = "q Max",
-                    "Q Max")
-    
-    # Value for parameter entry
-    value <- switch(input$seasonality,
-                    "1" = 5,
-                    3)
+  #############################################
+  # Creating the UI parameter outputs - Q Min #
+  #############################################
+  output$QMin <- renderUI({
     
     ##############################
     # Creating the numeric input #
     ##############################
-    numericInput("qMax", label = label, value = value)
+    numericInput("QMin", label = "Q Min", value = 1)
+    
+  }) # End of 'renderUI' statement
+  
+  
+  #############################################
+  # Creating the UI parameter outputs - q Max #
+  #############################################
+  output$qMax <- renderUI({
+    
+    ##############################
+    # Creating the numeric input #
+    ##############################
+    numericInput("qMax", label = "q Max", value = 5)
     
     }) # End of 'renderUI' statement
+  
+  #############################################
+  # Creating the UI parameter outputs - Q Max #
+  #############################################
+  output$QMax <- renderUI({
+    
+    ##############################
+    # Creating the numeric input #
+    ##############################
+    numericInput("QMax", label = "Q Max", value = 3)
+    
+  }) # End of 'renderUI' statement
   
   ###################################################
   # Creating the UI parameter outputs - Differences #
   ###################################################
   output$differences <- renderUI({
     
-    ##############################################################################
-    # Determines which parameter to show based on seasonality and selected model #
-    ##############################################################################
+    ##############################
+    # Creating the numeric input #
+    ##############################
+    numericInput("differences", label = "Non-seasonal Differences", value = 2)
     
-    # Label for parameter entry 
-    label <- switch(input$seasonality,
-                    "1" = "Non-seasonal Differences",
-                    "Seasonal Differences")
+  }) # End of 'renderUI' statement
+  
+  ############################################################
+  # Creating the UI parameter outputs - Seasonal Differences #
+  ############################################################
+  output$Seasonaldifferences <- renderUI({
     
     ##############################
     # Creating the numeric input #
     ##############################
-    numericInput("differences", label = label, value = 2)
+    numericInput("Seasonaldifferences", label = "Seasonal Differences", value = 2)
     
   }) # End of 'renderUI' statement
  
@@ -3474,7 +3644,8 @@ server <- function(input, output, session) {
                                   horizon.input = input$forecastHorizon, # Forecasting horizon 
                                   smoother.input = input$smoothingInput, # Smoothing for data 
                                   parameter.input = c(input$pMin, input$pMax, input$qMin, input$qMax, 
-                                                      input$differences), # ARIMA parameters 
+                                                      input$differences, input$PMin, input$PMax, input$QMin, input$QMax, 
+                                                      input$Seasonaldifferences), # ARIMA parameters 
                                   seasonality.input = input$seasonality) # ARIMA seasonality 
                
                #########################################################
@@ -3536,9 +3707,6 @@ server <- function(input, output, session) {
      
    }) # End of 'observe'
        
-
-   
-
 #------------------------------------------------------------------------------#
 # Setting up the GLM forecasts -------------------------------------------------
 #------------------------------------------------------------------------------#
@@ -3779,7 +3947,7 @@ server <- function(input, output, session) {
                ########################
                # Calling the function #
                ########################
-               GAMListQuantile <<- GAM(calibration.input = calibration.period.list$calibrations, # List of calibration periods 
+               GAMListQuantile <- GAM(calibration.input = calibration.period.list$calibrations, # List of calibration periods 
                                       horizon.input = input$forecastHorizon, # Forecasting horizon 
                                       date.Type.input = dateSeq, # Date type 
                                       smoothing.input = input$smoothingInput, # Data smoothing 
@@ -4002,187 +4170,153 @@ server <- function(input, output, session) {
        
    }) # End of 'observe'
    
-   
 #------------------------------------------------------------------------------#
-# Creating the location drop down for the quantile forecast box ----------------
+# Creating the filtering options for the quantile forecast ---------------------
 #------------------------------------------------------------------------------#
-# About: This section creates the drop-down for locations read in from the     #
-# crude data. The location drop-down is then used to filter the shown quantile #
-# forecasts and what quantile forecast are saved.                              #
+# About: This section creates the quantile forecast data filter for the main   #
+# page of the dashboard.                                                       #
 #------------------------------------------------------------------------------#
    
-   ##########################################################
-   # Creating the location drop down for quantile forecasts #
-   ##########################################################
-   output$locationsQuantile <- renderUI({
-     
-     pickerInput("locationQuantiles", # Input ID for the location drop down 
-                 label = NULL, # No label for the drop down 
-                 choices = c(input$locations), # Choices 
-                 selected = c(input$locations), # Pre-selected choices 
-                 width = "175px", # Width of drop down
-                 multiple = T) # Allowing multiple options 
-   })
+   ######################################
+   # Creating the needed reactive value #
+   ######################################
    
-
+   # To store the filtered quantile forecasts 
+   finalQuantileCombined <- reactiveValues()
    
-#------------------------------------------------------------------------------#
-# Creating the model drop down for the quantile forecast box -------------------
-#------------------------------------------------------------------------------#
-# About: This section creates the drop-down for available models. The options  #
-# available here match that of what is selected by the user. The model drop    #
-# down is then used to filter the shown quantile forecast and what quantile    #
-# forecasts are saved.                                                         #
-#------------------------------------------------------------------------------#
+   # Model choices 
+   QuantileForecastModelChoice <- reactiveValues()
    
-   #######################################################
-   # Creating the model drop down for quantile forecasts #
-   #######################################################
-   output$modelQuantile <- renderUI({
-     
-     # Outputs if no model on the side is selected 
-     if(is.null(input$modelType)){
-       
-       # Picker input 
-       pickerInput("modelQuantiles", # Input ID for the location drop down 
-                   label = NULL, # No label for the drop down
-                   selected = "Please select a model", # Model type 
-                   choices = "Please select a model", # Choices 
-                   width = "175px", # Width of drop down 
-                   multiple = T) # Allowing multiple options
-       
-     ####################################
-     # Outputs if model(s) are selected #
-     ####################################
-     }else{
-       
-       pickerInput("modelQuantiles", # Input ID for the location drop down 
-                   label = NULL, # No label for the drop down
-                   selected = c(input$modelType), # Model type 
-                   choices = c(input$modelType), # Choices 
-                   width = "175px", # Width of drop down 
-                   multiple = T) # Allowing multiple options
-       
-     } # End of 'else'
-     
-   }) # End of render 
+   # Selected models 
+   QuantileForecastModelSelect <- reactiveValues()
    
-
-#------------------------------------------------------------------------------#
-# Forming the quantile forecasts -----------------------------------------------
-#------------------------------------------------------------------------------#
-# About: This section formats the quantile forecasts that are shown on the     #
-# main dashboard page.                                                         #
-#------------------------------------------------------------------------------#
+   # Location choices 
+   QuantileForecastLocationChoice <- reactiveValues()
    
-   #########################################
-   # Creating a vector for reactive values #
-   #########################################
-   quantileListToShow <- reactiveValues()
+   # Selected locations 
+   QuantileForecastLocationSelect <- reactiveValues()
    
-   ##################################################
-   # Observing changes in reactive and input values #
-   ##################################################
+   # Indicator 
+   QuantileForecastMAINIndicator <- reactiveVal(0)
+   
+   
+   ########################################
+   # Observing changes in reactive values #
+   ########################################
    observe({
      
-       ############################################
-       # Runs if data is entered in the dashboard #
-       ############################################
-       tryCatch({
+     #####################################
+     # Running if information is entered #
+     #####################################
+     tryCatch({
+       
+       # Creating the combination of quantile forecasts 
+       quantile.forecast <- c(ARIMAInfo$arima, GAMList$GAM, GLMList$GLM, ProphetList$prophet)
+       
+       # Running only if an error is not returned above
+       if(all(!is.null(quantile.forecast))){
          
-         ###########################
-         # Quantile forecasts list #
-         ###########################
-         quantile.forecast.loop <- c(ARIMAInfo$arima, GAMList$GAM, GLMList$GLM, ProphetList$prophet)
+         #################
+         # Model Options #
+         #################
          
-         # Empty list for filtered forecasts 
-         showList <- list()
+         # Choices
+         QuantileForecastModelChoice$data <- unique(input$modelType)
          
-         ##############################################
-         # Looping through list of quantile forecasts #
-         ##############################################
-         for(i in 1:length(quantile.forecast.loop)){
-           
-           # Pulling the name of the indexed quantile forecast
-           nameForecast <- names(quantile.forecast.loop[i])
-           
-           # Model name
-           modelNames <- strsplit(nameForecast, "[-]")[[1]][1]
-           
-           ##########################################################
-           # Skipping to the next loop if the model is not selected #
-           ##########################################################
-           if(modelNames %!in% input$modelQuantiles){
-             
-             # Returning an NA
-             showList[[i]] <- NA
-             
-             # Skipping to the next loop iteration
-             next
-             
-           }
-           
-           # Sub-setting location/group name 
-           locationGroupNames <- strsplit(nameForecast, "[-]")[[1]][2]
-           
-           # Extracting the data frame
-           data <- quantile.forecast.loop[[i]]
-           
-           # Changing the name of the first column
-           colnames(data)[1] <- "median"
-           
-           ######################################################
-           # Determining if it should be added to the show list #
-           ######################################################
-           if(locationGroupNames %in% c(input$locationQuantiles)){
-             
-             # Saving the data in the list
-             showList[[i]] <- data 
-             
-             # Renaming the data
-             names(showList)[[i]] <- nameForecast
-             
-           #######################################################
-           # If the list element is not selected, an NA is added #
-           #######################################################
-           }else{
-             
-             # Returning an NA
-             showList[[i]] <- NA
-             
-             # Skipping to the next loop iteration
-             next
-             
-           } # End of location filtering 
-           
-         } # End of loop going through quantile forecasts 
+         # Selected 
+         QuantileForecastModelSelect$data <- QuantileForecastModelChoice$data
          
-         #########################################################
-         # Isolating the behavior to only when the button is hit #
-         #########################################################
-         isolate({
+         ####################
+         # Location Options #
+         ####################
+         
+         # Choices
+         QuantileForecastLocationChoice$data <- unique(input$locations)
+         
+         # Selected 
+         QuantileForecastLocationSelect$data <- QuantileForecastLocationChoice$data
+         
+         #######################
+         # Creating the pop-up #
+         #######################
+         observeEvent(input$filterQuantileForecasts, ignoreInit = T,{
            
-           ##########################################
-           # Final list to show in the quantile box #
-           ##########################################
-           finalList <- showList[!is.na(showList)]
+           # Changing the indicator to one (i.e., button has been clicked)
+           isolate({QuantileForecastMAINIndicator(1)})
            
-           # Saving it in a reactive value
-           quantileListToShow$listQuantiles <- finalList
+           # Isolating button click behavior 
+           isolate({
+             
+             # Button 
+             showModal(modalDialog(
+               
+               title = "Filtering Options",
+               pickerInput("modelQuantile", "Model:", c(QuantileForecastModelChoice$data), selected = c(QuantileForecastModelSelect$data), multiple = T), # Model filtering
+               pickerInput("locationsQuantile", "Location:", c(QuantileForecastLocationChoice$data), selected = c(QuantileForecastLocationSelect$data), multiple = T), # Metric Type
+               
+             ))
+             
+           })
            
          })
          
-       ##################################################
-       # Runs if no information is entered in dashboard #
-       ##################################################
-       }, error = function(e){
+         ##################################################
+         # Function to filter the formatted forecast data #
+         ##################################################
          
-         # Returning a NULL
-         NULL
+         filteredForecasts <- filteringQuantileForecasts(QuantileForecast.input = quantile.forecast, # Quantile forecast
+                                                         modelFilterQ.input = input$modelQuantile, # Model filter
+                                                         locationFilterQ.input = input$locationsQuantile, # Location filter
+                                                         indicator.input = QuantileForecastMAINIndicator()) # Indicator
+
+         # Saving the results to the reactive value
+         finalQuantileCombined$data <- filteredForecasts
          
-       }) # End of 'TRYCATCH' statement 
+       } # End of 'else'
+       
+     ####################################
+     # Running if data is NOT available #
+     ####################################
+     }, error = function(e){
+       
+       NULL
+       
+     })
      
-   }) # End of 'observe' statement 
+   })
+   
+   
+#------------------------------------------------------------------------------#
+# Resetting the quantile forecast data -----------------------------------------
+#------------------------------------------------------------------------------#
+# About: This section clears the quantile forecast data when the data is       #
+# changed.                                                                     #
+#------------------------------------------------------------------------------#
+   
+   ###############################
+   # Looking for the data change #
+   ###############################
+   observeEvent(file(), {
+     
+     # Clearing the output
+     finalQuantileCombined$data <- NULL
+     
+     # Resetting the indicator
+     QuantileForecastMAINIndicator(0)
+     
+     # Resetting the ARIMA
+     ARIMAInfo$arima <- NULL
+     
+     # Resetting the GAM
+     GAMList$GAM <- NULL 
+     
+     # Resetting the GLM
+     GLMList$GLM <- NULL
+     
+     # Resetting the Prophet 
+     ProphetList$prophet <- NULL
+     
+   })
    
    
 #------------------------------------------------------------------------------#
@@ -4228,7 +4362,7 @@ server <- function(input, output, session) {
      isolate({
        
        # Run if the current index is less than the length of the list 
-       if (current_index() < length(quantileListToShow$listQuantiles)) {
+       if (current_index() < length(finalQuantileCombined$data)) {
          
          # Changing the index of the reactive value 
          current_index(min(current_index() + 1))
@@ -4267,80 +4401,45 @@ server <- function(input, output, session) {
      
    }) # End of 'observeEvent'
    
+
+#------------------------------------------------------------------------------#
+# Rending the current quantile data frame box title ----------------------------
+#------------------------------------------------------------------------------#
+# About: This section renders the current title for the shown quantile         #
+# forecasts in the main body of the dashboard.                                 #
+#------------------------------------------------------------------------------#
    
-#------------------------------------------------------------------------------#
-# Handling when the data set is changed ----------------------------------------
-#------------------------------------------------------------------------------#
-# About: This section of code clears any existing output when the data set is  #
-# changed by the user.                                                         #
-#------------------------------------------------------------------------------#
-   
-   ########################################
-   # Observing changes in reactive output #
-   ########################################
-   observe({
-     
-     ##############################
-     # Running if no errors occur #
-     ##############################
-     tryCatch({
-       
-       # Clearing output if the data is changed 
-       if(names(timeseriesData$dataList)[-1] %!in% c(input$locations) | length(input$locations) == 0){
-         
-         current_index(1)
-         
-       } # End of "else" 
-       
-       ###########################
-       # Running if error occurs #
-       ###########################
-     }, error = function(e){
-       
-       NULL
-       
-     }) # End of 'tryCatch'
-     
-   }) # End of 'observe'
-     
    #######################################################
    # Rendering the current quantile data frame box title #
    #######################################################
    output$quantileTitle <- renderText({
      
-     # Producing nothing if no locations are chosen
-     if(length(input$locationQuantiles) == 0 || length(input$modelQuantiles) == 0 | length(input$locations) == 0){
-       
-       return(NULL)
-       
-       # Runs if at least one location is selected
-     }else{
        
        # Rendering the data table box title 
-       return(paste0(names(quantileListToShow$listQuantiles[current_index()])))
+       return(paste0(names(finalQuantileCombined$data[current_index()])))
        
-     }
+     
      
    }) # End of render statement for quantile forecasts
    
+   
+#------------------------------------------------------------------------------#
+# Rendering the current quantile data frame ------------------------------------
+#------------------------------------------------------------------------------#
+# About: This section renders the quantile data frame table to the main page   #
+# of the dashboard.                                                            #
+#------------------------------------------------------------------------------#
    
    #############################################
    # Rendering the current quantile data frame #
    #############################################
    output$quantileForecasts <- renderDataTable({
      
-     # Producing nothing if no locations are chosen
-     if(length(input$locationQuantiles) == 0 || length(input$modelQuantiles) == 0 || length(input$locations) == 0){
-       
-       return(NULL)
-       
-       # Runs if at least one location or model is selected 
-     }else{
 
        # Rendering the data table 
-       return(datatable(quantileListToShow$listQuantiles[[current_index()]],
+       return(datatable(finalQuantileCombined$data[[current_index()]],
                         options = list(scrollX = T))) # Restricts the size of the box 
-     }
+
      
    }) # End of render statement for quantile forecasts
    
@@ -4378,10 +4477,10 @@ server <- function(input, output, session) {
        dir.create(temp_directory)
        
        # Saving the ggplots 
-       for (plot_name in names(quantileListToShow$listQuantiles)) {
+       for (plot_name in names(finalQuantileCombined$data)) {
          
          # Plot 
-         plot_obj <- data.frame(quantileListToShow$listQuantiles[[plot_name]])
+         plot_obj <- data.frame(finalQuantileCombined$data[[plot_name]])
          
          # If plot is found 
          if (!is.null(plot_obj)) {
@@ -4410,72 +4509,6 @@ server <- function(input, output, session) {
      contentType = "application/zip"
      
    ) # End of download handler 
-   
-   
-#------------------------------------------------------------------------------#
-# Creating the location drop down for the forecast figures/data box ------------
-#------------------------------------------------------------------------------#
-# About: This section creates the location/group drop down for the forecast    #
-# figures. Users can select which groups/locations they would like to see      #
-# forecasts for. The selected forecasts/figures are then included in the final #
-# '.zip' file which can be downloaded by the user.                             #
-#------------------------------------------------------------------------------#
-   
-   ####################################
-   # Creating the locations drop down #
-   ####################################
-   output$locationsForecastFigs <- renderUI({
-     
-     pickerInput("locationFigures", # ID
-                 label = NULL, # No label
-                 choices = c(input$locations), # Choices 
-                 selected = c(input$locations), # Selected automatically
-                 multiple = T, # Allowing multiple options 
-                 width = "175px") # Width of picker 
-     
-   }) # End of render 'UI'
-   
-   
-#------------------------------------------------------------------------------#
-# Creating the model drop down for the forecast figures/data box ---------------
-#------------------------------------------------------------------------------#
-# About: This section creates the drop-down for available models. The options  #
-# available here match that of what is selected by the user. The model drop    #
-# down is then used to filter the shown formatted forecast/figures and what is #
-# saved in the '.zip' file.                                                    #
-#------------------------------------------------------------------------------#
-   
-   ##########################################################
-   # Creating the model drop down for forecast figures/data #
-   ##########################################################
-   output$modelsForecastFigs <- renderUI({
-     
-     # Outputs if no model on the side is selected 
-     if(is.null(input$modelType)){
-       
-       # Picker input 
-       pickerInput("modelsForecastFigs", # Input ID for the location drop down 
-                   label = NULL, # No label for the drop down
-                   selected = "Please select a model", # Model type 
-                   choices = "Please select a model", # Choices 
-                   width = "175px", # Width of picker 
-                   multiple = T) # Allowing multiple options
-       
-     ####################################
-     # Outputs if model(s) are selected #
-     ####################################
-     }else{
-       
-       pickerInput("modelsForecastFigs", # Input ID for the location drop down 
-                   label = NULL, # No label for the drop down
-                   selected = c(input$modelType), # Model type 
-                   choices = c(input$modelType), # Choices 
-                   width = "175px", # Width of picker 
-                   multiple = T) # Allowing multiple options
-       
-     } # End of 'if-else' creating the picker 
-     
-   }) # End of render 'UI'
    
    
 #------------------------------------------------------------------------------#
@@ -4516,7 +4549,7 @@ server <- function(input, output, session) {
 
              # 'Isolate' statement 
              isolate({
-               
+                 
                # Running the forecasts
                formattedForecastList <- formatted.forecast.function(quantile.input = c(ARIMAInfo$arima, GAMList$GAM, GLMList$GLM, ProphetList$prophet), # List of quantiles 
                                                                     data.input = file(), # Original data 
@@ -4526,7 +4559,7 @@ server <- function(input, output, session) {
                                                                     quantile.selected.input = input$quantileSelection, # Selected quantile
                                                                     horizon.input = input$forecastHorizon,
                                                                     smoothing.input = input$smoothingInput) # Data smoothing
-               
+
                # Saving the exported list to a reactive value
                foremattedForecasts$forecasts <- formattedForecastList
                
@@ -4547,109 +4580,154 @@ server <- function(input, output, session) {
      }) # End of 'observeEvent' statement 
      
    }) # End of 'observe' statement 
-   
+  
 
 #------------------------------------------------------------------------------#
-# Preparing the individual forecast files for rendering ------------------------
+# Clearing the original data ---------------------------------------------------
 #------------------------------------------------------------------------------#
-# About: This section filters the list of formatted forecasts to show what the #
-# user selects in the drop down for the formatted forecasts.                   #
+# About: This section clears the above created formatted forecasts if the file #
+# containing the original data is changed.                                     #
 #------------------------------------------------------------------------------#
-   
-   ##############################################################
-   # Initialize reactiveValues to store the formatted forecasts #
-   ##############################################################
-   FormattedForecastListToShow <- reactiveValues()
-   
-   ##############################################
-   # Observing changes in the reactive elements #
-   ##############################################
-   observe({
-     
-     ###########################
-     # Runs if data is entered #
-     ###########################
-     tryCatch({
-       
-       ###########################################
-       # Calling the list of formatted forecasts #
-       ###########################################
-       indexedFForcasted <- foremattedForecasts$forecasts
-       
-       ######################
-       # Preparing for loop #
-       ######################
-       
-       # Empty list for filtered forecasts 
-       showList <- list()
-       
-       ###############################################
-       # Looping through list of formatted forecasts #
-       ###############################################
-       for(i in 1:length(indexedFForcasted)){
-         
-         # Pulling the name of the indexed formatted forecast
-         nameForecast <- names(indexedFForcasted[i])
-         
-         # Sub-setting location/group name
-         locationGroupNames <- strsplit(nameForecast, "[-]")[[1]][2]
-         
-         # Sub-setting location/group name
-         modelNames <- strsplit(nameForecast, "[-]")[[1]][1]
-         
-         ##########################################################
-         # Skipping to the next loop if the model is not selected #
-         ##########################################################
-         if(modelNames %!in% input$modelsForecastFigs){
-           
-           # Returning an NA
-           showList[[i]] <- NA
 
-           # Skipping to the next loop iteration
-           next
-           
-         }
-         
-         # Extracting the data frame
-         data <- indexedFForcasted[[i]]
-         
-         # Determining if it should be added to the show list
-         if(locationGroupNames %in% c(input$locationFigures)){
-           
-           # Saving the data in the list
-           showList[[i]] <- data
-           
-           # Renaming the data
-           names(showList)[[i]] <- nameForecast
-           
-         }else{
-           
-           # Returning an NA
-           showList[[i]] <- NA
-           
-         } # End of 'if-else' for filtering locations
-         
-       } # End of loop going through formatted forecasts 
-       
-       # Final list to show
-       finalList <- showList[!is.na(showList)]
-       
-       # Saving it in a reactive value
-       FormattedForecastListToShow$listFormatted <- finalList
-       
-     ##################################
-     # Runs if no inputs are selected #
-     ##################################
-     }, error = function(e){
-       
-       # Returning a NULL
-       NULL
-       
-     }) # End of 'tryCatch' statement 
-     
-   }) # End of observed statement 
+  observeEvent(file(), {
+    
+    foremattedForecasts$forecasts <- NULL
+    
+  })
    
+#------------------------------------------------------------------------------#
+# Creating the filtering options for the formatted forecast --------------------
+#------------------------------------------------------------------------------#
+# About: This section creates the formatted forecast data filter for the main  #
+# page of the dashboard.                                                       #
+#------------------------------------------------------------------------------#
 
+  ######################################
+  # Creating the needed reactive value #
+  ######################################
+  
+  # To store the filtered formatted forecast
+  finalForecastCombined <- reactiveValues()
+  
+  # Model choices 
+  formattedForecastModelChoice <- reactiveValues()
+  
+  # Selected models 
+  formattedForecastModelSelect <- reactiveValues()
+  
+  # Location choices 
+  formattedForecastLocationChoice <- reactiveValues()
+  
+  # Selected locations 
+  formattedForecastLocationSelect <- reactiveValues()
+  
+  # Indicator 
+  formattedForecastMAINIndicator <- reactiveVal(0)
+
+
+  ########################################
+  # Observing changes in reactive values #
+  ########################################
+  observe({
+
+    #####################################
+    # Running if information is entered #
+    #####################################
+    tryCatch({
+    
+    # Running only if an error is not returned above
+    if(all(!is.null(foremattedForecasts$forecasts))){
+      
+      #################
+      # Model Options #
+      #################
+      
+      # Choices
+      formattedForecastModelChoice$data <- unique(input$modelType)
+      
+      # Selected 
+      formattedForecastModelSelect$data <- formattedForecastModelChoice$data
+      
+      ####################
+      # Location Options #
+      ####################
+      
+      # Choices
+      formattedForecastLocationChoice$data <- unique(input$locations)
+      
+      # Selected 
+      formattedForecastLocationSelect$data <- formattedForecastLocationChoice$data
+      
+      #######################
+      # Creating the pop-up #
+      #######################
+      observeEvent(input$filterFormattedForecasts, ignoreInit = T,{
+        
+        # Changing the indicator to one (i.e., button has been clicked)
+        isolate({formattedForecastMAINIndicator(1)})
+        
+        # Isolating button click behavior 
+        isolate({
+          
+          # Button 
+          showModal(modalDialog(
+            
+            title = "Filtering Options",
+            pickerInput("modelsForecastFigs", "Model:", c(formattedForecastModelChoice$data), selected = c(formattedForecastModelSelect$data), multiple = T), # Model filtering
+            pickerInput("locationsForecastFigs", "Location:", c(formattedForecastLocationChoice$data), selected = c(formattedForecastLocationSelect$data), multiple = T), # Metric Type
+            
+          ))
+          
+        })
+        
+      })
+      
+      ##################################################
+      # Function to filter the formatted forecast data #
+      ##################################################
+    
+      filteredForecasts  <- filteringFormattedForecasts(formattedForecast.input = foremattedForecasts$forecasts, # Formatted forecast
+                                                        modelFilterFF.input = input$modelsForecastFigs, # Model filter
+                                                        locationFilterFF.input = input$locationsForecastFigs, # Location filter
+                                                        indicator.input = formattedForecastMAINIndicator()) # Indicator 
+
+      # Saving the results to the reactive value
+      finalForecastCombined$data <- filteredForecasts
+      
+    } # End of 'else'
+    
+  ####################################
+  # Running if data is NOT available #
+  ####################################
+  }, error = function(e){
+    
+    NULL
+    
+  })
+  
+})
+
+#------------------------------------------------------------------------------#
+# Resetting the formatted forecast data ----------------------------------------
+#------------------------------------------------------------------------------#
+# About: This section clears the formatted forecast data when the data is      #
+# changed.                                                                     #
+#------------------------------------------------------------------------------#
+  
+  ###############################
+  # Looking for the data change #
+  ###############################
+  observeEvent(file(), {
+    
+    # Clearing the output
+    finalForecastCombined$data <- NULL
+    
+    # Resetting the indicator
+    formattedForecastMAINIndicator(0)
+    
+  })
+
+  
 #------------------------------------------------------------------------------#
 # Arrows and rendering formatted forecasts/figures -----------------------------
 #------------------------------------------------------------------------------#
@@ -4693,14 +4771,14 @@ server <- function(input, output, session) {
      isolate({
        
        # Run if the current index is less than the length of the list
-       if (current_index_formatted() < length(FormattedForecastListToShow$listFormatted) & current_index_formatted() < length(FiguresForecastListToShow$listFormatted)) {
+       if (current_index_formatted() < length(finalForecastCombined$data) & current_index_formatted() < length(finalForecastCombined$data)) {
          
          # Changing the index of the reactive value
          current_index_formatted(min(current_index_formatted() + 1))
          
        }
        
-     }) # End of 'isoalte' statement
+     }) # End of 'isolate' statement
      
    }) # End of 'observeEvent' statement
    
@@ -4738,7 +4816,7 @@ server <- function(input, output, session) {
    output$Formatted.ForecastTitle <- renderText({
      
      # Producing nothing if no locations or models are chosen
-     if(length(input$locationFigures) == 0 || length(input$modelsForecastFigs) == 0){
+     if(length(input$locationsForecastFigs) == 0 || length(input$modelsForecastFigs) == 0 || is.null(finalForecastCombined$data)){
        
        # Returning NULL
        return(NULL)
@@ -4747,7 +4825,7 @@ server <- function(input, output, session) {
      }else{
        
        # Rendering the title of the formatted forecast box 
-       return(paste0(names(FormattedForecastListToShow$listFormatted[current_index_formatted()])))
+       return(paste0(names(finalForecastCombined$data[current_index_formatted()]), " (", input$quantileSelection, "% ", "PI)"))
        
      } # End of 'if-else' creating the title 
      
@@ -4758,21 +4836,11 @@ server <- function(input, output, session) {
    # Rendering the current formatted forecast data frame #
    #######################################################
    output$Formatted.Forecast <- renderDataTable({
-     
-     # Producing nothing if no locations or models are chosen
-     if(length(input$locationFigures) == 0 || length(input$modelsForecastFigs) == 0){
-       
-       # Returning a NULL
-       return(datatable(NULL))
-       
-     # Runs if at least one location or model is selected
-     }else{
-       
+    
        # Rendering the data table
-       return(datatable(FormattedForecastListToShow$listFormatted[[current_index_formatted()]],
+       return(datatable(finalForecastCombined$data[[current_index_formatted()]],
                         options = list(scrollX = T)))
-       
-     } # End of 'if-else'
+
      
    }) # End of render statement for formatted forecasts
    
@@ -4811,10 +4879,10 @@ server <- function(input, output, session) {
        dir.create(temp_directory)
        
        # Saving the ggplots 
-       for (plot_name in names(FormattedForecastListToShow$listFormatted)) {
+       for (plot_name in names(finalForecastCombined$data)) {
          
          # Plot 
-         plot_obj <- FormattedForecastListToShow$listFormatted[[plot_name]]
+         plot_obj <- finalForecastCombined$data[[plot_name]]
          
          # If plot is found 
          if (!is.null(plot_obj)) {
@@ -4844,7 +4912,107 @@ server <- function(input, output, session) {
      
    ) # End of 'downloadHandler'
    
-   
+#------------------------------------------------------------------------------#
+# Button to edit forecast figures ----------------------------------------------
+#------------------------------------------------------------------------------#
+# About: This section creates the buttons to edit the legend labels for the    #
+# panel figure containing multiple types of forecasts.                         #
+#------------------------------------------------------------------------------#
+  
+  ############################################
+  # Reactive value for the y-axis scale type #
+  ############################################
+  scaleYFFPanel <- reactiveValues(logScale = "Original") 
+  
+  #######################################
+  # Reactive value for the y-axis label #
+  #######################################
+  yAxisLabFFPanel <- reactiveValues(lab = "Count")
+  
+  ################################################
+  # Reactive value for the number of date breaks #
+  ################################################
+  dateBreaksReactiveFFPanel <- reactiveValues(breaksDate = "1")
+  
+  #############################################
+  # Reactive value for starting at the y-axis #
+  #############################################
+  startYReactiveFFPanel <- reactiveValues(check = "0")
+  
+  ###############################
+  # Reactive value for dot size #
+  ###############################
+  dotSizeReactiveFFPanel <- reactiveValues(sizeVal = 2)
+  
+  ##############################
+  # Creating the button pop-up #
+  ##############################
+  observeEvent(input$editForecastFigures, {
+    
+    showModal(modalDialog(
+      title = "Figure Options",
+      h3("Y-Axis Options", style = "font-size: 15px;"),
+      pickerInput("logScaleFFPanel", "Scale for Y-Axis:", c("Original", "Log(Base 10)"), selected = scaleYFFPanel$logScale), # Scale of y-axis
+      pickerInput("zeroStartFFPanel", "Y-Axis Origin:", c("0", "Minimum value in data"), selected = startYReactiveFFPanel$check), # Starting of the y-axis
+      textInput("yaxisTimeSeriesFFPanel", "Label for Y-Axis:", value = yAxisLabFFPanel$lab), # Label for y-axis
+      h3("X-Axis Options", style = "font-size: 15px;"),
+      textInput("dateBreaksTSFFPanel", "Number of Date Breaks (Label):", value = dateBreaksReactiveFFPanel$breaksDate), # Number of date breaks
+      h3("Other Options", style = "font-size: 15px;"),
+      numericInput("dotSizeFFPanel", "Size of the obs. data points:", value = dotSizeReactiveFFPanel$sizeVal, step = 0.01) # Data dot size option
+    ))
+    
+  })
+  
+  ###############################################
+  # Update the reactive value - scale of y-axis #
+  ###############################################
+  observeEvent(input$logScaleFFPanel, {
+    
+    # Updating the scale
+    scaleYFFPanel$logScale <- input$logScaleFFPanel
+    
+  })
+  
+  ###############################################################
+  # Update the reactive value - Y-axis for the timeseries label #
+  ###############################################################
+  observeEvent(input$yaxisTimeSeriesFFPanel, {
+    
+    # Updating the y-axis label
+    yAxisLabFFPanel$lab <- input$yaxisTimeSeriesFFPanel
+    
+  })
+  
+  #####################################################
+  # Update the reactive value - Number of date breaks #
+  #####################################################
+  observeEvent(input$dateBreaksTSFFPanel,{
+    
+    # Updating the number of date breaks
+    dateBreaksReactiveFFPanel$breaksDate <- input$dateBreaksTSFFPanel
+    
+  })
+  
+  ###############################################
+  # Update the reactive value - Start at Y axis #
+  ###############################################
+  observeEvent(input$zeroStartFFPanel,{
+    
+    # Updating the start point for the y-axis
+    startYReactiveFFPanel$check <- input$zeroStartFFPanel
+    
+  })
+  
+  #############################################
+  # Update the reactive value - data dot size #
+  #############################################
+  observeEvent(input$dotSizeFFPanel,{
+    
+    # Updating the data point size
+    dotSizeReactiveFFPanel$sizeVal <- input$dotSizeFFPanel
+    
+  })
+  
 #------------------------------------------------------------------------------#
 # Producing list of forecast figures -------------------------------------------
 #------------------------------------------------------------------------------#
@@ -4855,93 +5023,161 @@ server <- function(input, output, session) {
 # dashboard.                                                                   #
 #------------------------------------------------------------------------------#
    
-   #############################################################
-   # Initialize `reactiveValues` to store the forecast figures #
-   #############################################################
-   figuresForecast <- reactiveValues()
-   
-   #####################################################
-   # Observing changes in inputs/other reactive values #
-   #####################################################
-   observe({
-     
-     ###############################################
-     # Observe event for hitting the action button #
-     ###############################################
-     observeEvent(input$run,{
-       
-       # Isolate statement 
-       isolate({
-         
-         ####################################################
-         # 'TryCatch' statement to run when info is entered #
-         ####################################################
-         tryCatch({
-           
-           ###############################################
-           # Function to create list of forecast figures #
-           ###############################################
-           
-           # 'Isolate' statement 
-           isolate({
-             
-             ######################
-             # Individual figures #
-             ######################
-             individual <- forecast.figures(formatted.forecast.input = foremattedForecasts$forecasts, 
-                                            data.type.input = dateValues$dates,
-                                            smoothing.input = input$smoothingInput)
-             
-             ###########################################################
-             # Returning an error if there are infinities in the plots #
-             ###########################################################
-             
-             # Checking for NAs 
-             isNAIndFig <- individual[is.na(individual)]
-             
-             # Pulling the names with issues
-             namesErrorIndFig <- c(names(isNAIndFig))
-             
-             #####################################################
-             # Error if there are any forecasts that did not run #
-             #####################################################
-             if(length(namesErrorIndFig) > 0){
-               
-               # Error 
-               shinyalert("Unable to produce the following figures due to infinity UB: ", 
-                          paste(namesErrorIndFig, collapse = "\n"), type = "error")
-               
-             }
+  #############################################################
+  # Initialize `reactiveValues` to store the forecast figures #
+  #############################################################
+  figuresForecast <- reactiveValues()
+  
+  #######################################################
+  # List of events to trigger the re-running of figures #
+  #######################################################
+  eventsTriggerIFig <- reactive({
+    
+    # List of events
+    events <- list(scaleYFFPanel$logScale, foremattedForecasts$forecasts,
+                   yAxisLabFFPanel$lab, dateBreaksReactiveFFPanel$breaksDate,
+                   startYReactiveFFPanel$check, dotSizeReactiveFFPanel$sizeVal)
+    
+    # Returning the list
+    return(events)
+    
+  })
+  
+  #####################################################
+  # Observing changes in inputs/other reactive values #
+  #####################################################
+  observeEvent(eventsTriggerIFig(), ignoreInit = T, {
+    
+    if(!is.null(foremattedForecasts$forecasts)){
+      
+      ####################################################
+      # 'TryCatch' statement to run when info is entered #
+      ####################################################
+      tryCatch({
         
-             #########################################################
-             # Returning the list of lists if individual figures run #
-             #########################################################
-             
-             # Determining which figures are not NA
-             notNAIndFig <- individual[!is.na(individual)]
-             
-             # Saving the exported list to a reactive value
-             figuresForecast$figure <- notNAIndFig
-             
-             
-           }) # End of 'isolate' statement 
-           
-         #######################################
-         # Runs when no information is entered #
-         #######################################
-         }, error = function(e){
-           
-           # Returns a NULL
-           NULL
-           
-         }) # End of 'tryCatch' statement 
-         
-       }) # End of 'isolate' statement 
-       
-     }) # End of 'observeEvent' statement 
-     
-   }) # End of 'observe' statement 
+        ###############################################
+        # Function to create list of forecast figures #
+        ###############################################
+        
+        ######################
+        # Individual figures #
+        ######################
+        isolate({
+          
+        individual <- forecast.figures(formatted.forecast.input = foremattedForecasts$forecasts, # Formatted figures list
+                                       data.type.input = dateValues$dates, # Date input
+                                       smoothing.input = input$smoothingInput, # Smoothing input
+                                       scaleYAxis.input = scaleYFFPanel$logScale, # Scale y-axis
+                                       yAxisLabel.input = yAxisLabFFPanel$lab, # Y-axis label
+                                       dateBreaks.input = dateBreaksReactiveFFPanel$breaksDate, # Date breaks
+                                       startYPoint.input = startYReactiveFFPanel$check, # Y-axis start point
+                                       dotSize.input = dotSizeReactiveFFPanel$sizeVal) # Dot size 
+        
+        })
+        
+        ###########################################################
+        # Returning an error if there are infinities in the plots #
+        ###########################################################
+        
+        # Checking for NAs 
+        isNAIndFig <- individual[is.na(individual)]
+        
+        # Pulling the names with issues
+        namesErrorIndFig <- c(names(isNAIndFig))
+        
+        #####################################################
+        # Error if there are any forecasts that did not run #
+        #####################################################
+        if(length(namesErrorIndFig) > 0){
+          
+          # Error 
+          shinyalert("Unable to produce the following figures due to infinity UB: ", 
+                     paste(namesErrorIndFig, collapse = "\n"), type = "error")
+          
+        }
+        
+        #########################################################
+        # Returning the list of lists if individual figures run #
+        #########################################################
+        
+        # Determining which figures are not NA
+        notNAIndFig <- individual[!is.na(individual)]
+        
+        # Saving the exported list to a reactive value
+        figuresForecast$figure <- notNAIndFig
+        
+        
+      #######################################
+      # Runs when no information is entered #
+      #######################################
+      }, error = function(e){
+        
+        # Returns a NULL
+        NULL
+        
+      }) # End of 'tryCatch' statement 
+      
+    }
+    
+  }) # End of 'observe' statement 
    
+  
+#------------------------------------------------------------------------------#
+# Creating the filtering options for the formatted forecast figure -------------
+#------------------------------------------------------------------------------#
+# About: This section creates the formatted forecast data filter for the main  #
+# page of the dashboard.                                                       #
+#------------------------------------------------------------------------------#
+  
+  ######################################
+  # Creating the needed reactive value #
+  ######################################
+  
+  # To store the filtered formatted forecast figure
+  finalForecastFigureCombined <- reactiveValues()
+  
+  ########################################
+  # Observing changes in reactive values #
+  ########################################
+  observe({
+    
+    #####################################
+    # Running if information is entered #
+    #####################################
+    tryCatch({
+      
+      # Running only if an error is not returned above
+      if(all(!is.null(foremattedForecasts$forecasts))){
+        
+        ##################################################
+        # Function to filter the formatted forecast data #
+        ##################################################
+        
+        filteredForecastsFigure <- filteringFormattedIndivFigs(formattedForecast.input = figuresForecast$figure, # Formatted forecast
+                                                               modelFilterFF.input = input$modelsForecastFigs, # Model filter
+                                                               locationFilterFF.input = input$locationsForecastFigs, # Location filter
+                                                               indicator.input = formattedForecastMAINIndicator()) # Indicator
+
+        
+        
+
+        
+        # Saving the results to the reactive value
+        finalForecastFigureCombined$data <- filteredForecastsFigure
+        
+      } # End of 'else'
+      
+      ####################################
+      # Running if data is NOT available #
+      ####################################
+    }, error = function(e){
+      
+      NULL
+      
+    })
+    
+  })
+  
    
 #------------------------------------------------------------------------------#
 # Resetting the index for formatted forecast for panel figures -----------------
@@ -4967,42 +5203,44 @@ server <- function(input, output, session) {
 # models selected in the side panel.                                           #
 #------------------------------------------------------------------------------#
    
-   ###################################################################
-   # Initialize `reactiveValues` to store the forecast figure panels #
-   ###################################################################
-   figuresForecastPanel <- reactiveValues()
+  ###################################################################
+  # Initialize `reactiveValues` to store the forecast figure panels #
+  ###################################################################
+  figuresForecastPanel <- reactiveValues()
    
-   #####################################################
-   # Observing changes in inputs/other reactive values #
-   #####################################################
-   observe({
-     
-     ###############################################
-     # Observe event for hitting the action button #
-     ###############################################
-     observeEvent(input$run,{
-       
-       # Isolate statement 
-       isolate({
-         
-         ####################################################
-         # 'TryCatch' statement to run when info is entered #
-         ####################################################
-         tryCatch({
-           
-           #####################################################
-           # Function to create list of forecast figure panels #
-           #####################################################
-           
-           # 'Isolate' statement 
-           isolate({
+  #####################################################
+  # Observing changes in inputs/other reactive values #
+  #####################################################
+  observeEvent(eventsTriggerIFig(), ignoreInit = T, {
+    
+    if(!is.null(foremattedForecasts$forecasts)){
+      
+      ####################################################
+      # 'TryCatch' statement to run when info is entered #
+      ####################################################
+      tryCatch({
+        
+        ###############################################
+        # Function to create list of forecast figures #
+        ###############################################
+        
+        #########################
+        # Panel figures Isolate #
+        #########################
+        isolate({
+          
              
              #################
              # Panel figures #
              #################
              panelOutput <- panel.forecast.figures(formatted.forecast.input = foremattedForecasts$forecasts, # Formatted figures
                                                    data.type.input = dateValues$dates, # Date type 
-                                                   smoothing.input = input$smoothingInput)
+                                                   smoothing.input = input$smoothingInput, # Smoothing input 
+                                                   scaleYAxis.input = scaleYFFPanel$logScale, # Scale y-axis
+                                                   yAxisLabel.input = yAxisLabFFPanel$lab, # Y-axis label
+                                                   dateBreaks.input = dateBreaksReactiveFFPanel$breaksDate, # Date breaks
+                                                   startYPoint.input = startYReactiveFFPanel$check, # Y-axis start point
+                                                   dotSize.input = dotSizeReactiveFFPanel$sizeVal) # Dot size 
              
              # Reversing the order of the list
              panelOutput <- rev(panelOutput)
@@ -5011,187 +5249,76 @@ server <- function(input, output, session) {
              figuresForecastPanel$figure <- panelOutput
              
              
-           }) # End of 'isolate' statement 
-           
-         #######################################
-         # Runs when no information is entered #
-         #######################################
-         }, error = function(e){
-           
-           # Returns a NULL
-           NULL
-           
-         }) # End of 'tryCatch' statement 
-         
-       }) # End of 'isolate' statement 
-       
-     }) # End of 'observeEvent' statement 
-     
-   }) # End of 'observe' statement 
-   
-   
-#------------------------------------------------------------------------------#
-# Preparing the individual/panel forecast figures for rendering ----------------
-#------------------------------------------------------------------------------#
-# About: This section prepares the lists of individual and panel forecast      #
-# figures that are later rendered in the dashboard. Additionally, this section #
-# takes in the user inputs for locations and models for the individual         #
-# forecasts to filter what figures are shown.                                  #
-#------------------------------------------------------------------------------#
-   
-   ##############################################################
-   # Initialize reactiveValues to store the formatted forecasts #
-   ##############################################################
-   FiguresForecastListToShow <- reactiveValues()
-   
-   ##############################################
-   # Observing changes in the reactive elements #
-   ##############################################
-   observe({
-     
-     ###########################
-     # Runs if data is entered #
-     ###########################
-     tryCatch({
-       
-       ###################################################
-       # Calling the list of individual forecast figures #
-       ###################################################
-       if(input$panelModelsForecasts == F){
-         
-         # Saving the list of individual forecast figures under a new name
-         indexedFigure <- figuresForecast$figure
-         
-         ######################
-         # Preparing for loop #
-         ######################
-         
-         # Empty list for filtered figures
-         showList <- list()
-         
-         ############################################
-         # Looping through list of forecast figures #
-         ############################################
-         for(i in 1:length(indexedFigure)){
-           
-           # Pulling the name of the indexed formatted forecast
-           nameFigure <- names(indexedFigure[i])
-           
-           # Sub-setting location/group name
-           locationGroupNames <- strsplit(nameFigure, "[-]")[[1]][2]
-           
-           # Sub-setting model
-           modelNames <- strsplit(nameFigure, "[-]")[[1]][1]
-           
-           ##########################################################
-           # Skipping to the next loop if the model is not selected #
-           ##########################################################
-           if(modelNames %!in% input$modelsForecastFigs){
-             
-             # Returning an NA
-             showList[[i]] <- NA
-             
-             # Skipping to the next loop iteration
-             next
-             
-           }
-           
-           # Extracting the figure
-           figure <- indexedFigure[[i]] 
-           
-           # Determining if it should be added to the show list
-           if(locationGroupNames %in% c(input$locationFigures)){
-             
-             # Saving the data in the list
-             showList[[i]] <- figure
-             
-             # Renaming the data
-             names(showList)[i] <- nameFigure
-           
-           ################################
-           # Runs if model is not in list #
-           ################################
-           }else{
-             
-             # Saves the list as NA
-             showList[[i]] <- NA
-             
-           } # End of 'if-else' for producing the show list 
-           
-           # Final list to show of individual forecast figures 
-           finalList <- showList[!is.na(showList)]
-           
-           } # End of loop going through forecast figures 
-         
-       #####################################
-       # Runs if multi-panel plot is shown #
-       #####################################
-       }else{
-         
-         # Renaming the list of panel figures 
-         indexedFigure <- figuresForecastPanel$figure
-         
-         ######################
-         # Preparing for loop #
-         ######################
-         
-         # Empty list for filtered panel figures
-         showList <- list()
-         
-         ##################################################
-         # Looping through list of panel forecast figures #
-         ##################################################
-         for(i in 1:length(indexedFigure)){
-           
-           # Pulling the name of the indexed panel figure 
-           nameFigure <- names(indexedFigure[i])
-           
-           # Sub-setting location/group name
-           locationGroupNames <- strsplit(nameFigure, "[-]")[[1]][1]
-           
-           # Extracting the figure
-           figure <- indexedFigure[[i]]
-           
-           # Determining if it should be added to the show list
-           if(locationGroupNames %in% c(input$locationFigures)){
-             
-             # Saving the data in the list
-             showList[[i]] <- figure
-             
-             # Renaming the data
-             names(showList)[i] <- nameFigure
-           
-           # Runs if the figure should not be added to the list  
-           }else{
-             
-             # NA placeholder 
-             showList[[i]] <- NA
-             
-           } # End of 'if-else' for location filtering 
-           
-         } # End of loop going through forecast panel figures 
-         
-         # Final list to show
-         finalList <- showList[!is.na(showList)]
-         
-         } # End of 'else'
-       
-       #####################################################
-       # Saving the correct final list in a reactive value #
-       #####################################################
-       FiguresForecastListToShow$listFormatted <- finalList
+        }) # End of 'isolate' statement 
+        
+      #######################################
+      # Runs when no information is entered #
+      #######################################
+      }, error = function(e){
+        
+        # Returns a NULL
+        NULL
+        
+      }) # End of 'tryCatch' statement 
+      
+    } # End of "if statement"
+    
+  }) # End of 'observeEvent'
 
-     ##############################
-     # Runs if inputs are missing #
-     ##############################
-     }, error = function(e){
-       
-       # Returns a NULL
-       NULL
-       
-     }) # End of 'tryCatch' statement
+#------------------------------------------------------------------------------#
+# Determining which plot to render ---------------------------------------------
+#------------------------------------------------------------------------------#
+# About: This section determines which type of plot to render, individual or   #
+# panel based on if the check is hit.                                          #
+#------------------------------------------------------------------------------#
+  
+  ########################################
+  # Reactive value to save final figures #
+  ########################################
+  finalFiguresDashboard <- reactiveValues()
+  
+  #####################################
+  # Determining which plots to render #
+  #####################################
+  observe({
+    
+    #############################
+    # Showing the panel figures #
+    #############################
+    if(input$panelModelsForecasts){
      
-   }) # End of observed statement
+      # List of individual figures 
+      finalFiguresDashboard$data <- figuresForecastPanel$figure
+      
+  
+    # Showing the individual figure  
+    }else{
+      
+      finalFiguresDashboard$data <- finalForecastFigureCombined$data
+      
+    }
+    
+  })
+  
+#------------------------------------------------------------------------------#
+# Wiping the plots if the data set is changed ----------------------------------
+#------------------------------------------------------------------------------#
+# About: This section wipes the existing plots if the primary data set is      #
+# changed.                                                                     #
+#------------------------------------------------------------------------------#
+  
+  observeEvent(file(), {
+    
+    # Resetting the list containing individual figures
+    finalForecastFigureCombined$data <- NULL
+    
+    # Resetting the list containing panel figures
+    figuresForecastPanel$figure <- NULL
+    
+    # Resetting the reactive value containing the figures to output 
+    finalFiguresDashboard$data <- NULL
+    
+  })
   
 #------------------------------------------------------------------------------#
 # Rendering a title for the panel plots ----------------------------------------
@@ -5207,18 +5334,17 @@ server <- function(input, output, session) {
      #Runs if data is entered 
      tryCatch({
        
-       # Producing nothing if no locations are chosen
-       if(length(input$locationFigures) == 0 || length(FiguresForecastListToShow$listFormatted) == 0){
+         if(is.null(finalForecastCombined$data)){
+           
+           return(NULL)
+           
+         }else{
+           
+           # Rendering the title
+           return(paste0(names(finalFiguresDashboard$data[current_index_formatted()]), " (", input$quantileSelection, "% ", "PI)"))
+           
+         }
          
-         NULL
-         
-         # Runs if at least one location is selected
-       }else{
-         
-         # Rendering the title
-         return(names(FiguresForecastListToShow$listFormatted[current_index_formatted()]))
-         
-       } # End of 'if-else'
        
        # Runs if no data is entered  
      }, error = function(e){
@@ -5244,22 +5370,14 @@ server <- function(input, output, session) {
      # Runs if data is entered 
      tryCatch({
        
-       # Producing nothing if no locations are chosen
-       if(length(input$locationFigures) == 0 || length(FiguresForecastListToShow$listFormatted) == 0){
-         
-         NULL
-         
-       # Runs if at least one location is selected
-       }else{
          
          # Rendering the figure
          return(
            
-           ggplotly(FiguresForecastListToShow$listFormatted[[current_index_formatted()]], tooltip = "text") 
+           ggplotly(finalFiguresDashboard$data[[current_index_formatted()]], tooltip = "text") 
            
            )
          
-       } # End of 'if-else'
      
      # Runs if no data is entered  
      }, error = function(e){
@@ -5345,10 +5463,10 @@ server <- function(input, output, session) {
        dir.create(temp_directory)
        
        # Saving the ggplots 
-       for (plot_name in names(FiguresForecastListToShow$listFormatted)) {
+       for (plot_name in names(finalFiguresDashboard$data)) {
          
          # Plot 
-         plot_obj <- FiguresForecastListToShow$listFormatted[[plot_name]]
+         plot_obj <- finalFiguresDashboard$data[[plot_name]]
          
          # If plot is found 
          if (!is.null(plot_obj)) {
@@ -5402,88 +5520,6 @@ server <- function(input, output, session) {
    
 
 # MODEL METRICS PAGE -----------------------------------------------------------
-
-   
-#------------------------------------------------------------------------------#
-# Creating the location drop down for the crude model metrics ------------------
-#------------------------------------------------------------------------------#
-# About: This section creates the location/group drop down for the crude       #
-# metrics. The users can select which groups/locations they would like to see  #
-# forecasts for. The selected forecasts are then included in the final '.zip'  #
-# file which can be downloaded by the user.                                    #
-#------------------------------------------------------------------------------#
-   
-   ##################################
-   # Rending the location drop down #
-   ##################################
-   output$locationsMetrics <- renderUI({
-     
-     pickerInput("locationMetrics", # ID for picker 
-                 label = NULL, # Removing the label 
-                 choices = c(input$locations), # Choices for picker 
-                 selected = c(input$locations), # Selected locations/group 
-                 multiple = T, # Allowing multiple options 
-                 width = "175px") # Width of picker 
-     
-     }) # End of 'renderUI'
-
-
-#------------------------------------------------------------------------------#
-# Creating the model drop down for the crude model metrics ---------------------
-#------------------------------------------------------------------------------#
-# About: This section creates the drop-down for available models. The options  #
-# available here match that of what is selected by the user. The model drop    #
-# down is then used to filter the shown model metrics and what metrics are     #
-# saved.                                                                       #
-#------------------------------------------------------------------------------#
-   
-   ##################################################
-   # Creating the model drop down for crude metrics #
-   ##################################################
-   output$modelMetrics <- renderUI({
-     
-     ###############################################
-     # Outputs if no model on the side is selected #
-     ###############################################
-     if(is.null(input$modelType)){
-       
-       pickerInput("modelMetrics", # Input ID for the location drop down 
-                   label = NULL, # No label for the drop down
-                   selected = "Please select a model", # Model type 
-                   choices = "Please select a model", # Choices 
-                   width = "175px", # Width of picker 
-                   multiple = T) # Allowing multiple options
-       
-       ####################################
-       # Outputs if model(s) are selected #
-       ####################################
-     }else{
-       
-       # Runs if working with model fit 
-       if(input$metricsToShow == "Model Fit"){
-         
-         # Options to show
-         optionsPicker <- c(input$modelType[input$modelType != "ARIMA"])
-         
-         # Runs if working with forecast metrics 
-       }else{
-         
-         # Options to show
-         optionsPicker <- c(input$modelType)
-         
-       }
-       
-       pickerInput("modelMetrics", # Input ID for the location drop down 
-                   label = NULL, # No label for the drop down
-                   selected = optionsPicker, # Model type 
-                   choices = optionsPicker, # Choices 
-                   width = "175px", # Width of picker 
-                   multiple = T) # Allowing multiple options
-       
-     } # End of else 
-     
-   }) # End of 'render' 
-   
  
 #------------------------------------------------------------------------------#
 # Model Fit  Metrics -----------------------------------------------------------
@@ -5519,7 +5555,7 @@ server <- function(input, output, session) {
        #########################################################
        if(modelFitOutput[[2]] == 1 & input$metricsToShow == "Model Fit" & input$my_picker == "Model Metrics"){
          
-         shinyalert("Model fit metrics are not avaliable for ARIMA models", type = "error")
+         shinyalert("Model fit metrics are not avaliable for ARIMA models", type = "warning")
          
        }
        
@@ -5568,9 +5604,9 @@ server <- function(input, output, session) {
            # Function to produce forecast metrics #
            ########################################
            forecastMetricsList <- forecastingMetrics(crude.data.input = file(), # Crude data 
-                                                      horizon.input = input$forecastHorizon, # Horizon 
-                                                      date.Type.input = dateValues$dates, # Date type 
-                                                      quantile.list.input = c(ARIMAInfo$arima, GAMList$GAM, GLMList$GLM, ProphetList$prophet)) # Quantile list
+                                                     horizon.input = input$forecastHorizon, # Horizon 
+                                                     date.Type.input = dateValues$dates, # Date type 
+                                                     quantile.list.input = c(ARIMAInfo$arima, GAMList$GAM, GLMList$GLM, ProphetList$prophet)) # Quantile list
            
            ###################
            # Reactive values #
@@ -5611,6 +5647,9 @@ server <- function(input, output, session) {
    ########################################
    observe({
      
+     # Empty list 
+     metrics <- NA
+     
      ################################
      # Runs if options are selected #
      ################################
@@ -5632,13 +5671,16 @@ server <- function(input, output, session) {
          # Handling when forecasting methods can not be evaluated
          if(nrow(forecastMetricsListCrude$forecastMetrics) == 0){
            
+           # Alert 
            shinyalert("Not enough data to evaluate forecasting performance." , type = "error")
-           metrics <- NULL
-           modelMetricsCrude$metricsList <- NULL
-           modelCrudePlot$figures <- NULL
-           avgMetrics$metricsList <- NULL
-           modelAvgPlot$figures <- NULL
            
+           # Indicator to clear output
+           crudeMetricsFiltered$metricsFULL <- NULL
+           
+           # Clearing average output
+           avgMetricsFiltered$metricsFULL <- NULL
+           
+         # Handling if forecast methods can be evaluated 
          }else{
          
            # Using forecast metrics 
@@ -5647,24 +5689,11 @@ server <- function(input, output, session) {
          }
         
        }
-
-       ##############################################################
-       # Filtering the crude metrics by selected location and model #
-       ##############################################################
-       finalList <- metrics %>%
-         dplyr::filter(Model %in% c(input$modelMetrics),
-                       Location %in% c(input$locationMetrics)) 
-       
-       ###########################
-       # Changing the file names #
-       ###########################
-       names(finalList) <- c(NULL, "Model", "Date", "MSE", "MAE", "PI", "WIS")
        
        ###############################################
        # Adding the final list to the reactive value #
        ###############################################
-       modelMetricsCrude$metricsList <- finalList
-       
+       modelMetricsCrude$metricsList <- metrics
        
      ###################################
      # Runs if no information is added #
@@ -5677,8 +5706,174 @@ server <- function(input, output, session) {
      }) # End of 'tryCatch'
      
    }) # End of 'observe'
-
-
+  
+#------------------------------------------------------------------------------#
+# Nulling out the reactive value -----------------------------------------------
+#------------------------------------------------------------------------------#
+# About: This section NULLs out the reactive value if the original data is     #
+# changed.                                                                     #
+#------------------------------------------------------------------------------#
+  
+  ####################################
+  # Observing event of file changing #
+  ####################################
+  observeEvent(file(),{
+    
+    # Clearing the reactive value
+    modelMetricsCrude$metricsList <- NULL
+    
+  })
+  
+#------------------------------------------------------------------------------#
+# Creating the filtering options for the crude metrics data --------------------
+#------------------------------------------------------------------------------#
+# About: This section creates the filtering options for the average metrics    #
+# data table. The filtering options are triggered when the 'Filtering Options' #
+# button is clicked.                                                           #
+#------------------------------------------------------------------------------#
+  
+  ######################################
+  # Creating the needed reactive value #
+  ######################################
+  
+  # To store the filtered crude data
+  crudeMetricsFiltered <- reactiveValues()
+  
+  # Model choices
+  modelReactiveChoiceCrudeDASH <- reactiveValues()
+  
+  # Selected models
+  modelReactiveSelectCrudeDASH <- reactiveValues()
+  
+  # Performance metric choice
+  performanceReactiveChoiceCrudeDASH <- reactiveValues()
+  
+  # Selected performance metric choices
+  performanceReactiveSelectCrudeDASH <- reactiveValues()
+  
+  # Location choices
+  locationReactiveChoiceCrudeDASH <- reactiveValues()
+  
+  # Selected locations
+  locationReactiveSelectCrudeDASH <- reactiveValues()
+  
+  # Indicator for which data to show
+  indicatorForFilterMetricsCrudeDASH <- reactiveVal(0)
+  
+  ########################################
+  # Observing changes in reactive values #
+  ########################################
+  observe({
+    
+    #####################################
+    # Running if information is entered #
+    #####################################
+    tryCatch({
+      
+      # Running only if an error is not returned above
+      if(!is.null(modelMetricsCrude$metricsList)){
+        
+        # Crude metrics data
+        crudeMetrics <- modelMetricsCrude$metricsList
+        
+        #################
+        # Model Options #
+        #################
+        
+        # Choices
+        modelReactiveChoiceCrudeDASH$data <- unique(crudeMetrics$Model)
+        
+        # Selected
+        modelReactiveSelectCrudeDASH$data <- modelReactiveChoiceCrudeDASH$data
+        
+        ############################
+        # Performance type metrics #
+        ############################
+        
+        # Choices
+        performanceReactiveChoiceCrudeDASH$data <- c("MSE", "MAE", "WIS", "95%PI")
+        
+        # Selected
+        performanceReactiveSelectCrudeDASH$data <- performanceReactiveChoiceCrudeDASH$data
+        
+        ####################
+        # Location Options #
+        ####################
+        
+        # Choices
+        locationReactiveChoiceCrudeDASH$data <- unique(crudeMetrics$Location)
+        
+        # Selected
+        locationReactiveSelectCrudeDASH$data <- locationReactiveChoiceCrudeDASH$data
+        
+        #######################
+        # Creating the pop-up #
+        #######################
+        observeEvent(input$filterCrudeMetrics, ignoreInit = T,{
+          
+          # Changing the indicator to one (i.e., button has been clicked)
+          indicatorForFilterMetricsCrudeDASH(1)
+        
+          # Button
+          showModal(modalDialog(
+            title = "Filtering Options",
+            pickerInput("modelMetrics", "Model:", c(modelReactiveChoiceCrudeDASH$data), selected = c(modelReactiveSelectCrudeDASH$data), multiple = T), # Model filtering
+            pickerInput("perfTypeCrude", "Performance Metric Type:", c(performanceReactiveChoiceCrudeDASH$data), selected = c(performanceReactiveSelectCrudeDASH$data), multiple = T), # Metric Type
+            pickerInput("locationMetrics", "Location:", c(locationReactiveChoiceCrudeDASH$data), selected = c(locationReactiveSelectCrudeDASH$data), multiple = T), # Location
+            
+          ))
+        
+        })
+        
+        #########################################
+        # Function to filter the crude metrics  #
+        #########################################
+        filteredMetricsCrude <- filterMetricsCRUDE(crudeMetrics.input = modelMetricsCrude$metricsList, # Crude metrics
+                                                   averageMetrics.input = NULL, # Average metrics
+                                                   crudeModel.input = input$modelMetrics, # Crude model choices
+                                                   crudePerformance.input = input$perfTypeCrude, # Crude performance metric type
+                                                   crudeLocation.input = input$locationMetrics, # Crude location choice
+                                                   AverageModel.input = NULL, # Average model choice
+                                                   AveragePerformance.input = NULL, # Average performance metric type
+                                                   AverageLocation.input = NULL, # Average location choice
+                                                   inputindicator = indicatorForFilterMetricsCrudeDASH()) # Indicator for data to show
+          
+        
+        # Saving the results to the reactive value
+        crudeMetricsFiltered$metricsFULL <- filteredMetricsCrude
+        
+      } # End of 'else'
+      
+      ####################################
+      # Running if data is NOT available #
+      ####################################
+    }, error = function(e){
+      
+      NULL
+    })
+    
+  })
+  
+#------------------------------------------------------------------------------#
+# Nulling out the reactive value -----------------------------------------------
+#------------------------------------------------------------------------------#
+# About: This section NULLs out the reactive value if the original data is      #
+# changed.                                                                     #
+#------------------------------------------------------------------------------#
+  
+  ####################################
+  # Observing event of file changing #
+  ####################################
+  observeEvent(file(),{
+    
+    # Clearing the reactive value
+    crudeMetricsFiltered$metricsFULL <- NULL
+    
+    # Resetting the indicator
+    indicatorForFilterMetricsCrudeDASH(0)
+    
+  })
+  
 #------------------------------------------------------------------------------#
 # Rendering the data frame for crude metrics -----------------------------------
 #------------------------------------------------------------------------------#
@@ -5692,22 +5887,11 @@ server <- function(input, output, session) {
    ##########################
    output$CrudeMetricsData <- renderDataTable({
      
-     # Producing nothing if no locations are chosen
-     if(length(input$locationMetrics) == 0 || length(input$modelMetrics) == 0 || length(modelMetricsCrude$metricsList) == 0){
-       
-       # Returning a NULL data frame 
-       return(datatable(NULL))
-       
-       # Runs if at least one location is selected
-     }else{
-       
        # Rendering the data table
-       return(datatable(data.frame(modelMetricsCrude$metricsList), 
+       return(datatable(crudeMetricsFiltered$metricsFULL, 
                         options = list(scrollX = T)))
        
-     }
-     
-   }) # End of rendering the title 
+   }) # End of rendering the crude metrics
    
    
 #------------------------------------------------------------------------------#
@@ -5735,13 +5919,95 @@ server <- function(input, output, session) {
      content = function(file) {
        
        # Saving the file
-       write.csv(data.frame(modelMetricsCrude$metricsList), file, row.names = FALSE)
+       write.csv(data.frame(crudeMetricsFiltered$metricsFULL), file, row.names = FALSE)
        
      }
      
    ) # End of download button 
    
-   
+#------------------------------------------------------------------------------#
+# Button to edit crude metrics figures -----------------------------------------
+#------------------------------------------------------------------------------#
+# About: This section creates the buttons to edit the legend labels for the    #
+# panel figures of crude metrics.                                              #
+#------------------------------------------------------------------------------#
+  
+  ############################################
+  # Reactive value for the y-axis scale type #
+  ############################################
+  scaleYCrudeMetric <- reactiveValues(logScale = NULL) 
+  
+  ########################################
+  # Reactive value for the low-end color #
+  ########################################
+  lowColorCrudeMetric <- reactiveValues(lowColor = "#6495ED")
+  
+  #########################################
+  # Reactive value for the high-end color #
+  #########################################
+  highColorCrudeMetric <- reactiveValues(highColor = "#D0312D")
+  
+  ########################################
+  # Reactive value for the outline color #
+  ########################################
+  outlineColorCrudeMetric <- reactiveValues(outlineColor = "#FFFFFF")
+  
+  ##############################
+  # Creating the button pop-up #
+  ##############################
+  observeEvent(input$figOptCRUDEMetrics, {
+    
+    # Creating the pop-up
+    showModal(modalDialog(
+      title = "Figure Options",
+      pickerInput("logScaleCrudeMetric", "Metrics to Show in Log Base 10:", c("MSE", "MAE", "WIS", "95%PI"), selected = scaleYCrudeMetric$logScale, multiple = T),
+      textInput("lowColorCrude", "Color for the lowest values (#XXXXXX):", value = lowColorCrudeMetric$lowColor),
+      textInput("highColorCrude", "Color for the highest values (#XXXXXX):", value = highColorCrudeMetric$highColor),
+      textInput("outlineColorCrude", "Color for the outline of tiles (#XXXXXX):", value = outlineColorCrudeMetric$outlineColor),
+    ))
+    
+  })
+  
+  ###############################################
+  # Update the reactive value - scale of y-axis #
+  ###############################################
+  observeEvent(input$logScaleCrudeMetric, {
+    
+    scaleYCrudeMetric$logScale <- input$logScaleCrudeMetric
+    
+  })
+  
+  ##########################################
+  # Update the reactive value - Low colors #
+  ##########################################
+  observeEvent(input$lowColorCrude,{
+    
+    # Updating the number of date breaks
+    lowColorCrudeMetric$lowColor <- input$lowColorCrude
+    
+  })
+  
+  ###########################################
+  # Update the reactive value - High colors #
+  ###########################################
+  observeEvent(input$highColorCrude,{
+    
+    # Updating the number of date breaks
+    highColorCrudeMetric$highColor <- input$highColorCrude
+    
+  })
+  
+  ##############################################
+  # Update the reactive value - Outline colors #
+  ##############################################
+  observeEvent(input$outlineColorCrude,{
+    
+    # Updating the number of date breaks
+    outlineColorCrudeMetric$outlineColor <- input$outlineColorCrude
+    
+  })
+  
+  
 #------------------------------------------------------------------------------#
 # Creating the tile heat map for the crude forecast metrics --------------------
 #------------------------------------------------------------------------------#
@@ -5767,8 +6033,16 @@ server <- function(input, output, session) {
        ##################################
        # Function to produce panel plot #
        ##################################
-       metricPanelCrude <- CrudeMetricsFigure(crudeMetrics = modelMetricsCrude$metricsList, 
-                                              dateType = dateValues$dates)
+       if(!is.null(crudeMetricsFiltered$metricsFULL)){
+         
+         metricPanelCrude <- CrudeMetricsFigure(crudeMetrics = crudeMetricsFiltered$metricsFULL, 
+                                                dateType = dateValues$dates,
+                                                scaleY.input = scaleYCrudeMetric$logScale, 
+                                                lowColor.input = lowColorCrudeMetric$lowColor,
+                                                highColor.input = highColorCrudeMetric$highColor, 
+                                                outlineColor.input = outlineColorCrudeMetric$outlineColor)
+         
+       }
        
        # Adding the figures to the reactive value
        modelCrudePlot$figures <- metricPanelCrude
@@ -5785,6 +6059,38 @@ server <- function(input, output, session) {
      }) # End of 'tryCatch'
      
    }) # End of 'observe'
+  
+#------------------------------------------------------------------------------#
+# Clearing the crude model figures ---------------------------------------------
+#------------------------------------------------------------------------------#
+# About: This section clears the crude model figures list when the orignal     #
+# data is changed.                                                             #
+#------------------------------------------------------------------------------#
+  
+  ######################
+  # If file is changed #
+  ######################
+  observeEvent(file(), {
+    
+    # Clearing the list of crude figures
+    modelCrudePlot$figures <- NULL
+    
+  })
+  
+  #########################################
+  # If forecast metrics are not available #
+  #########################################
+  observe({
+    
+    if(is.null(crudeMetricsFiltered$metricsFULL)){
+      
+      # Clearing the list of crude figures
+      modelCrudePlot$figures <- NULL
+      
+    }
+    
+  })
+  
    
 #------------------------------------------------------------------------------#
 # Setting up the reactivity of the arrows going through crude figures ----------
@@ -5876,21 +6182,10 @@ server <- function(input, output, session) {
 
    output$CrudeMetricsTitle <- renderText({
      
-     # Producing nothing if no locations are chosen
-     if(length(input$locationMetrics) == 0 || length(input$modelMetrics) == 0 || length(modelCrudePlot$figures) == 0){
-       
-       # Returning a NULL data frame 
-       return((NULL))
-       
-       # Runs if at least one location is selected
-     }else{
        
        # Rendering the data table
        return(names(modelCrudePlot$figures)[current_index_Metrics()])
-       
-     }
-     
-     
+      
    }) # End of 'renderPlot'
 
 
@@ -5902,21 +6197,12 @@ server <- function(input, output, session) {
 #------------------------------------------------------------------------------#
    
    output$CrudeMetricsFigure <- renderPlot({
-     
-     # Producing nothing if no locations are chosen
-     if(length(input$locationMetrics) == 0 || length(input$modelMetrics) == 0 || length(modelCrudePlot$figures) == 0){
-       
-       # Returning a NULL data frame 
-       return((NULL))
-       
-       # Runs if at least one location is selected
-     }else{
+    
        
        # Rendering the data table
        return(modelCrudePlot$figures[[current_index_Metrics()]])
        
-     }
-     
+
    }) # End of 'renderPlot'
    
 
@@ -5947,7 +6233,7 @@ server <- function(input, output, session) {
          numericInput('height', 'Figure Height:', value = 5),
          pickerInput("units", label = "Unit of Measurement:", choices = c("in", "cm", "mm", "px")),
          pickerInput("extFig", label = "Figure Type:", choices = c("png", "eps", "pdf", "tiff", "jpeg", "svg")),
-         downloadButton("downloadCrudeMetrics", "Download Crude Metrics Figure(s)"),
+         downloadButton("downloadCrudeMetricsFigure", "Download Crude Metrics Figure(s)"),
          easyClose = TRUE
          
        ))
@@ -5967,7 +6253,7 @@ server <- function(input, output, session) {
    ##############################################
    # Creating the option to download the figure #
    ##############################################
-   output$downloadCrudeMetrics <- downloadHandler(
+   output$downloadCrudeMetricsFigure <- downloadHandler(
      
      ####################
      # Filename for ZIP #
@@ -6048,88 +6334,6 @@ server <- function(input, output, session) {
      contentType = "application/zip"
       
      )
-       
-   
-   
-#------------------------------------------------------------------------------#
-# Creating the location drop down for the average model metrics ----------------
-#------------------------------------------------------------------------------#
-# About: This section creates the location/group drop down for the average     #
-# metrics. The users can select which groups/locations they would like to see  #
-# forecasts for. The selected forecasts are then included in the final '.zip'  #
-# file which can be downloaded by the user.                                    #
-#------------------------------------------------------------------------------#
-   
-   ##################################
-   # Rending the location drop down #
-   ##################################
-   output$locationsAvgMetrics <- renderUI({
-     
-     pickerInput("locationsAvgMetrics", # ID for picker 
-                 label = NULL, # Removing the label 
-                 choices = c(input$locations), # Choices for picker 
-                 selected = c(input$locations), # Selected locations/group 
-                 multiple = T, # Allowing multiple options 
-                 width = "175px") # Width of picker 
-     
-   }) # End of 'renderUI'
-   
-   
-#------------------------------------------------------------------------------#
-# Creating the model drop down for the average model metrics -------------------
-#------------------------------------------------------------------------------#
-# About: This section creates the drop-down for available models. The options  #
-# available here match that of what is selected by the user. The model drop    #
-# down is then used to filter the shown model metrics and what metrics are     #
-# saved.                                                                       #
-#------------------------------------------------------------------------------#
-   
-   ##################################################
-   # Creating the model drop down for crude metrics #
-   ##################################################
-   output$modelAvgMetrics <- renderUI({
-     
-     ###############################################
-     # Outputs if no model on the side is selected #
-     ###############################################
-     if(is.null(input$modelType)){
-       
-       pickerInput("modelAvgMetrics", # Input ID for the location drop down 
-                   label = NULL, # No label for the drop down
-                   selected = "Please select a model", # Model type 
-                   choices = "Please select a model", # Choices 
-                   width = "175px", # Width of picker 
-                   multiple = T) # Allowing multiple options
-       
-     ####################################
-     # Outputs if model(s) are selected #
-     ####################################
-     }else{
-       
-       # Runs if working with model fit 
-       if(input$metricsToShow == "Model Fit"){
-         
-         # Options to show
-         optionsPicker <- c(input$modelType[input$modelType != "ARIMA"])
-        
-       # Runs if working with forecast metrics 
-       }else{
-         
-         # Options to show
-         optionsPicker <- c(input$modelType)
-         
-       }
-       
-       pickerInput("modelAvgMetrics", # Input ID for the location drop down 
-                   label = NULL, # No label for the drop down
-                   selected = optionsPicker, # Model type 
-                   choices = optionsPicker, # Choices 
-                   width = "175px", # Width of picker 
-                   multiple = T) # Allowing multiple options
-       
-     } # End of else 
-     
-   }) # End of 'render' 
    
    
 #------------------------------------------------------------------------------#
@@ -6142,7 +6346,7 @@ server <- function(input, output, session) {
    ######################################
    # Reactive value for average metrics #
    ######################################
-   avgMetrics <- reactiveValues()
+   avgMetric <- reactiveValues()
    
    ########################################
    # Observing changes in reactive values #
@@ -6154,41 +6358,23 @@ server <- function(input, output, session) {
      ################################
      tryCatch({
        
-       #####################################
-       # Runs if the model fit is selected #
-       #####################################
-       if(input$metricsToShow == "Model Fit"){
-         
-         # Using model fit metrics
-         metrics <- modelFitMetricsList$fitMetrics
-         
-       ########################################
-       # Runs if forecast metrics is selected #
-       ######################################
-       }else{
-         
-         # Using forecast metrics
-         metrics <- forecastMetricsListCrude$forecastMetrics
-         
-       }
+       metrics <- modelMetricsCrude$metricsList
        
        #####################################################
        # Running the function to calculate average metrics #
        #####################################################
        averageMetrics <- metrics %>%
-         dplyr::filter(Location %in% c(input$locationsAvgMetrics), # Filtering locations
-                       Model %in% c(input$modelAvgMetrics)) %>% # Filtering models 
          dplyr::group_by(Model, Location) %>% # Grouping by location and model
-         dplyr::mutate(avgMSE = mean(meanMSE), # Avg. MSE
-                       avgMAE = mean(meanMAE), # Avg. MAE
-                       avgPI = mean(mean95PI), # Avg. PI
-                       avgWIS = mean(meanWIS)) %>% # Avg. WIS
-         dplyr::select(Model, Location, avgMSE, avgMAE, avgWIS, avgPI) %>% # Selecting needed variables
+         dplyr::mutate(MSE = round(mean(MSE), 2), # Avg. MSE
+                       MAE = round(mean(MAE), 2), # Avg. MAE
+                       `95%PI` = round(mean(`95%PI`), 2), # Avg. PI
+                       WIS = round(mean(WIS), 2)) %>% # Avg. WIS
+         dplyr::select(Model, Location, MSE, MAE, `95%PI`, WIS) %>% # Selecting needed variables
          distinct(Model, Location, .keep_all = T) # Remove duplicate rows
 
 
        # Adding the metrics to the reactive value
-       avgMetrics$metricsList <- averageMetrics
+       avgMetric$metricsList <- averageMetrics
        
      ###################################
      # Runs if inputs are not selected #
@@ -6201,6 +6387,178 @@ server <- function(input, output, session) {
      }) # End of 'tryCatch'
      
    }) # End of 'observe'
+  
+#------------------------------------------------------------------------------#
+# Nulling out the reactive value -----------------------------------------------
+#------------------------------------------------------------------------------#
+# About: This section NULLs out the reactive value if the orignal data is      #
+# changed.                                                                     #
+#------------------------------------------------------------------------------#
+  
+  ####################################
+  # Observing event of file changing #
+  ####################################
+  observeEvent(file(),{
+    
+    # Clearing the reactive value
+    avgMetric$metricsList <- NULL
+    
+  })
+  
+#------------------------------------------------------------------------------#
+# Creating the filtering options for the average metrics data ------------------
+#------------------------------------------------------------------------------#
+# About: This section creates the filtering options for the average metrics    #
+# data table. The filtering options are triggered when the 'Filtering Options' #
+# button is clicked.                                                           #
+#------------------------------------------------------------------------------#
+  
+  ######################################
+  # Creating the needed reactive value #
+  ######################################
+  
+  # To store the filtered average data
+  avgMetricsFiltered <- reactiveValues()
+  
+  # Model choices
+  modelReactiveChoiceAvgDASH <- reactiveValues()
+  
+  # Selected models
+  modelReactiveSelectAvgDASH <- reactiveValues()
+  
+  # Performance metric choice
+  performanceReactiveChoiceAvgDASH <- reactiveValues()
+  
+  # Selected performance metric choices
+  performanceReactiveSelectAvgDASH <- reactiveValues()
+  
+  # Location choices
+  locationReactiveChoiceAvgDASH <- reactiveValues()
+  
+  # Selected locations
+  locationReactiveSelectAvgDASH <- reactiveValues()
+  
+  # Indicator for which data to show
+  indicatorForFilterMetricsAvgDASH <- reactiveVal(0)
+  
+  ########################################
+  # Observing changes in reactive values #
+  ########################################
+  observe({
+    
+    #####################################
+    # Running if information is entered #
+    #####################################
+    tryCatch({
+      
+      # Running only if an error is not returned above
+      if(!is.null(avgMetric$metricsList)){
+        
+        # Average metrics data
+        avgMetrics <- avgMetric$metricsList
+        
+        #################
+        # Model Options #
+        #################
+        
+        # Choices
+        modelReactiveChoiceAvgDASH$data <- unique(avgMetrics$Model)
+        
+        # Selected
+        modelReactiveSelectAvgDASH$data <- modelReactiveChoiceAvgDASH$data
+        
+        ############################
+        # Performance type metrics #
+        ############################
+        
+        # Choices
+        performanceReactiveChoiceAvgDASH$data <- c("MSE", "MAE", "WIS", "95%PI")
+        
+        # Selected
+        performanceReactiveSelectAvgDASH$data <- performanceReactiveChoiceAvgDASH$data
+        
+        ####################
+        # Location Options #
+        ####################
+        
+        # Choices
+        locationReactiveChoiceAvgDASH$data <- unique(avgMetrics$Location)
+        
+        # Selected
+        locationReactiveSelectAvgDASH$data <- locationReactiveChoiceAvgDASH$data
+        
+        #######################
+        # Creating the pop-up #
+        #######################
+        observeEvent(input$filterAvgMetrics, ignoreInit = T,{
+          
+          # Changing the indicator to one (i.e., button has been clicked)
+          indicatorForFilterMetricsAvgDASH(1)
+          
+          # Isolating button click behavior
+        
+            
+            # Button
+            showModal(modalDialog(
+              title = "Filtering Options",
+              pickerInput("modelAvgMetrics", "Model:", c(modelReactiveChoiceAvgDASH$data), selected = c(modelReactiveSelectAvgDASH$data), multiple = T), # Model filtering
+              pickerInput("perfTypeAvg", "Performance Metric Type:", c(performanceReactiveChoiceAvgDASH$data), selected = c(performanceReactiveSelectAvgDASH$data), multiple = T), # Metric Type
+              pickerInput("locationsAvgMetrics", "Location:", c(locationReactiveChoiceAvgDASH$data), selected = c(locationReactiveSelectAvgDASH$data), multiple = T), # Location
+              
+            ))
+            
+         
+          
+        })
+        
+        ###########################################
+        # Function to filter the average metrics  #
+        ###########################################
+        filteredMetricsAvg  <- filterMetrics(crudeMetrics.input = NULL, # Crude metrics
+                                             averageMetrics.input = avgMetric$metricsList, # Average metrics
+                                             crudeModel.input = NULL, # Crude model choices
+                                             crudePerformance.input = NULL, # Crude performance metric type
+                                             crudeLocation.input = NULL, # Crude location choice
+                                             AverageModel.input = input$modelAvgMetrics, # Average model choice
+                                             AveragePerformance.input = input$perfTypeAvg, # Average performance metric type
+                                             AverageLocation.input = input$locationsAvgMetrics, # Average location choice
+                                             inputindicator = indicatorForFilterMetricsAvgDASH()) # Indicator for data to show
+        
+
+        # Saving the results to the reactive value
+        avgMetricsFiltered$metricsFULL <- filteredMetricsAvg
+
+      } # End of 'else'
+      
+    ####################################
+    # Running if data is NOT available #
+    ####################################
+    }, error = function(e){
+      
+      NULL
+    })
+    
+  })
+  
+#------------------------------------------------------------------------------#
+# Nulling out the reactive value -----------------------------------------------
+#------------------------------------------------------------------------------#
+# About: This section NULLs out the reactive value if the orignal data is      #
+# changed.                                                                     #
+#------------------------------------------------------------------------------#
+  
+  ####################################
+  # Observing event of file changing #
+  ####################################
+  observeEvent(file(),{
+    
+    # Clearing the reactive value
+    avgMetricsFiltered$metricsFULL <- NULL
+    
+    # Resetting the indicator
+    indicatorForFilterMetricsAvgDASH(0)
+    
+  })
 
 #------------------------------------------------------------------------------#
 # Rendering the data frame containing the average metrics ----------------------
@@ -6212,22 +6570,11 @@ server <- function(input, output, session) {
    # Rending the data table #
    ##########################
    output$AvgMetricsData <- renderDataTable({
-     
-     # Producing nothing if no locations are chosen
-     if(length(input$locationsAvgMetrics) == 0 || length(input$modelAvgMetrics) == 0 || length(avgMetrics$metricsList) == 0){
-       
-       # Returning a NULL data frame
-       return(datatable(NULL))
-       
-       # Runs if at least one location is selected
-     }else{
        
        # Rendering the data table
-       return(datatable(as.data.frame(avgMetrics$metricsList),
+       return(datatable(as.data.frame(avgMetricsFiltered$metricsFULL),
                         options = list(scrollX = T)))
        
-     }
-     
    }) # End of render statement for the data frame
 
 
@@ -6256,16 +6603,134 @@ server <- function(input, output, session) {
        content = function(file) {
          
          # Saving the file
-         write.csv(data.frame(avgMetrics$metricsList), file, row.names = FALSE)
+         write.csv(data.frame(avgMetricsFiltered$metricsFULL), file, row.names = FALSE)
          
        }
        
      ) # End of download button 
+  
+#------------------------------------------------------------------------------#
+# Button to edit average metrics figures ---------------------------------------
+#------------------------------------------------------------------------------#
+# About: This section creates the buttons to edit the legend labels for the    #
+# panel figures of average metrics.                                            #
+#------------------------------------------------------------------------------#
+  
+  ############################################
+  # Reactive value for the y-axis scale type #
+  ############################################
+  scaleYAvgMetric <- reactiveValues(logScale = c("MSE", "MAE", "WIS")) 
+  
+  ########################################
+  # Reactive value for the low-end color #
+  ########################################
+  lowColorAvgMetric <- reactiveValues(lowColor = "#FFFFFF")
+  
+  #########################################
+  # Reactive value for the high-end color #
+  #########################################
+  highColorAvgMetric <- reactiveValues(highColor = "#59788E")
+  
+  ########################################
+  # Reactive value for the outline color #
+  ########################################
+  outlineColorAvgMetric <- reactiveValues(outlineColor = "#FFFFFF")
+  
+  ###################################
+  # Reactive value for showing text #
+  ###################################
+  showTextAvgMetric <- reactiveValues(showText = TRUE)
+  
+  #################################
+  # Reactive value for text color #
+  #################################
+  textColorAvgMetric <- reactiveValues(textColor = "#000000")
+  
+  ##############################
+  # Creating the button pop-up #
+  ##############################
+  observeEvent(input$editAvgMetrics, {
+    
+    # Creating the pop-up
+    showModal(modalDialog(
+      title = "Figure Options",
+      pickerInput("logScaleAvgMetric", "Metrics to Show in Log Base 10:", c("MSE", "MAE", "WIS", "95%PI"), selected = scaleYAvgMetric$logScale, multiple = T),
+      textInput("lowColorAvg", "Color for the lowest values (#XXXXXX):", value = lowColorAvgMetric$lowColor),
+      textInput("highColorAvg", "Color for the highest values (#XXXXXX):", value = highColorAvgMetric$highColor),
+      textInput("outlineColorAvg", "Color for the outline of tiles (#XXXXXX):", value = outlineColorAvgMetric$outlineColor),
+      checkboxInput("showTextAvg", "Show text within each tile", value = showTextAvgMetric$showText),
+      conditionalPanel(
+        condition = "input.showTextAvg == true", # Condition to show the text input
+        textInput("textColorAvg", "Color for the text (#XXXXXX):", value = textColorAvgMetric$textColor)
+      )
+    ))
+    
+  })
+  
+  ###############################################
+  # Update the reactive value - scale of y-axis #
+  ###############################################
+  observeEvent(input$logScaleAvgMetric, {
+    
+    scaleYAvgMetric$logScale <- input$logScaleAvgMetric
+    
+  })
+  
+  ##########################################
+  # Update the reactive value - Low colors #
+  ##########################################
+  observeEvent(input$lowColorAvg,{
+    
+    # Updating the low color
+    lowColorAvgMetric$lowColor <- input$lowColorAvg
+    
+  })
+  
+  ###########################################
+  # Update the reactive value - High colors #
+  ###########################################
+  observeEvent(input$highColorAvg,{
+    
+    # Updating the high color
+    highColorAvgMetric$highColor <- input$highColorAvg
+    
+  })
+  
+  ##############################################
+  # Update the reactive value - Outline colors #
+  ##############################################
+  observeEvent(input$outlineColorAvg,{
+    
+    # Updating the outline color 
+    outlineColorAvgMetric$outlineColor <- input$outlineColorAvg
+    
+  })
+  
+  #########################################
+  # Update the reactive value - Show Text #
+  #########################################
+  observeEvent(input$showTextAvg,{
+    
+    # Updating the text color
+    showTextAvgMetric$showText <- input$showTextAvg
+    
+  })
+  
+  
+  ###########################################
+  # Update the reactive value - Text colors #
+  ###########################################
+  observeEvent(input$textColorAvg,{
+    
+    # Updating the text color
+    textColorAvgMetric$textColor <- input$textColorAvg
+    
+  })
 
 #------------------------------------------------------------------------------#
-# Creating the timeseries plot for average metrics -----------------------------
+# Creating the tile plot for average metrics -----------------------------------
 #------------------------------------------------------------------------------#
-# About: This section plots the average metrics over time as a timeseris plot. #
+# About: This section plots the average metrics over time as a tile plot.      #
 # However, the plot only shows if the user selects the check mark.             #
 #------------------------------------------------------------------------------#
    
@@ -6287,8 +6752,14 @@ server <- function(input, output, session) {
        ##################################
        # Function to produce panel plot #
        ##################################
-       metricPanelAverage <- AverageMetricsPanel(avgMetrics.input = avgMetrics$metricsList,
-                                                 dateType.input = dateValues$dates)
+       metricPanelAverage <- AverageMetricsPanel(avgMetrics.input = avgMetricsFiltered$metricsFULL,
+                                                 dateType.input = dateValues$dates,
+                                                 scaleY.input = scaleYAvgMetric$logScale, 
+                                                 lowColor.input = lowColorAvgMetric$lowColor,  
+                                                 highColor.input = highColorAvgMetric$highColor,  
+                                                 outlineColor.input = outlineColorAvgMetric$outlineColor, 
+                                                 textColor.input = textColorAvgMetric$textColor,
+                                                 showText.input = showTextAvgMetric$showText)
 
        # Adding the figures to the reactive value
        modelAvgPlot$figures <- metricPanelAverage[[1]]
@@ -6316,19 +6787,9 @@ server <- function(input, output, session) {
    
    output$AvgMetricsFigure <- renderPlot({
 
-     # Producing nothing if no locations are chosen
-     if(length(modelAvgPlot$figures) == 0){
-
-       # Returning a NULL data frame
-       return((NULL))
-
-     # Runs if at least one location is selected
-     }else{
 
        # Rendering the data table
        return((modelAvgPlot$figures))
-
-     }
 
    }) # End of 'renderPlot'
 
@@ -6428,86 +6889,6 @@ server <- function(input, output, session) {
        
      }) # End of saving the figure(s) 
    
-#------------------------------------------------------------------------------#
-# Location Drop-Down for Winkler Scores ----------------------------------------
-#------------------------------------------------------------------------------#
-# About: This section creates the locations drop-down for filtering the        #
-# Winker scores by location. This filter applies both to the data and figure   #
-# boxes shown in the main dashboard.                                           #
-#------------------------------------------------------------------------------#
-   
-   ##################################
-   # Rending the location drop down #
-   ##################################
-   output$locationsWinklerMain <- renderUI({
-     
-     pickerInput("locationsWinklerMain", # ID for picker 
-                 label = NULL, # Removing the label 
-                 choices = c(input$locations), # Choices for picker 
-                 selected = c(input$locations), # Selected locations/group 
-                 multiple = T, # Allowing multiple options 
-                 width = "175px") # Width of picker 
-     
-   }) # End of 'renderUI'
-   
-#------------------------------------------------------------------------------#
-# Creating the model drop down for Winkler Scores ------------------------------
-#------------------------------------------------------------------------------#
-# About: This section creates the models drop-down for filtering the Winkler   #
-# scores by model. This filter applied both to the data and figure boxed shown #
-# in the main dashboard.                                                       #
-#------------------------------------------------------------------------------#
-   
-   ##################################################
-   # Creating the model drop down for crude metrics #
-   ##################################################
-   output$modelsWinklerMain <- renderUI({
-     
-     ###############################################
-     # Outputs if no model on the side is selected #
-     ###############################################
-     if(is.null(input$modelType)){
-       
-       pickerInput("modelsWinklerMain", # Input ID for the model drop down 
-                   label = NULL, # No label for the drop down
-                   selected = "Please select a model", # Model type 
-                   choices = "Please select a model", # Choices 
-                   width = "175px", # Width of picker 
-                   multiple = T) # Allowing multiple options
-       
-     ####################################
-     # Outputs if model(s) are selected #
-     ####################################
-     }else{
-       
-       # Runs if working with model fit 
-       if(input$metricsToShow == "Model Fit"){
-         
-         # Options to show
-         optionsPicker <- c(input$modelType[input$modelType != "ARIMA"])
-         
-         # Runs if working with forecast metrics 
-         }else{
-         
-         # Options to show
-         optionsPicker <- c(input$modelType)
-         
-         }
-       
-       ##############################
-       # Rendering the picker input #
-       ##############################
-       pickerInput("modelsWinklerMain", # Input ID for the model drop down 
-                   label = NULL, # No label for the drop down
-                   selected = optionsPicker, # Model type 
-                   choices = optionsPicker, # Choices 
-                   width = "175px", # Width of picker 
-                   multiple = T) # Allowing multiple options
-       
-     } # End of else 
-     
-   }) # End of 'render' 
-   
    
 #------------------------------------------------------------------------------#
 # Winkler Scores ---------------------------------------------------------------
@@ -6516,83 +6897,124 @@ server <- function(input, output, session) {
 # GAM, Prophet models. The Winkler scores provide a quantitative measure of    #
 # comparison for prediction interval coverage.                                 #
 #------------------------------------------------------------------------------#
-   
-   ######################################################
-   # Creating a reactive value to save winkler score in #
-   ######################################################
-   winklerScoresAGGP <- reactiveValues()
-   
-   ################################################
-   # Observing changes in the formatted forecasts #
-   ################################################
-   observe({
-     
-     ########################################
-     # Trying to run - If data is available #
-     ########################################
-     tryCatch({
-       
-       #######################################
-       # Running the winkler scores function #
-       #######################################
-       winkler.scores.output <- winkler.scores.AGGP(formattedForecasts = foremattedForecasts$forecasts)
-       
-       # Saving the output to a reactive value
-       winklerScoresAGGP$scores <- winkler.scores.output
-     
-     ###################################
-     # Returns if the code can not run #
-     ###################################
-     }, error = function(e){
-       
-       # Returning a NULL
-       NULL
-       
-     }) # End of 'tryCatch'
-     
-   }) # End of 'observe'
-   
+  
+  ######################################
+  # Creating the needed reactive value #
+  ######################################
+  
+  # To store the final Winkler Scores data 
+  winklerFinalAGGP <- reactiveValues()
+  
+  # Location choices 
+  locationWinklerMainChoices <- reactiveValues()
+  
+  # Selected Locations 
+  locationWinklerMainSelected <- reactiveValues()
+  
+  # Model choices
+  modelWinklerMainChoices <- reactiveValues()
+  
+  # Selected Models 
+  modelWinklerMainSelected <- reactiveValues()
+  
+  # Indicator for filtering
+  filterWinklerMainIndicator <- reactiveVal(0)
+  
+  ########################################
+  # Observing changes in reactive values #
+  ########################################
+  observe({
+    
+    #####################################
+    # Running if information is entered #
+    #####################################
+    tryCatch({
+      
+      # Running if forecast data is available 
+      if(all(!is.null(foremattedForecasts$forecasts))){
+        
+        ####################
+        # Location Options #
+        ####################
+        
+        # Choices 
+        locationWinklerMainChoices$data <- c(input$locations)
+        
+        # Selected 
+        locationWinklerMainSelected$data <- locationWinklerMainChoices$data
+        
+        #################
+        # Model Options #
+        #################
+        
+        # Choices
+        modelWinklerMainChoices$data <- c(input$modelType)
+        
+        # Selected 
+        modelWinklerMainSelected$data <- modelWinklerMainChoices$data
+        
+        #######################
+        # Creating the pop-up #
+        #######################
+        observeEvent(input$filterWinklerDataMain, ignoreInit = T,{
+          
+          # Setting the indicator
+          isolate({filterWinklerMainIndicator(1)})
+          
+          # Button
+          showModal(modalDialog(
+            title = "Filtering Options",
+            pickerInput("locationsWinklerMain", "Location(s):", c(locationWinklerMainChoices$data), selected = c(locationWinklerMainSelected$data), multiple = T), # Location input 
+            pickerInput("modelsWinklerMain", "Model(s):", c(modelWinklerMainChoices$data), selected = c(modelWinklerMainSelected$data), multiple = T) # Model Input
+          
+            ))
+
+        })
+        
+        ##################################
+        # Calculating the Winkler Scores #
+        ##################################
+        winkler.scores.output <- winkler.scores.AGGP(formattedForecasts = foremattedForecasts$forecasts, # Forecast files 
+                                                     locations.input = input$locationsWinklerMain, # Filtered locations 
+                                                     models.input = input$modelsWinklerMain, # Filtered models 
+                                                     filterIndicator.input = filterWinklerMainIndicator(), # Filtering indicator 
+                                                     averageIndicator.input = input$seeAverageWinklerMain, # Average indicator 
+                                                     metricPage.input = input$metricsToShow) # Metric filtering 
+        
+        # Saving the results to the reactive value
+        winklerFinalAGGP$scores <- winkler.scores.output
+        
+      } # End of 'else'
+      
+      ####################################
+      # Running if data is NOT available #
+      ####################################
+    }, error = function(e){
+      
+      NULL
+    })
+    
+  })
+  
 #------------------------------------------------------------------------------#
-# Filtering the Winkler scores based on user input -----------------------------
+# Clearing the Winkler Scores Data ---------------------------------------------
 #------------------------------------------------------------------------------#
-# About: This section filters the Winkler Scores based on the user inputs for  #
-# locations and models. Additionally, it removes not-needed variables and      #
-# prepares the final data for export to the UI.                                #
+# About: This section clears the Winkler Scores data and resets the filtering  #
+# indicator when a new data set is read into the dashboard.                    #
 #------------------------------------------------------------------------------#
-   
-   #########################################################
-   # Reactive value to save the filtered winkler scores in #
-   #########################################################
-   winklerFinalAGGP <- reactiveValues()
-
-   ##########################################
-   # Filtering the data based on user input #
-   ##########################################
-   observe({
-
-     # Reading in the list of Winkler scores
-     winklerScores <- winklerScoresAGGP$scores
-
-     # Runs if a location is selected
-     if(length(input$locationsWinklerMain) == 0 | is.null(input$locationsWinklerMain) | 
-        length(input$modelsWinklerMain) == 0 | is.null(input$modelsWinklerMain)){
-       
-       # Returning NULL 
-       winklerFinalAGGP$scores <- NULL
-
-     }else{
-       
-       # Filtering the data 
-       winklerFiltered <- winklerScores %>%
-         dplyr::filter(Location %in% c(input$locationsWinklerMain)) %>% # Filtering locations
-         dplyr::filter(Model %in% c(input$modelsWinklerMain)) # Filtering models 
-       
-       # Data to show
-       winklerFinalAGGP$scores <- winklerFiltered
-       
-     }
-     
-   }) # End of "observe"
+  
+  ####################################
+  # Observing the change in data set #
+  ####################################
+  observeEvent(file(), {
+    
+    # Resetting the Winkler Scores
+    winklerFinalAGGP$scores <- NULL
+    
+    # Resetting the indicator 
+    filterWinklerMainIndicator(0)
+    
+  })
    
 #------------------------------------------------------------------------------#
 # Rendering the Winkler Scores data frame --------------------------------------
@@ -6601,59 +7023,11 @@ server <- function(input, output, session) {
 # them to the main UI as a data table.                                         #
 #------------------------------------------------------------------------------#
    
-   #########################################
-   # Reactive value for final data to save #
-   #########################################
-   winklerSAVE <- reactiveValues()
-   
    ###########################################
    # Rendering the Winkler Scores Data Frame #
    ###########################################
-   output$winklerDataTableAGGP <- renderDataTable({
+   output$winklerDataTableAGGP <- renderDataTable({winklerFinalAGGP$scores}) 
      
-     ######################################################
-     # Returning NULL if no Winkler scores are calculated #
-     ######################################################
-     if(nrow(winklerScoresAGGP$scores) == 0 | is.null(winklerScoresAGGP$scores)){
-       
-       return(NULL)
-      
-     ###################################################################
-     # Returning the calibration period Winkler scores when applicable #
-     ###################################################################
-     }else if(input$metricsToShow == "Model Fit"){
-       
-       # Preparing the final data set
-       winklerFinal <- winklerFinalAGGP$scores %>%
-         dplyr::filter(CalibrationIndicator == 1) %>% # Keeping only calibration rows 
-         dplyr::select(-CalibrationIndicator, -Date, -`Winkler Score`) # Removing the not needed variable 
-       
-       # Saving the data to the reactive value
-       winklerSAVE$final <- winklerFinal
-       
-       # Returning the resulting data frame 
-       return(datatable(winklerFinal))
-       
-     #########################################################
-     # Returning the forecast Winkler scores when applicable #
-     #########################################################
-     }else{
-       
-       # Preparing the final data set
-       winklerFinal <- winklerFinalAGGP$scores %>%
-         dplyr::filter(CalibrationIndicator == 0) %>% # Keeping only calibration rows 
-         dplyr::select(-CalibrationIndicator, -Date, -`Winkler Score`) # Removing the not needed variable 
-       
-       # Saving the data to the reactive value
-       winklerSAVE$final <- winklerFinal
-       
-       # Returning the resulting data frame 
-       return(datatable(winklerFinal))
-       
-     }
-     
-     }) # End of Winkler scorees render
-   
 #------------------------------------------------------------------------------#
 # Downloading the Winkler Scores -----------------------------------------------
 #------------------------------------------------------------------------------#
@@ -6672,7 +7046,7 @@ server <- function(input, output, session) {
      filename = function() {
        
        # File name 
-       paste("winkler-scores-", input$dataset, sep = "")
+       paste("winkler-Scores-", input$dataset, sep = "")
        
      },
      
@@ -6682,7 +7056,7 @@ server <- function(input, output, session) {
      content = function(file) {
        
        # Saving the file
-       write.csv(winklerSAVE$final, file, row.names = FALSE)
+       write.csv(winklerFinalAGGP$scores, file, row.names = FALSE)
        
      }
      
@@ -6713,9 +7087,7 @@ server <- function(input, output, session) {
      tryCatch({
        
        # Function to produce figures 
-       winklerFigures <- winkler.figure.AGGP(scoresFigure = winklerSAVE$final, # List of winkler scores 
-                                             locationWinklerFig = input$locationsWinklerMain, # Locations 
-                                             modelsWinklerFig = input$modelsWinklerMain) # Models
+       winklerFigures <- winkler.figure.AGGP(scoresFigure = winklerFinalAGGP$scores) # FIltering indicator
        
        # Saving output of function to a reactive value
        WinklerFiguresSave$figures <- winklerFigures
@@ -6750,7 +7122,7 @@ server <- function(input, output, session) {
    #################################
    # Setting Figure Specifications #
    #################################
-   observeEvent(input$downloadWinklerAGGP, {
+   observeEvent(input$downloadWinklerMainFig, {
      
      ################################
      # Figure specification options #
@@ -6820,7 +7192,7 @@ server <- function(input, output, session) {
                 units = input$units,
                 compression = "lzw")
          
-         # Running without compression if not using a '.tiff'
+       # Running without compression if not using a '.tiff'
        }else{
          
          # Saving the file
@@ -6832,228 +7204,169 @@ server <- function(input, output, session) {
        }
        
      }) # End of saving the figure(s) 
-   
-#------------------------------------------------------------------------------#
-# Location Drop-Down for Skill Scores ------------------------------------------
-#------------------------------------------------------------------------------#
-# About: This section creates the locations drop-down for filtering the        #
-# skill scores by location. This filter applies both to the data and figure    #
-# boxes shown in the main dashboard.                                           #
-#------------------------------------------------------------------------------#
-   
-   ##################################
-   # Rending the location drop down #
-   ##################################
-   output$locationsSSMain <- renderUI({
-     
-     pickerInput("locationsSSMain", # ID for picker 
-                 label = NULL, # Removing the label 
-                 choices = c(input$locations), # Choices for picker 
-                 selected = c(input$locations), # Selected locations/group 
-                 multiple = T, # Allowing multiple options 
-                 width = "175px") # Width of picker 
-     
-   }) # End of 'renderUI'   
-   
-#------------------------------------------------------------------------------#
-# Creating the benchmark model drop down for skill Scores ----------------------
-#------------------------------------------------------------------------------#
-# About: This section creates the benchmark model drop-down for calculating    #
-# skill scores for either the average or crude metrics. This filter applied    #
-# both to the data and figure boxed shown in the main dashboard.               #
-#------------------------------------------------------------------------------#
-   
-   ##################################################
-   # Creating the model drop down for crude metrics #
-   ##################################################
-   output$BenchmarkSSMain <- renderUI({
-     
-     ###############################################
-     # Outputs if no model on the side is selected #
-     ###############################################
-     if(is.null(input$modelType)){
-       
-       pickerInput("BenchmarkSSMain", # Input ID for the model drop down 
-                   label = NULL, # Label
-                   selected = "Benchmark Model:", # Model type 
-                   choices = "Benchmark Model", # Choices 
-                   width = "175px", # Width of picker 
-                   multiple = F) # Allowing multiple options
-       
-     ####################################
-     # Outputs if model(s) are selected #
-     ####################################
-     }else{
-       
-       # Runs if working with model fit 
-       if(input$metricsToShow == "Model Fit"){
-         
-         # Options to show
-         optionsPicker <- c(input$modelType[input$modelType != "ARIMA"])
-         
-       # Runs if working with forecast metrics 
-       }else{
-         
-         # Options to show
-         optionsPicker <- c(input$modelType)
-         
-       }
-       
-       ##############################
-       # Rendering the picker input #
-       ##############################
-       pickerInput("BenchmarkSSMain", # Input ID for the model drop down 
-                   label = "Benchmark Model", 
-                   inline = T, 
-                   selected = "Benchmark Model", # Model type 
-                   choices = optionsPicker, # Choices 
-                   width = "fit", # Width of picker 
-                   multiple = F) # Allowing multiple options
-       
-     } # End of else 
-     
-   }) # End of 'render'     
-   
-#------------------------------------------------------------------------------#
-# Creating the comparison model(s) drop down for skill Scores ------------------
-#------------------------------------------------------------------------------#
-# About: This section creates the comparison model drop-down for calculating   #
-# skill scores for either the average or crude metrics. This filter applied    #
-# both to the data and figure boxed shown in the main dashboard.               #
-#------------------------------------------------------------------------------#
-   
-   ##################################################
-   # Creating the model drop down for crude metrics #
-   ##################################################
-   output$ComparisonSSMain <- renderUI({
-     
-     ###############################################
-     # Outputs if no model on the side is selected #
-     ###############################################
-     if(is.null(input$modelType)){
-       
-       pickerInput("ComparisonSSMain", # Input ID for the model drop down 
-                   label = NULL, # Label
-                   selected = "Comparison Model(s)", # Model type 
-                   choices = "Comparison Model(s)", # Choices 
-                   width = "175px", # Width of picker 
-                   multiple = T) # Allowing multiple options
-       
-       ####################################
-       # Outputs if model(s) are selected #
-       ####################################
-     }else{
-       
-       # Runs if working with model fit 
-       if(input$metricsToShow == "Model Fit"){
-         
-         # Filtering out the benchmark model
-         filteredLocations <- input$modelType[input$modelType != input$BenchmarkSSMain]
-         
-         # Options to show
-         optionsPicker <- c(filteredLocations[filteredLocations != "ARIMA"])
-         
-         # Runs if working with forecast metrics 
-       }else{
-         
-         # Filtering out the benchmark model
-         filteredLocations <- input$modelType[input$modelType != input$BenchmarkSSMain]
-         
-         # Options to show
-         optionsPicker <- c(filteredLocations)
-         
-       }
-       
-       ##############################
-       # Rendering the picker input #
-       ##############################
-       pickerInput("ComparisonSSMain", # Input ID for the model drop down 
-                   label = "Comparison Model(s):", 
-                   selected = "Comparison Model(s)", # Model type 
-                   choices = optionsPicker, # Choices 
-                   width = "fit", # Width of picker 
-                   inline = T, # Inline label 
-                   multiple = T) # Allowing multiple options
-       
-     } # End of else 
-     
-   }) # End of 'render' 
-      
-         
-#------------------------------------------------------------------------------#
-# Producing the skill scores ---------------------------------------------------
-#------------------------------------------------------------------------------#
-# About: This section calculates the skill scores for the average or crude     #
-# metrics. The user can select the benchmark and comparison models, and also   #
-# filter the scores by location.                                               #
-#------------------------------------------------------------------------------#
-   
-   ##########################################
-   # Reactive value to save skill scores in #
-   ##########################################
-   skillScoresAGGP <- reactiveValues()
-   
-   ########################################
-   # Observing changes in reactive values #
-   ########################################
-   observe({
-     
-     ###########################
-     # Runs if no errors occur #
-     ###########################
-     tryCatch({
-       
-       #####################################
-       # Runs if the model fit is selected #
-       #####################################
-       if(input$metricsToShow == "Model Fit"){
-         
-         # Model fit metrics 
-         CrudeMetrics <- modelFitMetricsList$fitMetrics
-         
-         # Winkler scores for model fit metrics 
-         winklerScoresInput <- winklerScoresAGGP$scores %>%
-           dplyr::filter(CalibrationIndicator == 1)
-         
-       ########################################
-       # Runs if forecast metrics is selected #
-       ########################################
-       }else{
-         
-         # Forecast performance metrics
-         CrudeMetrics <- forecastMetricsListCrude$forecastMetrics
-         
-         # Winkler scores for forecast metrics 
-         winklerScoresInput <- winklerScoresAGGP$scores %>%
-           dplyr::filter(CalibrationIndicator == 0)
   
-       }
-     
-       ######################################
-       # Function to calculate skill scores #
-       ######################################
-       skillScores <- skill.scores.AGGP(averageIndicator= input$avgSSOptions, 
-                                        locationsFilter = input$locationsSSMain, 
-                                        CrudeMetrics = CrudeMetrics,
-                                        benchModel = input$BenchmarkSSMain, 
-                                        compModels = input$ComparisonSSMain,
-                                        winklerScoresInput = winklerScoresInput)
-       
+  
+#------------------------------------------------------------------------------#
+# Creating the filtering options for the Skill Scores data ---------------------
+#------------------------------------------------------------------------------#
+# About: This section creates the filtering options for the Skill Scores       #
+# data table. The filtering options are triggered when the 'Filtering Options' #
+# button is clicked.                                                           #
+#------------------------------------------------------------------------------#
+  
+  ######################################
+  # Creating the needed reactive value #
+  ######################################
+  
+  # To store the filtered Skill Scores data
+  finalSSCombinedMAIN <- reactiveValues()
+  
+  # Model choices - Baseline
+  modelReactiveChoiceBaselineMAIN <- reactiveValues()
+  
+  # Selected models - Baseline
+  modelReactiveSelectBaselineMAIN <- reactiveValues()
+  
+  # Model choices - Comparison
+  modelReactiveChoiceComparisonMAIN <- reactiveValues()
+  
+  # Selected models - Comparison
+  modelReactiveSelectComparisonMAIN <- reactiveValues()
+  
+  # Location choices
+  locationReactiveChoiceSSMAIN <- reactiveValues()
+  
+  # Selected locations
+  locationReactiveSelectSSMAIN <- reactiveValues()
+  
+  # Indicator for which metrics to show
+  filterSSIndicatorMAIN <- reactiveVal(0)
+  
+  ########################################
+  # Observing changes in reactive values #
+  ########################################
+  observe({
+    
+    # Crude Metrics Data
+    crudeMetData <- modelMetricsCrude$metricsList
+    
+    #####################################
+    # Running if information is entered #
+    #####################################
+    tryCatch({
+      
+      # Reading in the crude data
+      if(all(!is.null(crudeMetData))){
+        
+        ############################
+        # Model Options - Baseline #
+        ############################
+        
+        # Choices
+        modelReactiveChoiceBaselineMAIN$data <- c(unique(crudeMetData$Model))
+        
+        # Selected
+        modelReactiveSelectBaselineMAIN$data <- modelReactiveChoiceBaselineMAIN$data
+        
+        ##############################
+        # Model Options - Comparison #
+        ##############################
+        
+        # Choices
+        modelReactiveChoiceComparisonMAIN$data <- c(unique(crudeMetData$Model))
+        
+        # Selected
+        modelReactiveSelectComparisonMAIN$data <- modelReactiveChoiceComparisonMAIN$data
+        
+        ####################
+        # Location Options #
+        ####################
+        
+        # Choices
+        locationReactiveChoiceSSMAIN$data <- c(unique(crudeMetData$Location))
+        
+        # Selected
+        locationReactiveSelectSSMAIN$data <- locationReactiveChoiceSSMAIN$data
+        
+        #######################
+        # Creating the pop-up #
+        #######################
+        observeEvent(input$filterSSDataMain, ignoreInit = T,{
+          
+          # Setting the indicator
+          isolate({filterSSIndicatorMAIN(1)})
+          
+          # Button
+          showModal(modalDialog(
+            title = "Filtering Options",
+            pickerInput("baselineModelsMAIN", "Baseline Model(s):", c(modelReactiveChoiceBaselineMAIN$data), selected = c(modelReactiveSelectBaselineMAIN$data), multiple = T), # Model filtering - Baseline
+            pickerInput("compareModels2MAIN", "Comparison Model(s):", c(modelReactiveChoiceComparisonMAIN$data), selected = c(modelReactiveSelectComparisonMAIN$data), multiple = T), # Model filtering - Comparison
+            pickerInput("locationInputSelectMAIN", "Location:", c(locationReactiveChoiceSSMAIN$data), selected = c(locationReactiveSelectSSMAIN$data), multiple = T), # Location
+ 
+          ))
+          
+          
+        })
+        
+        ######################################
+        # Obtaining the crude winkler scores #
+        ######################################
+        winklerScoresDATESPECIFIC <- winkler.scores.AGGP(formattedForecasts = foremattedForecasts$forecasts, # Forecast files
+                                                         locations.input = input$locationsWinklerMain, # Filtered locations
+                                                         models.input = input$modelsWinklerMain, # Filtered models
+                                                         filterIndicator.input = 0, # Filtering indicator
+                                                         averageIndicator.input = F, # Average indicator
+                                                         metricPage.input = input$metricsToShow) # Metric filtering
+
+
+        ################################
+        # Calculating the Skill Scores #
+        ################################
+        skillScores <- skillScoresMain(averageIndicator= input$seeAvgSS,
+                                       locationsFilter = input$locationInputSelectMAIN,
+                                       CrudeMetrics = modelMetricsCrude$metricsList,
+                                       benchModel = input$baselineModelsMAIN,
+                                       compModels = input$compareModels2MAIN,
+                                       winkler.input = winklerScoresDATESPECIFIC,
+                                       filterIndicator.input = filterSSIndicatorMAIN())
+        
+
        # Saving the output to a reactive value
-       skillScoresAGGP$scores <- skillScores
-     
-     #############################
-     # Runs with an error occurs #
-     #############################
-     }, error = function(e){
-       
-       NULL
-       
-     }) # End of tryCatch
-     
-   }) # End of 'observe'
-     
-     
+       finalSSCombinedMAIN$scores <- skillScores
+        
+        
+      } # End of 'else'
+      
+      ####################################
+      # Running if data is NOT available #
+      ####################################
+    }, error = function(e){
+      
+      NULL
+    })
+    
+  })
+   
+#------------------------------------------------------------------------------#
+# Resetting the skill scores data ----------------------------------------------
+#------------------------------------------------------------------------------#
+# About: This section resets the skill scores input and related indicator when #
+# the original data set is changed.                                            #
+#------------------------------------------------------------------------------#
+  
+  ####################################
+  # Observing the change in the data #
+  ####################################
+  observeEvent(file(), {
+    
+    # Resetting the skill scores
+    finalSSCombinedMAIN$scores <- NULL
+    
+    # Resetting the indicator 
+    filterSSIndicatorMAIN(0)
+    
+  })
+         
 #------------------------------------------------------------------------------#
 # Rendering the skill scores data ----------------------------------------------
 #------------------------------------------------------------------------------#
@@ -7063,27 +7376,9 @@ server <- function(input, output, session) {
    ############################
    # Rendering the data frame #
    ############################
-   output$skillScoresAGGPData <- renderDataTable({
+   output$skillScoresAGGPData <- renderDataTable({finalSSCombinedMAIN$scores})
      
-     ###########################
-     # Runs if no errors occur #
-     ###########################
-     tryCatch({
-       
-       # Returning the data frame
-       return(datatable(skillScoresAGGP$scores))
-     
-     ###########################
-     # Runs if an error occurs #
-     ###########################
-     }, error = function(e){
-       
-       NULL
-       
-     }) # End of 'tryCatch'
-     
-   }) # End of 'render'
-   
+
 #------------------------------------------------------------------------------#
 # Downloading the skill scores as a '.csv' -------------------------------------
 #------------------------------------------------------------------------------#
@@ -7092,29 +7387,29 @@ server <- function(input, output, session) {
 # directory of their choosing.                                                 #
 #------------------------------------------------------------------------------#
    
-   output$downloadSSData <- downloadHandler(
-     
-     ####################################
-     # Function to create the file-name #
-     ####################################
-     filename = function() {
-       
-       # File name 
-       paste("skill-scores-", input$dataset, sep = "")
-       
-     },
-     
-     #############################
-     # Function to save the file #
-     #############################
-     content = function(file) {
-       
-       # Saving the file
-       write.csv(skillScoresAGGP$scores, file, row.names = FALSE)
-       
-     }
-     
-   ) # End of download button
+  output$downloadSSData <- downloadHandler(
+    
+    ####################################
+    # Function to create the file-name #
+    ####################################
+    filename = function() {
+      
+      # File name 
+      paste("skill-scores-", input$dataset, sep = "")
+      
+    },
+    
+    #############################
+    # Function to save the file #
+    #############################
+    content = function(file) {
+      
+      # Saving the file
+      write.csv(finalSSCombinedMAIN$scores, file, row.names = FALSE)
+      
+    }
+    
+  ) # End of download button
   
 #------------------------------------------------------------------------------#
 # Creating the figures for skill scores ----------------------------------------
@@ -7139,7 +7434,7 @@ server <- function(input, output, session) {
        #####################################
        # Creating the skill scores figures #
        #####################################
-       ssFigOutput <<- skill.scores.figures.AGGP(skillScores = skillScoresAGGP$scores)
+       ssFigOutput <- skill.scores.figures.AGGP(skillScores = finalSSCombinedMAIN$scores)
        
        # Saving the output to the reactive value
        skillScoresFigs$figList <- ssFigOutput
@@ -7238,6 +7533,11 @@ server <- function(input, output, session) {
      })
      
      }) # End of observe
+  
+  
+  
+  
+  
    
 # Reading in additional models -------------------------------------------------
    
@@ -7249,40 +7549,40 @@ server <- function(input, output, session) {
 # go to the instructions page to set up their data prior to running the page.  #
 #------------------------------------------------------------------------------#
    
-   # #####################################################################
-   # # Pop-up to show when the "Model Comparison" page button in clicked #
-   # #####################################################################
-   # observeEvent(input$my_picker, {
-   # 
-   #   #################################################
-   #   # Pop-up only if on the "Model Comparison" page #
-   #   #################################################
-   #   if(input$my_picker == "Model Comparison"){
-   #     
-   #     # Instructions for model comparisons page
-   #     showModal(modalDialog(
-   #       
-   #       title = "Instructions",
-   #       HTML("<p>Welcome to the Model Comparison page. This page allows users to 
-   #         create forecast figures and panels and compare performance metrics 
-   #         for models not included in the dashboard to the forecasts conducted 
-   #         within the dashboard.</p>
-   #         
-   #         <p>To use this feature, please ensure your data follows the correct 
-   #         setup. Instructions for the proper data format can be found on the 
-   #         `Instructions` tab of the dashboard.</p>
-   #         
-   #         <p>All options MUST be selected and forecasts run on the primary dashboard 
-   #         page before comparing models and reading in outside forecasts.</p>"
-   #       ),
-   #       
-   #      easyClose = TRUE
-   #      
-   #    ))
-   # 
-   #  }
-   #   
-   #   })
+   #####################################################################
+   # Pop-up to show when the "Model Comparison" page button in clicked #
+   #####################################################################
+   observeEvent(input$my_picker, {
+
+     #################################################
+     # Pop-up only if on the "Model Comparison" page #
+     #################################################
+     if(input$my_picker == "Model Comparison"){
+
+       # Instructions for model comparisons page
+       showModal(modalDialog(
+
+         title = "Instructions",
+         HTML("<p>Welcome to the Model Comparison page. This page allows users to
+           create forecast figures and panels and compare performance metrics
+           for models not included in the dashboard to the forecasts conducted
+           within the dashboard.</p>
+
+           <p>To use this feature, please ensure your data follows the correct
+           setup. Instructions for the proper data format can be found on the
+           `Instructions` tab of the dashboard.</p>
+
+           <p>All options MUST be selected and forecasts run on the primary dashboard
+           page before comparing models and reading in outside forecasts.</p>"
+         ),
+
+        easyClose = TRUE
+
+      ))
+
+    }
+
+     })
 
 #------------------------------------------------------------------------------#
 # Reading in multiple files ----------------------------------------------------
@@ -7290,100 +7590,111 @@ server <- function(input, output, session) {
 # About: This section reads in multiple files unrelated to the benchmarking    #
 # models. This is the background behind reading in the multiple files.         #
 #------------------------------------------------------------------------------#
+  
+  ###################################################
+  # Reactive value to store multiple forecast files #
+  ###################################################
+  listOtherForecasts <- reactiveValues()
+  
+  #######################################################
+  # Running if the formatted forecast button is clicked #
+  #######################################################
+  observeEvent(input$dataset2,{
+    
+    ################################
+    # Running if data is available #
+    ################################
+    tryCatch({
+      
+      # Empty list to store files 
+      filesOtherLst <- list()
+      
+      ###################################
+      # Isolating the change in 'files' #
+      ###################################
+      isolate({
+      
+        # List of files read in 
+        files <- input$dataset2
+        
+      })
+      
+      ##############################
+      # Looping through file names #
+      ##############################
+      for(i in 1:nrow(files)){
+        
+        # Indexed fie 
+        indexedFile <- files$datapath[i]
+        
+        # Indexed file name
+        indexedFileName <- files$name[i]
+        
+        # Extract the extension of the file
+        ext <- tools::file_ext(indexedFileName)
+        
+        ######################################################
+        # Produces an error if a '.csv' file is not selected #
+        ######################################################
+        if (ext != "csv") {
+          
+          # Produced error
+          showModal(modalDialog(
+            title = "Error",
+            paste("File", indexedFileName, "is not a '.csv' file. Please upload only '.csv' files."),
+            easyClose = TRUE
+          ))
+          
+          return(NULL)
+          
+        }
+        
+        # Reading in the data
+        data <- read.csv(indexedFile, header = T)
+        
+        # Saving the files to a list 
+        filesOtherLst[[i]] <- data
+        
+        # Adding the name of the file
+        names(filesOtherLst)[i] <- indexedFileName
+        
+      } # End of file loop 
+      
+      ##########################################################
+      # Saving the list of files under the reactive value name #
+      ##########################################################
+      listOtherForecasts$forecastData <- filesOtherLst
+      
+    ####################################
+    # Running if data is not available #
+    ####################################
+    }, error = function(e){
+      
+      print("The other forematted forecast data did not load properly.")
+      
+    })
+    
+    })
    
-   fileOtherReactive <- reactive({
 
-     ####################################################
-     # Creating an empty list to fill in with data sets #
-     ####################################################
-     filesOtherLst <- list()
-     
-     #######################################
-     # Runs if there is there is no errors #
-     #######################################
-     tryCatch({
-       
-       # List of files read in 
-       files <- input$dataset2
-       
-       #####################################
-       # Looping through the read-in files #
-       #####################################
-       for(i in 1:nrow(files)){
-         
-         # Indexed fie 
-         indexedFile <- files$datapath[i]
-         
-         # Indexed file name
-         indexedFileName <- files$name[i]
-         
-         # Extract the extension of the file
-         ext <- tools::file_ext(indexedFileName)
-         
-         ######################################################
-         # Produces an error if a '.csv' file is not selected #
-         ######################################################
-         if (ext != "csv") {
-           
-           # Produced error
-           showModal(modalDialog(
-             title = "Error",
-             paste("File", indexedFileName, "is not a '.csv' file. Please upload only '.csv' files."),
-             easyClose = TRUE
-           ))
-           
-           return(NULL)
-           
-         }
-         
-         # Reading in the data
-         data <- read.csv(indexedFile, header = T)
-         
-         # Saving the files to a list 
-         filesOtherLst[[i]] <- data
-         
-         # Adding the name of the file
-         names(filesOtherLst)[i] <- indexedFileName
-         
-       }
-       
-       ###############################
-       # Returning the list of files #
-       ###############################
-       return(filesOtherLst)
-       
-       ###########################
-       # Runs if an error occurs #
-       ###########################
-       }, error = function(e) {
-       
-         # Message that prints to the console 
-         print("The other forecast files did not read in correctly.")
-
-       })
+#------------------------------------------------------------------------------#
+# Resetting the reactive value with files --------------------------------------
+#------------------------------------------------------------------------------#
+# About: This section resets the reactive value containing the loaded files if #
+# the main data set is changed.                                                #
+#------------------------------------------------------------------------------#
+  
+  #######################################################################
+  # Observing the change in the reactive value holding the orignal data #
+  #######################################################################
+  observeEvent(file(), {
+    
+     # Reset the reactive value to NULL when file() changes
+     listOtherForecasts$forecastData <- NULL
      
    })
    
    
-#------------------------------------------------------------------------------#
-# Checking the format of the forecast files ------------------------------------
-#------------------------------------------------------------------------------#
-# About: This section checks the format of the forecasts read into the code by #
-# the user. It checks the names of the column, and returns the date, horizon,  #
-# calibration period, disease/object of interest.                              #
-#------------------------------------------------------------------------------#
-   
-   ########################################
-   # Observing changes in reactive values #
-   ########################################
-   observe({
-     
-     formattedForecastInputTEST <<- fileOtherReactive()
-     date.type.inputTEST <<- dateValues$dates
-     
-   })
-
-
 #------------------------------------------------------------------------------#
 # Button to edit individual forecast figures -----------------------------------
 #------------------------------------------------------------------------------#
@@ -7502,23 +7813,75 @@ server <- function(input, output, session) {
    # Observing changes in reactive behaviors #
    ###########################################
    observe({
-     
-     tryCatch({
     
-     #######################################################
-     # Function to produce the individual forecast figures #
-     #######################################################
-     otherIndividual <- Otherforecast.figures(formattedForecastInput = fileOtherReactive(), # Data files 
-                                              date.type.input = dateValues$dates, # Date type 
-                                              scaleYAxis.input = scaleYOther$logScale, # Scale y-axis
-                                              yAxisLabel.input = yAxisLabOther$lab, # Y-axis label
-                                              dateBreaks.input = dateBreaksReactiveOther$breaksDate, # Date breaks
-                                              startYPoint.input = startYReactiveOther$check, # Y-axis start point
-                                              dotSize.input = dotSizeReactiveOther$sizeVal) # Size of dots
-     
-     # Saving the output to the reactive value list
-     individualOtherPlots$figures <- otherIndividual
-
+     ############################# 
+     # Runs if data is available #
+     #############################
+     tryCatch({
+       
+       ##########################################
+       # Locations included in the orignal data #
+       ##########################################
+       dataLocations <- colnames(file())[-1]
+       
+       ######################################
+       # List of triggering reactive values #
+       ######################################
+       indPlotsTrigger <- reactive({
+         
+         # Triggering events 
+         allEvents <- list(input$dataset2,
+                           scaleYOther$logScale,
+                           yAxisLabOther$lab,
+                           dateBreaksReactiveOther$breaksDate,
+                           startYReactiveOther$check,
+                           dotSizeReactiveOther$sizeVal)
+         
+         # Returning the list of reative values 
+         return(allEvents)
+         
+       })
+       
+       #######################################################
+       # Function to produce the individual forecast figures #
+       #######################################################
+       observeEvent(indPlotsTrigger(), ignoreNULL = T, {
+         
+         ##################################
+         # Running only if data is loaded #
+         ##################################
+         if(!is.null(listOtherForecasts$forecastData)){
+           
+           # Isolating to when one of the buttons is clicked 
+           isolate({
+             
+             ##########################################
+             # Function to produce individual figures #
+             ##########################################
+             otherIndividual <- Otherforecast.figures(OTHERformattedForecastInput = listOtherForecasts$forecastData, # Data files 
+                                                      date.type.input = dateValues$dates, # Date type 
+                                                      scaleYAxis.input = scaleYOther$logScale, # Scale y-axis
+                                                      yAxisLabel.input = yAxisLabOther$lab, # Y-axis label
+                                                      dateBreaks.input = dateBreaksReactiveOther$breaksDate, # Date breaks
+                                                      startYPoint.input = startYReactiveOther$check, # Y-axis start point
+                                                      dotSize.input = dotSizeReactiveOther$sizeVal, # Size of dots
+                                                      locations.input = dataLocations, # Location in original data
+                                                      orignalData.input = foremattedForecasts$forecasts) # Formatted forecast files
+             
+             }) # End of isolate 
+           
+           ###################################################################
+           # Updating the reactive value when the inputted files are changed #
+           ###################################################################
+           individualOtherPlots$figures <- otherIndividual
+           
+           }
+         
+         })
+       
+     #################################
+     # Runs if data is NOT available #
+     #################################
      }, error = function(e){
        
        NULL
@@ -7526,26 +7889,108 @@ server <- function(input, output, session) {
      })
      
    })
-   
-   
+         
+
 #------------------------------------------------------------------------------#
-# Clearing the individual output based on if the original data changes ---------
+# Returning the respective errors ----------------------------------------------
 #------------------------------------------------------------------------------#
-# About: This section clears the individual figures output if the original     #
-# data is changed.                                                             #
+# About: This section returns specific errors based upon the results of the    #
+# above function.                                                              #
 #------------------------------------------------------------------------------#
-   
-   ########################
-   # Triggering the reset #
-   ########################
-   observeEvent(input$locations,{
-     
-     # Isolating the actions to the button click
-     isolate({individualOtherPlots$figures <- NULL # Resetting the list
-              reset('dataset2')}) # Resetting the file input
-     
-   })
-   
+  
+  #################################################################
+  # Observing changes in the reactive value containing the panels #
+  #################################################################
+  observe({
+    
+    #############################
+    # Runs if data is available #
+    #############################
+    tryCatch({
+      
+      ##################################################################
+      # Error to return if the files are loaded prior to the dashboard #
+      ##################################################################
+      if(individualOtherPlots$figures == "ERROR1"){
+        
+        # Alert to show
+        shinyalert(title = "Error", type = "error", text = "Please run the main dashboard prior to loading files.")
+        
+        # Clearing reactive values holding individual figures 
+        individualOtherPlots$figures <- NULL
+        
+        # Clearing reactive value containing other formatted forecast data 
+        listOtherForecasts$forecastData <- NULL
+        
+      #######################################################
+      # Error to return if the column names are not correct #
+      #######################################################
+      }else if(individualOtherPlots$figures == "ERROR2"){
+        
+        # Alert to show
+        shinyalert(title = "Error", type = "error", text = "Please check the names of the columns within loaded data. The should be in the following order: date, data, median, LB, UB")
+        
+        # Clearing reactive values holding individual figures 
+        individualOtherPlots$figures <- NULL
+        
+        # Clearing reactive value containing other formatted forecast data 
+        listOtherForecasts$forecastData <- NULL
+       
+      ########################################################
+      # Error to return if the name of the file is incorrect #
+      ########################################################
+      }else if(individualOtherPlots$figures == "ERROR3"){
+        
+        # Alert to show
+        shinyalert(title = "Error", type = "error", text = "Please check the naming scheme of your data.")
+        
+        # Clearing reactive values holding individual figures 
+        individualOtherPlots$figures <- NULL
+        
+        # Clearing reactive value containing other formatted forecast data 
+        listOtherForecasts$forecastData <- NULL
+        
+      ###################################################
+      # Error to return if there is an issue with dates #
+      ###################################################
+      }else if(individualOtherPlots$figures == "ERROR4"){
+       
+        # Alert to show
+        shinyalert(title = "Error", type = "error", text = "The date type you indicated in the file name does not match the data type included in the dashboard nor the forecast file. Please check your date specification (Year = YYYY, Day/Week = MM-DD-YYYY)")
+        
+        # Clearing reactive values holding individual figures 
+        individualOtherPlots$figures <- NULL
+        
+        # Clearing reactive value containing other formatted forecast data 
+        listOtherForecasts$forecastData <- NULL
+        
+      ##########################################################
+      # Error to return if there is an issue with the location #
+      ##########################################################
+      }else if(individualOtherPlots$figures == "ERROR5"){
+        
+        # Alert to show
+        shinyalert(title = "Error", type = "error", text = "Please check your file names. The location listed does not match any location loaded with the orignal data.")
+        
+        # Clearing reactive values holding individual figures 
+        individualOtherPlots$figures <- NULL
+        
+        # Clearing reactive value containing other formatted forecast data 
+        listOtherForecasts$forecastData <- NULL
+        
+      }
+    
+    #################################
+    # Runs if data is not available #
+    #################################
+    }, error = function(e){
+      
+      NULL
+      
+    })
+    
+  })
+       
 #------------------------------------------------------------------------------#
 # Creating the forward and backwards arrows for the other figures   ------------
 #------------------------------------------------------------------------------#
@@ -7609,15 +8054,20 @@ server <- function(input, output, session) {
  # Rendering the plotly figure #
  ###############################
   
-  # Try to run it 
+  #############################
+  # Runs if data is available #
+  #############################
   tryCatch({
   
-    
+    # Producing the figures 
     output$otherModelFigure <- renderPlotly({ggplotly(individualOtherPlots$figures[[current_index_otherModels()]], tooltip = "text")})
     
-    # Runs if error occurs 
+    ##########################################
+    # Clearing the figure if an error occurs #
+    ##########################################
     }, error = function(e){
       
+      # Clearing the output
       output$otherModelFigure <- NULL
       
   })
@@ -7633,19 +8083,40 @@ server <- function(input, output, session) {
   #######################
   output$OtherForecastTitle <- renderText({
     
-    #Runs if data is entered 
+    ###########################
+    # Runs if data is entered #
+    ###########################
     tryCatch({
       
       # Rendering the title
-      return(names(individualOtherPlots$figures[current_index_otherModels()]))
+     return(names(individualOtherPlots$figures[current_index_otherModels()]))
       
-    # Runs if no data is entered  
+    ##############################
+    # Runs if no data is entered #
+    ##############################
     }, error = function(e){
       
       # Returning a NULL
       NULL
       
     }) # End of 'tryCatch'
+    
+  })
+  
+#------------------------------------------------------------------------------#
+# Resetting the reactive value with the individual figures ---------------------
+#------------------------------------------------------------------------------#
+# About: This section resets the reactive value containing the formatted       #
+# forecast figures (individual) when the orignal data is changed.              #
+#------------------------------------------------------------------------------#
+  
+  #######################################################################
+  # Observing the change in the reactive value holding the orignal data #
+  #######################################################################
+  observeEvent(file(), {
+    
+    # Reset the reactive value to NULL when file() changes
+    individualOtherPlots$figures <- NULL
     
   })
   
@@ -7728,6 +8199,7 @@ server <- function(input, output, session) {
           
           # TIFF file 
           if(input$extFig == ".tiff"){
+            
             ggsave(
               file.path(temp_directory, file_name),
               plot = plot_obj,
@@ -7889,51 +8361,165 @@ server <- function(input, output, session) {
   ###########################################
   observe({
     
+    ############################# 
+    # Runs if data is available #
+    #############################
     tryCatch({
-
+      
+      ###########################################
+      # Locations included in the original data #
+      ###########################################
+      dataLocations <- colnames(file())[-1]
+      
+      ######################################
+      # List of triggering reactive values #
+      ######################################
+      PANELPlotsTrigger <- reactive({
+        
+        # Triggering events 
+        allEvents <- list(input$dataset2,
+                          scaleYOtherPanel$logScale,
+                          yAxisLabOtherPanel$lab,
+                          dateBreaksReactiveOtherPanel$breaksDate,
+                          startYReactiveOtherPanel$check,
+                          dotSizeReactiveOtherPanel$sizeVal)
+        
+        # Returning the list of reactive values 
+        return(allEvents)
+        
+      })
+      
       #######################################################
       # Function to produce the individual forecast figures #
       #######################################################
-      OtherpanelOutput <- other.panel.forecast.figures(formatted.forecast.input = foremattedForecasts$forecasts, # Formatted figures
-                                                       date.type.input = dateValues$dates, # Date type
-                                                       formatted.forecast.Other.input = fileOtherReactive(), # Read in forecasts
-                                                       yAxisScale.input = scaleYOtherPanel$logScale, # Scale for Y-Axis
-                                                       yAxisLabel.input = yAxisLabOtherPanel$lab, # Y axis label 
-                                                       dateBreaks.input = dateBreaksReactiveOtherPanel$breaksDate, # Date breaks 
-                                                       startY.input = startYReactiveOtherPanel$check, # Start of Y axis 
-                                                       dataDot.input = dotSizeReactiveOtherPanel$sizeVal, # Size of data dot 
-                                                       errorGLM.input = input$errorTermGLM) # Error input GLM
-
-      # Saving the output to the reactive value list
-      PanelOtherPlots$figures <- OtherpanelOutput
-     
+      observeEvent(PANELPlotsTrigger(), ignoreNULL = T, {
+        
+        ##################################
+        # Running only if data is loaded #
+        ##################################
+        if(all(!is.null(listOtherForecasts$forecastData))){
+          
+          # Isolating to when one of the buttons is clicked 
+          isolate({
+            
+            #######################################################
+            # Function to produce the individual forecast figures #
+            #######################################################
+            OtherpanelOutput <- other.panel.forecast.figures(formatted.forecast.input = foremattedForecasts$forecasts, # Formatted forecast data
+                                                             date.type.input = dateValues$dates, # Date type
+                                                             formatted.forecast.Other.input = listOtherForecasts$forecastData, # Read in forecasts
+                                                             yAxisScale.input = scaleYOtherPanel$logScale, # Scale for Y-Axis
+                                                             yAxisLabel.input = yAxisLabOtherPanel$lab, # Y axis label 
+                                                             dateBreaks.input = dateBreaksReactiveOtherPanel$breaksDate, # Date breaks 
+                                                             startY.input = startYReactiveOtherPanel$check, # Start of Y axis 
+                                                             dataDot.input = dotSizeReactiveOtherPanel$sizeVal, # Size of data dot 
+                                                             errorGLM.input = input$errorTermGLM, # Error input GLM
+                                                             location.input = dataLocations) # Locations 
+            
+            # Saving the output to the reactive value list
+            PanelOtherPlots$figures <- OtherpanelOutput
+            
+          }) # End of isolate
+          
+        }
+        
+      }) # End of 'observeEvent'
       
+    }, error = function(e){
+      
+      NULL
+      
+    }) # End of 'tryCatch'
+    
+  }) # End of 'observe'
+  
+  
+#------------------------------------------------------------------------------#
+# Returning the respective errors ----------------------------------------------
+#------------------------------------------------------------------------------#
+# About: This section returns specific errors based upon the results of the    #
+# above function.                                                              #
+#------------------------------------------------------------------------------#
+  
+  #################################################################
+  # Observing changes in the reactive value containing the panels #
+  #################################################################
+  observe({
+    
+    #############################
+    # Runs if data is available #
+    #############################
+    tryCatch({
+      
+      ##################################################################
+      # Error to return if the files are loaded prior to the dashboard #
+      ##################################################################
+      if(PanelOtherPlots$figures == "ERROR1"){
+        
+        # Clearing reactive values holding panel figures 
+        PanelOtherPlots$figures <- NULL
+        
+        # Clearing reactive value containing other formatted forecast data 
+        listOtherForecasts$forecastData <- NULL
+        
+      #######################################################
+      # Error to return if the column names are not correct #
+      #######################################################
+      }else if(PanelOtherPlots$figures == "ERROR2"){
+        
+        # Clearing reactive values holding panel figures 
+        PanelOtherPlots$figures <- NULL
+        
+        # Clearing reactive value containing other formatted forecast data 
+        listOtherForecasts$forecastData <- NULL
+        
+      ########################################################
+      # Error to return if the name of the file is incorrect #
+      ########################################################
+      }else if(individualOtherPlots$figures == "ERROR3"){
+        
+        # Clearing reactive values holding panel figures 
+        PanelOtherPlots$figures <- NULL
+        
+        # Clearing reactive value containing other formatted forecast data 
+        listOtherForecasts$forecastData <- NULL
+        
+      ###################################################
+      # Error to return if there is an issue with dates #
+      ###################################################
+      }else if(individualOtherPlots$figures == "ERROR4"){
+      
+        # Clearing reactive values holding panel figures 
+        PanelOtherPlots$figures <- NULL
+        
+        # Clearing reactive value containing other formatted forecast data 
+        listOtherForecasts$forecastData <- NULL
+        
+      ##########################################################
+      # Error to return if there is an issue with the location #
+      ##########################################################
+      }else if(individualOtherPlots$figures == "ERROR5"){
+        
+        # Clearing reactive values holding panel figures 
+        PanelOtherPlots$figures <- NULL
+        
+        # Clearing reactive value containing other formatted forecast data 
+        listOtherForecasts$forecastData <- NULL
+        
+      }
+      
+    #################################
+    # Runs if data is not available #
+    #################################
     }, error = function(e){
       
       NULL
       
     })
     
-  })
-  
-#------------------------------------------------------------------------------#
-# Clearing the panel output based on if the original data changes ---------
-#------------------------------------------------------------------------------#
-# About: This section clears the panel figures output if the original          #
-# data is changed.                                                             #
-#------------------------------------------------------------------------------#
-  
-  ########################
-  # Triggering the reset #
-  ########################
-  observeEvent(input$locations,{
-    
-    # Isolating the actions to the button click
-    isolate({PanelOtherPlots$figures <- NULL # Resetting the list
-    reset('dataset2')}) # Resetting the file input
-    
-  })
-  
+  })  
+
+
 #------------------------------------------------------------------------------#
 # Creating the previous and next arrows for the other panel figures ------------
 #------------------------------------------------------------------------------#
@@ -7998,16 +8584,21 @@ server <- function(input, output, session) {
   # Rendering the figure #
   ########################
   
-  # Try to produce the figure 
+  #############################
+  # Try to produce the figure #
+  #############################
   tryCatch({
 
+    # Producing the panel plot
     output$otherModelPanelFigure <- renderPlot({
         
       PanelOtherPlots$figures[[current_index_Panels()]]
       
       })
     
-    # Runs if error occurs 
+    ########################
+    # Runs if error occurs #
+    ########################
     }, error = function(e){
     
       output$otherModelPanelFigure <- NULL
@@ -8025,20 +8616,40 @@ server <- function(input, output, session) {
   #######################
   output$OtherPanelForecastTitle <- renderText({
     
-    #Runs if data is entered 
+    ###########################
+    # Runs if data is entered #
+    ###########################
     tryCatch({
       
       # Rendering the title
       return(names(PanelOtherPlots$figures[current_index_Panels()]))
         
-
-      # Runs if no data is entered  
+    ##############################
+    # Runs if no data is entered #
+    ##############################
     }, error = function(e){
       
       # Returning a NULL
       NULL
       
     }) # End of 'tryCatch'
+    
+  })
+  
+#------------------------------------------------------------------------------#
+# Resetting the reactive value with the panel figures --------------------------
+#------------------------------------------------------------------------------#
+# About: This section resets the reactive value containing the formatted       #
+# forecast figures (panel) when the original data is changed.                  #
+#------------------------------------------------------------------------------#
+  
+  #######################################################################
+  # Observing the change in the reactive value holding the orignal data #
+  #######################################################################
+  observeEvent(file(), {
+    
+    # Reset the reactive value to NULL when file() changes
+    PanelOtherPlots$figures <- NULL
     
   })
   
@@ -8165,7 +8776,6 @@ server <- function(input, output, session) {
     
   )
   
-
   
 #------------------------------------------------------------------------------#
 # Handling crude metrics (Data) ------------------------------------------------
@@ -8184,24 +8794,37 @@ server <- function(input, output, session) {
 # the files are names correctly.                                               #
 #------------------------------------------------------------------------------#
   
-  metricsOtherReactive <- reactive({
+  #################################################
+  # Reactive value to store multiple metric files #
+  #################################################
+  metricsOtherReactive <- reactiveValues()
+  
+  ##################################################
+  # Running if the other metrics button is clicked #
+  ##################################################
+  observeEvent(input$metricsOther,{
     
-    ####################################################
-    # Creating an empty list to fill in with data sets #
-    ####################################################
-    filesOtherLst <- list()
-    
-    #######################################
-    # Runs if there is there is no errors #
-    #######################################
+    ################################
+    # Running if data is available #
+    ################################
     tryCatch({
       
-      # List of files read in 
-      files <- input$metricsOther
+      # Empty list to store files 
+      filesOtherLst <- list()
       
-      #####################################
-      # Looping through the read-in files #
-      #####################################
+      ###################################
+      # Isolating the change in 'files' #
+      ###################################
+      isolate({
+        
+        # List of files read in 
+        files <- input$metricsOther
+        
+      })
+      
+      ##############################
+      # Looping through file names #
+      ##############################
       for(i in 1:nrow(files)){
         
         # Indexed fie 
@@ -8238,22 +8861,38 @@ server <- function(input, output, session) {
         # Adding the name of the file
         names(filesOtherLst)[i] <- indexedFileName
         
-      }
+      } # End of file loop 
       
-      ###############################
-      # Returning the list of files #
-      ###############################
-      return(filesOtherLst)
+      ##########################################################
+      # Saving the list of files under the reactive value name #
+      ##########################################################
+      metricsOtherReactive$metricData <- filesOtherLst
       
-      ###########################
-      # Runs if an error occurs #
-      ###########################
-    }, error = function(e) {
+    ####################################
+    # Running if data is not available #
+    ####################################
+    }, error = function(e){
       
-      # Message that prints to the console 
-      print("The other metric files did not read in correctly.")
+      print("The other metric data did not load properly.")
       
     })
+    
+  })
+  
+#------------------------------------------------------------------------------#
+# Resetting the reactive value with files --------------------------------------
+#------------------------------------------------------------------------------#
+# About: This section resets the reactive value containing the loaded files if #
+# the main data set is changed.                                                #
+#------------------------------------------------------------------------------#
+  
+  #######################################################################
+  # Observing the change in the reactive value holding the orignal data #
+  #######################################################################
+  observeEvent(file(), {
+    
+    # Reset the reactive value to NULL when file() changes
+    metricsOtherReactive$metricData <- NULL
     
   })
   
@@ -8284,41 +8923,216 @@ server <- function(input, output, session) {
     ################################
     tryCatch({
       
-      ##################################################
-      # Saving the user selected data under a new name #
-      ##################################################
-      data <- file()
-      
-      ###########################################
-      # Grabbing the headers from the data file #
-      ###########################################
-      location.names <- colnames(data)[-1]
-      
-      metricsCombined <- combiningAllMetrics(otherMetrics.input = metricsOtherReactive(), # Other metrics
-                                             modelFit.input = modelFitMetricsList$fitMetrics, # Dashboard fit metrics
-                                             modelForecast.input = forecastMetricsListCrude$forecastMetrics, # Dashboard forecast metrics
-                                             horizon.input = input$forecastHorizon, # Forecasting horizon
-                                             calibration.input = input$calibrationPeriod, # Calibration period metrics 
-                                             locations.input = location.names) # Original locations 
-                                          
-      
       ##########################################
-      # Saving the metrics in a reactive value #
+      # Locations included in the original data #
       ##########################################
-      crudeMetricsDataOther$data <- metricsCombined
+      dataLocations <- colnames(file())[-1]
       
-      #################################
-      # Runs if data is not available #
-      #################################
-      }, error = function(e){
+      #######################################################
+      # Function to produce the individual forecast figures #
+      #######################################################
+      observeEvent(input$metricsOther, ignoreNULL = T, {
         
-        # Returning NULL
-        NULL
+        ##################################
+        # Running only if data is loaded #
+        ##################################
+        if(!is.null(metricsOtherReactive$metricData)){
+          
+          # Isolating to when one of the buttons is clicked 
+          isolate({
+            
+            ##################################
+            # Running only if data is loaded #
+            ##################################
+            metricsCombined <- combiningAllMetrics(otherMetrics.input = metricsOtherReactive$metricData, # Other metrics
+                                                   modelFit.input = modelFitMetricsList$fitMetrics, # Dashboard fit metrics
+                                                   modelForecast.input = forecastMetricsListCrude$forecastMetrics, # Dashboard forecast metrics
+                                                   horizon.input = input$forecastHorizon, # Forecasting horizon
+                                                   calibration.input = input$calibrationPeriod, # Calibration period metrics 
+                                                   locations.input = dataLocations, # Original locations 
+                                                   formattedForecastOrignal.input = foremattedForecasts$forecasts, # Formatted forecast data
+                                                   date.type.input = dateValues$dates) # Date type
+            
+          }) # End of isolate
+          
+          ##########################################
+          # Saving the metrics in a reactive value #
+          ##########################################
+          crudeMetricsDataOther$data <- metricsCombined
+          
+        }
         
-        }) # End of 'tryCaych'
+      }) # End of 'observeEvent'
+      
+    #################################
+    # Runs if data is not available #
+    #################################
+    }, error = function(e){
+      
+      # Returning NULL
+      NULL
+      
+    }) # End of 'tryCaych'
     
-    }) # End of 'observe'
+  }) # End of 'observe'
   
+          
+#------------------------------------------------------------------------------#
+# Returning the respective errors ----------------------------------------------
+#------------------------------------------------------------------------------#
+# About: This section returns specific errors based upon the results of the    #
+# above function.                                                              #
+#------------------------------------------------------------------------------#
+
+  ############################################
+  # Indicator to clear average metrics input #
+  ############################################
+  clearAverageMetricsOther <- reactiveVal(0)
+  
+  #################################################################
+  # Observing changes in the reactive value containing the panels #
+  #################################################################
+  observe({
+    
+    #############################
+    # Runs if data is available #
+    #############################
+    tryCatch({
+      
+      ##################################################################
+      # Error to return if the files are loaded prior to the dashboard #
+      ##################################################################
+      if(crudeMetricsDataOther$data == "ERROR1"){
+        
+        # Alert to show
+        shinyalert(title = "Error", type = "error", text = "Please run the main dashboard prior to loading files.")
+        
+        # Clearing reactive values holding crude metrics 
+        crudeMetricsDataOther$data <- NULL
+        
+        # Clearing reactive value containing the metrics data 
+        metricsOtherReactive$metricData <- NULL
+        
+        # Clearing the reactive value containing the filtered data
+        finalCrudeCombined$metricsFULL <- NULL
+        
+        # Setting the indicator to 1
+        clearAverageMetricsOther(1)
+        
+      #######################################################
+      # Error to return if the column names are not correct #
+      #######################################################
+      }else if(crudeMetricsDataOther$data == "ERROR2"){
+        
+        # Alert to show
+        shinyalert(title = "Error", type = "error", text = "Please check the names of the columns within loaded metric data. The first column should be Model, followed by the included metrics.")
+        
+        # Clearing reactive values holding crude metrics 
+        crudeMetricsDataOther$data <- NULL
+        
+        # Clearing reactive value containing the metrics data 
+        metricsOtherReactive$metricData <- NULL
+        
+        # Clearing the reactive value containing the filtered data
+        finalCrudeCombined$metricsFULL <- NULL
+        
+        # Setting the indicator to 1
+        clearAverageMetricsOther(1)
+        
+      ########################################################
+      # Error to return if the name of the file is incorrect #
+      ########################################################
+      }else if(crudeMetricsDataOther$data == "ERROR3"){
+        
+        # Alert to show
+        shinyalert(title = "Error", type = "error", text = "Please check the naming scheme of your metrics files.")
+        
+        # Clearing reactive values holding crude metrics 
+        crudeMetricsDataOther$data <- NULL
+        
+        # Clearing reactive value containing the metrics data 
+        metricsOtherReactive$metricData <- NULL
+        
+        # Clearing the reactive value containing the filtered data
+        finalCrudeCombined$metricsFULL <- NULL
+        
+        # Setting the indicator to 1
+        clearAverageMetricsOther(1)
+        
+      ###################################################
+      # Error to return if there is an issue with dates #
+      ###################################################
+      }else if(crudeMetricsDataOther$data == "ERROR4"){
+        
+        # Alert to show
+        shinyalert(title = "Error", type = "error", text = "The date type you indicated in the metric file name(s) does not match the data type included in the dashboard nor the metric file. Please check your date specification (Year = YYYY, Day/Week = MM-DD-YYYY)")
+        
+        # Clearing reactive values holding crude metrics 
+        crudeMetricsDataOther$data <- NULL
+        
+        # Clearing reactive value containing the metrics data 
+        metricsOtherReactive$metricData <- NULL
+        
+        # Clearing the reactive value containing the filtered data
+        finalCrudeCombined$metricsFULL <- NULL
+        
+        # Setting the indicator to 1
+        clearAverageMetricsOther(1)
+        
+      ##########################################################
+      # Error to return if there is an issue with the location #
+      ##########################################################
+      }else if(crudeMetricsDataOther$data == "ERROR5"){
+        
+        # Alert to show
+        shinyalert(title = "Error", type = "error", text = "Please check your metric file names. The location listed does not match any location loaded with the orignal data.")
+        
+        # Clearing reactive values holding crude metrics 
+        crudeMetricsDataOther$data <- NULL
+        
+        # Clearing reactive value containing the metrics data 
+        metricsOtherReactive$metricData <- NULL
+        
+        # Clearing the reactive value containing the filtered data
+        finalCrudeCombined$metricsFULL <- NULL
+        
+        # Setting the indicator to 1
+        clearAverageMetricsOther(1)
+        
+        
+      }
+      
+    #################################
+    # Runs if data is not available #
+    #################################
+    }, error = function(e){
+      
+      NULL
+      
+    })
+    
+  })
+  
+#------------------------------------------------------------------------------#
+# Clearing output --------------------------------------------------------------
+#------------------------------------------------------------------------------#
+# About: This section clears the crude metrics output if the orignal data is   #
+# changed.                                                                     #
+#------------------------------------------------------------------------------#
+  
+  ###############################
+  # Looking for the data change #
+  ###############################
+  observeEvent(file(), {
+    
+    # Clearing the output
+    crudeMetricsDataOther$data <- NULL
+    
+    # Setting the indicator to 0
+    clearAverageMetricsOther(0)
+    
+  })
+ 
 #------------------------------------------------------------------------------#
 # Creating the filtering options for the crude metrics data --------------------
 #------------------------------------------------------------------------------#
@@ -8326,6 +9140,46 @@ server <- function(input, output, session) {
 # table. The filtering options are triggered when the 'Filtering Options'      #
 # button is clicked.                                                           #
 #------------------------------------------------------------------------------#
+  
+  ######################################
+  # Creating the needed reactive value #
+  ######################################
+  
+  # To store the filtered crude data 
+  finalCrudeCombined <- reactiveValues()
+  
+  # Model choices 
+  modelReactiveChoice <- reactiveValues()
+  
+  # Selected models 
+  modelReactiveSelect <- reactiveValues()
+  
+  # Performance metric choice
+  performanceReactiveChoice <- reactiveValues()
+  
+  # Selected performance metric choices 
+  performanceReactiveSelect <- reactiveValues()
+  
+  # Location choices 
+  locationReactiveChoice <- reactiveValues()
+  
+  # Selected locations 
+  locationReactiveSelect <- reactiveValues()
+  
+  # Calibration length choices 
+  calibrationReactiveChoice <- reactiveValues()
+  
+  # Selected calibration lengths
+  calibrationReactiveSelect <- reactiveValues()
+  
+  # Horizon choices 
+  horizonReactiveChoice <- reactiveValues()
+  
+  # Selected horizon 
+  horizonReactiveSelect <- reactiveValues()
+  
+  # Indicator for which data to show 
+  indicatorForFilterMetrics <- reactiveVal(0)
   
   ########################################
   # Observing changes in reactive values #
@@ -8337,340 +9191,121 @@ server <- function(input, output, session) {
     #####################################
     tryCatch({
       
-      # Crude metrics data
-      crudeMetrics <- crudeMetricsDataOther$data
-      
-      #################
-      # Model Options #
-      #################
-      
-      # Choices
-      modelChoices <- unique(crudeMetrics$Model)
-      
-      # Selected
-      modelSelected <- reactiveValues(modelSel = modelChoices)
+      # Running only if an error is not returned above
+      if(all(crudeMetricsDataOther$data %!in% c("ERROR1", "ERROR2", "ERROR3",
+                                            "ERROR4", "ERROR5", !is.null(crudeMetricsDataOther$data)))){
         
-      ############################
-      # Performance type metrics #
-      ############################
-      
-      # Choices
-      performanceTypeChoices <- unique(crudeMetrics$PerformanceType)
-      
-      # Selected
-      performanceTypeSelected <- reactiveValues(performanceSel = performanceTypeChoices)
+        # Crude metrics data
+        crudeMetrics <- crudeMetricsDataOther$data
         
-      ####################
-      # Location Options #
-      ####################
-      
-      # Choices 
-      locationChoices <- unique(crudeMetrics$Location)
-      
-      # Selected
-      locationSelected <- reactiveValues(locationSel = locationChoices)
-      
-      #######################
-      # Calibration Options #
-      #######################
-      
-      # Choices 
-      calibrationChoices <- unique(crudeMetrics$Calibration)
-      
-      # Selected
-      calibrationSelected <- reactiveValues(calibrationSel = calibrationChoices)
-      
-      ###################
-      # Horizon Options #
-      ###################
-      
-      # Choices 
-      horizonChoices <- unique(crudeMetrics$Horizon)
-      
-      # Selected
-      horizonSelected <- reactiveValues(horizonSel = horizonChoices)
+        #################
+        # Model Options #
+        #################
+        
+        # Choices
+        modelReactiveChoice$data <- unique(crudeMetrics$Model)
+        
+        # Selected 
+        modelReactiveSelect$data <- modelReactiveChoice$data
+        
+        ############################
+        # Performance type metrics #
+        ############################
 
-      #######################
-      # Creating the pop-up #
-      #######################
-      observeEvent(input$filterCrudeCombinedMetrics, {
+        # Choices
+        performanceReactiveChoice$data <- unique(crudeMetrics$`Performance Metric Type`)
         
-        if(input$my_picker == "Model Comparison"){
+        # Selected 
+        performanceReactiveSelect$data <- performanceReactiveChoice$data
+        
+        ####################
+        # Location Options #
+        ####################
+        
+        # Choices
+        locationReactiveChoice$data <- unique(crudeMetrics$Location)
+        
+        # Selected 
+        locationReactiveSelect$data <- locationReactiveChoice$data
+        
+        #######################
+        # Calibration Options #
+        #######################
+      
+        # Choices
+        calibrationReactiveChoice$data <- unique(crudeMetrics$Calibration)
+        
+        # Selected 
+        calibrationReactiveSelect$data <- calibrationReactiveChoice$data
+        
+        ###################
+        # Horizon Options #
+        ###################
+      
+        # Choices
+        horizonReactiveChoice$data <- unique(crudeMetrics$Horizon)
+        
+        # Selected 
+        horizonReactiveSelect$data <- horizonReactiveChoice$data
+        
+        #######################
+        # Creating the pop-up #
+        #######################
+        observeEvent(input$filterCrudeCombinedMetrics, ignoreInit = T,{
           
-        isolate({
+          # Changing the indicator to one (i.e., button has been clicked)
+          isolate({indicatorForFilterMetrics(1)})
           
-        showModal(modalDialog(
-          title = "Filtering Options",
-          pickerInput("ModelCrudeData1", "Model:", c(modelChoices), selected = c(modelSelected$modelSel), multiple = T), # Model filtering
-          pickerInput("perfType1", "Performance Metric Type:", c(performanceTypeChoices), selected = c(performanceTypeSelected$performanceSel), multiple = T), # Metric Type
-          pickerInput("locationChoicesCrude1", "Location:", c(locationChoices), selected = c(locationSelected$locationSel), multiple = T), # Location
-          pickerInput("calibrationChoices1", "Calibration:", c(calibrationChoices), selected = c(calibrationSelected$calibrationSel), multiple = T), # Calibration 
-          pickerInput("horizonChoices1", "Horizon:", c(horizonChoices), selected = c(horizonSelected$horizonSel), multiple = T) # Horizon
-          
-        ))
+          # Isolating button click behavior 
+          isolate({
+            
+            # Button 
+            showModal(modalDialog(
+              title = "Filtering Options",
+              pickerInput("ModelCrudeData1", "Model:", c(modelReactiveChoice$data), selected = c(modelReactiveSelect$data), multiple = T), # Model filtering
+              pickerInput("perfType1", "Performance Metric Type:", c(performanceReactiveChoice$data), selected = c(performanceReactiveSelect$data), multiple = T), # Metric Type
+              pickerInput("locationChoicesCrude1", "Location:", c(locationReactiveChoice$data), selected = c(locationReactiveSelect$data), multiple = T), # Location
+              pickerInput("calibrationChoices1", "Calibration:", c(calibrationReactiveChoice$data), selected = c(calibrationReactiveSelect$data), multiple = T), # Calibration 
+              pickerInput("horizonChoices1", "Horizon:", c(horizonReactiveChoice$data), selected = c(horizonReactiveSelect$data), multiple = T) # Horizon
+              
+            ))
+            
+          })
           
         })
-          
-        }
         
-      })
+        #######################################################
+        # Function to produce the individual forecast figures #
+        #######################################################
+        filteredMetrics  <- filterOtherMetrics(crudeMetrics.input = crudeMetricsDataOther$data, # Crude metrics
+                                               averageMetrics.input = NULL, # Average metrics 
+                                               crudeModel.input = input$ModelCrudeData1, # Crude model choices 
+                                               crudePerformance.input = input$perfType1, # Crude performance metric type 
+                                               crudeLocation.input = input$locationChoicesCrude1, # Crude location choice 
+                                               crudeCalibration.input = input$calibrationChoices1, # Crude calibration choice 
+                                               crudeHorizon.input = input$horizonChoices1, # Crude horizon choice
+                                               AverageModel.input = NULL, # Average model choice 
+                                               AveragePerformance.input = NULL, # Average performance metric type
+                                               AverageLocation.input = NULL, # Average location choice
+                                               AverageCalibration.input = NULL, # Average calibration choice
+                                               AverageHorizon.input = NULL, # Average horizon choice
+                                               inputindicator = indicatorForFilterMetrics()) # Indicator for data to show
+        
+        # Saving the results to the reactive value 
+        finalCrudeCombined$metricsFULL <- filteredMetrics
+        
+      } # End of 'else'
       
-      ######################################
-      # Update the reactive value - Models #
-      ######################################
-      observeEvent(input$ModelCrudeData1, {
-        
-        # Updating the model
-        modelSelected$modelSel <- input$ModelCrudeData1
-        
-      })
-      
-      ############################################################
-      # Update the reactive value - Performance metric selection #
-      ############################################################
-      observeEvent(input$perfType1, {
-        
-        # Updating the performance metric type 
-        performanceTypeSelected$performanceSel <- input$perfType1
-        
-      })
-      
-      #############################################
-      # Update the reactive value - Location type #
-      #############################################
-      observeEvent(input$locationChoicesCrude1, {
-        
-        # Updating the location type 
-        locationSelected$locationSel <- input$locationChoicesCrude1
-        
-      })
-      
-      #########################################################
-      # Update the reactive value - calibration period length #
-      #########################################################
-      observeEvent(input$calibrationChoices1, {
-        
-        # Updating the calibration period length 
-        calibrationSelected$calibrationSel <- input$calibrationChoices1
-        
-      })
-      
-      ##############################################
-      # Update the reactive value - horizon length #
-      ##############################################
-      observeEvent(input$horizonChoices1, {
-        
-        # Updating the horizon length
-        horizonSelected$horizonSel <- input$horizonChoices1
-        
-      })
-      
-    ###############################
-    # Runs if data is not entered #
-    ###############################
+    ####################################
+    # Running if data is NOT available #
+    ####################################
     }, error = function(e){
       
-      #################
-      # Model Options #
-      #################
-      modelChoices <- "No files uploaded."
-  
-      ############################
-      # Performance type metrics #
-      ############################
-      performanceTypeChoices <- "No files uploaded."
-        
-      ####################
-      # Location Options #
-      ####################
-      locationChoices <- "No files uploaded."
-      
-      #######################
-      # Calibration Options #
-      #######################
-      calibrationChoices <- "No files uploaded."
-      
-      ###################
-      # Horizon Options #
-      ###################
-      horizonChoices <- "No files uploaded."
-      
-      #######################
-      # Creating the pop-up #
-      #######################
-      observeEvent(input$filterCrudeCombinedMetrics, {
-        
-        showModal(modalDialog(
-          title = "Filtering Options",
-          pickerInput("ModelCrudeData1", "Model:", c(modelChoices), selected = c(modelChoices), multiple = T), # Model filtering
-          pickerInput("perfType1", "Performance Metric Type:", c(performanceTypeChoices), selected = c(performanceTypeChoices), multiple = T), # Metric Type
-          pickerInput("locationChoicesCrude1", "Location:", c(locationChoices), selected = c(locationChoices), multiple = T), # Location
-          pickerInput("calibrationChoices1", "Calibration:", c(calibrationChoices), selected = c(calibrationChoices), multiple = T), # Calibration 
-          pickerInput("horizonChoices1", "Horizon:", c(horizonChoices), selected = c(horizonChoices), multiple = T) # Horizon
-          
-        ))
-        
-      })
-        
-      })
-      
+      NULL
     })
-  
-#------------------------------------------------------------------------------#
-# Preparing the data table for rendering ---------------------------------------
-#------------------------------------------------------------------------------#
-# About: This section prepares the data table for rendering. It applies any    #
-# filtering indicated by the user.                                             #
-#------------------------------------------------------------------------------#
-  
-  ######################################
-  # Reactive value to save any changes #
-  ######################################
-  finalCrudeCombined <- reactiveValues()
-  
-  ############################################
-  # Observing changes in the reactive values #
-  ############################################
-  observe({
-    
-    #############################
-    # Runs if data is available #
-    #############################
-    tryCatch({
-      
-      # Renaming the combined metrics 
-      metrics <- crudeMetricsDataOther$data
-      
-      metricsFiltered  <- NULL
-      
-      ################################
-      # Handling the model filtering #
-      ################################
-
-      # Determining what to do when models are not explicitly selected 
-      if(is.null(input$ModelCrudeData1) | length(input$ModelCrudeData1) == 0){
-        
-        modelsFilter <- unique(metrics$Model)
-        
-      # What to do when models are explicitly selected 
-      }else{
-        
-        modelsFilter <- c(input$ModelCrudeData1)
-        
-      }
-      
-      ###########################################
-      # Handling the performance type filtering #
-      ###########################################
-      
-      # Determining what to do when the performance type is not explicitly selected 
-      if(is.null(input$perfType1) | length(input$perfType1) == 0){
-        
-        performanceTypeFilter <- unique(metrics$PerformanceType)
-        
-      # What to do when the performance type is explicitly selected 
-      }else{
-        
-        performanceTypeFilter <- c(input$perfType1)
-        
-      }
-      
-      ###################################
-      # Handling the location filtering #
-      ###################################
-      
-      # Determining what to do when the location is not explicitly selected 
-      if(is.null(input$locationChoicesCrude1) | length(input$locationChoicesCrude1) == 0){
-        
-        locationFilter <- unique(metrics$Location)
-        
-      # What to do when the location is explicitly selected 
-      }else{
-        
-        locationFilter <- c(input$locationChoicesCrude1)
-        
-      }
-      
-      #############################################
-      # Handling the calibration period filtering #
-      #############################################
-      
-      # Determining what to do when the calibration period is not explicitly selected 
-      if(is.null(input$calibrationChoices1) | length(input$calibrationChoices1) == 0){
-        
-        calibrationFilter <- unique(metrics$Calibration)
-        
-      # What to do when the calibration period is explicitly selected 
-      }else{
-        
-        calibrationFilter <- c(input$calibrationChoices1)
-        
-      }
-      
-      ##################################
-      # Handling the horizon filtering #
-      ##################################
-      
-      # Determining what to do when the horizon is not explicitly selected 
-      if(is.null(input$horizonChoices1) | length(input$horizonChoices1) == 0){
-        
-        horizonFilter <- unique(metrics$Horizon)
-        
-      # What to do when the horizon is explicitly selected 
-      }else{
-        
-        horizonFilter <- c(input$horizonChoices1)
-        
-      }
-      
-      ######################
-      # Filtering the data #
-      ######################
-      metricsFiltered <- metrics %>% 
-        dplyr::filter(Model %in% c(modelsFilter), # Filtering model type 
-                      PerformanceType %in% c(performanceTypeFilter), # Filtering metric type
-                      Location %in% c(locationFilter), # Filtering location
-                      Calibration %in% c(calibrationFilter), # Filtering calibration period
-                      Horizon %in% c(horizonFilter)) # Filtering forecasting horizon
-      
-      #########################################
-      # Adding the data to the reactive value #
-      #########################################
-      finalCrudeCombined$metricsFULL <- metricsFiltered
-      
-
-      #################################
-      # Runs if data is not available #
-      #################################
-      }, error = function(e){
-      
-        # Returning a NULL
-        NULL
-        
-        }) # End of 'tryCatch'
-    
-    }) # End of 'observe'
-  
-  
-#------------------------------------------------------------------------------#
-# Clearing the data table output based on if the original data changes ---------
-#------------------------------------------------------------------------------#
-# About: This section clears the crude data output if the original             #
-# data is changed.                                                             #
-#------------------------------------------------------------------------------#
-  
-  ########################
-  # Triggering the reset #
-  ########################
-  observeEvent(input$locations,{
-    
-    # Isolating the actions to the button click
-    isolate({finalCrudeCombined$metricsFULL <- NULL # Resetting the list
-    reset('metricsOther')}) # Resetting the file input
     
   })
-  
-
+          
 #------------------------------------------------------------------------------#
 # Rendering the data table with the crude data ---------------------------------
 #------------------------------------------------------------------------------#
@@ -8687,10 +9322,10 @@ server <- function(input, output, session) {
     # Runs if no errors occur #
     ###########################
     tryCatch({
-      
+    
       # Returning the data frame
       return(datatable(finalCrudeCombined$metricsFULL))
-      
+        
     ###########################
     # Runs if an error occurs #
     ###########################
@@ -8702,6 +9337,32 @@ server <- function(input, output, session) {
     }) # End of 'tryCatch'
     
   }) # End of 'renderDataTable'
+  
+
+#------------------------------------------------------------------------------#
+# Clearing the filtered data set and indicator ---------------------------------
+#------------------------------------------------------------------------------#
+# About: This section clears the final, filtered data and resets the indicator #
+# for the data to show (i.e., full or filtered). It is triggered when the      #
+# original data is changed.                                                    #
+#------------------------------------------------------------------------------#
+
+  #######################################################################
+  # Observing the change in the reactive value holding the orignal data #
+  #######################################################################
+  observeEvent(file(), {
+    
+    if(is.null(foremattedForecasts$forecasts)){
+      
+      # Filtered data
+      finalCrudeCombined$metricsFULL <- NULL
+      
+      # Resetting the indicator
+      indicatorForFilterMetrics(0)
+    
+    }
+    
+  })
   
 #------------------------------------------------------------------------------#
 # Downloading the combined metrics data as a '.csv' ----------------------------
@@ -8737,22 +9398,1266 @@ server <- function(input, output, session) {
   
   
 #------------------------------------------------------------------------------#
+# Button to edit crude metrics figures -----------------------------------------
+#------------------------------------------------------------------------------#
+# About: This section creates the buttons to edit the legend labels for the    #
+# panel figures of crude metrics.                                              #
+#------------------------------------------------------------------------------#
+  
+  ############################################
+  # Reactive value for the y-axis scale type #
+  ############################################
+  scaleYOtherCrudeMetric <- reactiveValues(logScale = NULL) 
+  
+  ################################################
+  # Reactive value for the number of date breaks #
+  ################################################
+  dateBreaksReactiveOtherCrudeMetric <- reactiveValues(breaksDate = "1")
+  
+  #############################################
+  # Reactive value for starting at the y-axis #
+  #############################################
+  startYReactiveOtherCrudeMetric <- reactiveValues(check = "0")
+  
+  ##############################
+  # Creating the button pop-up #
+  ##############################
+  observeEvent(input$figOptCombCrudeMetrics, {
+    
+    # Determining the metric choices 
+    allMetricNames <- colnames(finalCrudeCombined$metricsFULL)
+    
+    # Creating the metric choice variable
+    metricChoices <- allMetricNames[-c(1:6)]
+    
+    # Creating the pop-up
+    showModal(modalDialog(
+      title = "Figure Options",
+      h3("Y-Axis Options", style = "font-size: 15px;"), 
+      pickerInput("logScaleOtherCrudeMetric", "Metrics to Show in Log Base 10:", c("None", metricChoices), selected = scaleYOtherCrudeMetric$logScale, multiple = T),                                                                                                                                                                                                                             
+      pickerInput("zeroStartOtherCrudeMetric", "Y-Axis Origin:", c("0", "Minimum value in data"), selected = startYReactiveOtherCrudeMetric$check), # Starting of the y-axis 
+      h3("X-Axis Options", style = "font-size: 15px;"),
+      textInput("dateBreaksTSOtherCrudeMetric", "Number of Date Breaks (Label):", value = dateBreaksReactiveOtherCrudeMetric$breaksDate) # Number of date breaks  
+    ))
+    
+  })
+  
+  ###############################################
+  # Update the reactive value - scale of y-axis #
+  ###############################################
+  observeEvent(input$logScaleOtherCrudeMetric, {
+    
+      scaleYOtherCrudeMetric$logScale <- input$logScaleOtherCrudeMetric
+    
+  })
+  
+  #####################################################
+  # Update the reactive value - Number of date breaks #
+  #####################################################
+  observeEvent(input$dateBreaksTSOtherCrudeMetric,{
+    
+    # Updating the number of date breaks
+    dateBreaksReactiveOtherCrudeMetric$breaksDate <- input$dateBreaksTSOtherCrudeMetric
+    
+  })
+  
+  ###############################################
+  # Update the reactive value - Start at Y axis #
+  ###############################################
+  observeEvent(input$zeroStartOtherCrudeMetric,{
+    
+    # Updating the start point for the y-axis
+    startYReactiveOtherCrudeMetric$check <- input$zeroStartOtherCrudeMetric
+    
+  })
+  
+  
+  
+#------------------------------------------------------------------------------#
+# Plotting the crude metrics ---------------------------------------------------
+#------------------------------------------------------------------------------#
+# About: This section plots the crude metrics based upon the entered files,    #
+# the dashboard, and how the users filter the data.                            #
+#------------------------------------------------------------------------------#
+  
+  ####################################################
+  # Creating the reactive value to save the plots in #
+  ####################################################
+  CrudeMetricsOtherPlots <- reactiveValues()
+  
+  ###########################################
+  # Observing changes in reactive behaviors #
+  ###########################################
+  observe({
+    
+    ############################# 
+    # Runs if data is available #
+    #############################
+    tryCatch({
+      
+      ######################################
+      # List of triggering reactive values #
+      ######################################
+      CrudeMetricsOtherPlotsTrigger <- reactive({
+        
+        # Triggering events 
+        allEvents <- list(finalCrudeCombined$metricsFULL,
+                          scaleYOtherCrudeMetric$logScale,
+                          dateBreaksReactiveOtherCrudeMetric$breaksDate,
+                          startYReactiveOtherCrudeMetric$check)
+        
+        # Returning the list of reactive values 
+        return(allEvents)
+        
+      })
+      
+      #######################################################
+      # Function to produce the panel crude metrics figures #
+      #######################################################
+      observeEvent(CrudeMetricsOtherPlotsTrigger(), ignoreNULL = T, {
+        
+        ##################################
+        # Running only if data is loaded #
+        ##################################
+        if(all(!is.null(finalCrudeCombined$metricsFULL))){
+          
+          # Isolating to when one of the buttons is clicked 
+          isolate({
+            
+            #######################################################
+            # Function to produce the individual forecast figures #
+            #######################################################
+            crudeMetricOtherpanelOutput <- crudeMetricsFigureOther(crudedataforfigure.input = finalCrudeCombined$metricsFULL, 
+                                                                    date.Type.input = dateValues$dates,
+                                                                    date.break.input = dateBreaksReactiveOtherCrudeMetric$breaksDate, 
+                                                                    scale.y.input = scaleYOtherCrudeMetric$logScale,  
+                                                                    start.y.input = startYReactiveOtherCrudeMetric$check)
+                                         
+            
+            # Saving the output to the reactive value list
+            CrudeMetricsOtherPlots$figures <- crudeMetricOtherpanelOutput
+            
+          }) # End of isolate
+          
+        }
+        
+      }) # End of 'observeEvent'
+      
+    }, error = function(e){
+      
+      NULL
+      
+    }) # End of 'tryCatch'
+    
+  }) # End of 'observe'
+  
+#------------------------------------------------------------------------------#
+# Creating the previous and next arrows for the other panel figures ------------
+#------------------------------------------------------------------------------#
+# About: This section creates the reactive value, and previous and next arrow  #
+# buttons for the panel other crude metric figures. It then gives              #
+# functionality to the buttons as its related to going through the list of     #
+# figures.                                                                     #
+#------------------------------------------------------------------------------#
+  
+  #######################################################################
+  # Creating the reactive value to be used with the other panel buttons #
+  #######################################################################
+  current_index_crudeMetricPanel <- reactiveVal(1)
+  
+  #################################################
+  # Going backwards if the previous button is hit #
+  #################################################
+  observeEvent(input$otherCrudeMetricPanelsPrevious, {
+    
+    # Isolating the action to only when the button is clicked
+    isolate({
+      
+      # Running if the current index is greater than one
+      if(current_index_crudeMetricPanel() > 1){
+        
+        # Changing the index of the reactive value
+        current_index_crudeMetricPanel(max(current_index_crudeMetricPanel() - 1))
+        
+      }
+      
+    }) # End of 'isolate' statement
+    
+  }) # End of 'observeEvent' statement
+  
+  ############################################
+  # Going forwards if the next button is hit #
+  ############################################
+  observeEvent(input$otherCrudeMetricPanelsNext, {
+    
+    # Isolating the action to only when the button is clicked
+    isolate({
+      
+      # Run if the current index is less than the length of the list
+      if (current_index_crudeMetricPanel() < length(CrudeMetricsOtherPlots$figures)) {
+        
+        # Changing the index of the reactive value
+        current_index_crudeMetricPanel(min(current_index_crudeMetricPanel() + 1))
+        
+      }
+      
+    }) # End of 'isolate' statement
+    
+  }) # End of 'observeEvent' statement 
+  
+  ########################################################
+  # Resetting the index if the original data is filtered #
+  ########################################################
+  observeEvent(finalCrudeCombined$metricsFULL, {
+    
+    # Resetting the index
+    current_index_crudeMetricPanel(1)
+    
+  })
+  
+#------------------------------------------------------------------------------#
+# Rendering the crude metrics figures ------------------------------------------
+#------------------------------------------------------------------------------#
+# About: This section renders the panels of crude metrics figures created in   #
+# the above function.                                                          #
+#------------------------------------------------------------------------------#
+  
+  ########################
+  # Rendering the figure #
+  ########################
+  
+  #############################
+  # Try to produce the figure #
+  #############################
+  tryCatch({
+    
+    # Producing the panel plot
+    output$crudeMetricOtherPanel <- renderPlot({
+      
+      CrudeMetricsOtherPlots$figures[[current_index_crudeMetricPanel()]]
+      
+    })
+    
+  ########################
+  # Runs if error occurs #
+  ########################
+  }, error = function(e){
+    
+    output$crudeMetricOtherPanel <- NULL
+    
+  })
+  
+#------------------------------------------------------------------------------#
+# Creating the title for panel -------------------------------------------------
+#------------------------------------------------------------------------------#
+# About: Creating the title for the panel figures.                             #
+#------------------------------------------------------------------------------#
+  
+  #######################
+  # Rendering the title #
+  #######################
+  output$crudeMetricOtherPanelTitle <- renderText({
+
+    ###########################
+    # Runs if data is entered #
+    ###########################
+    tryCatch({
+
+      # Rendering the title
+      return(names(CrudeMetricsOtherPlots$figures[current_index_crudeMetricPanel()]))
+
+    ##############################
+    # Runs if no data is entered #
+    ##############################
+    }, error = function(e){
+
+      # Returning a NULL
+      NULL
+
+    }) # End of 'tryCatch'
+
+  })
+  
+#------------------------------------------------------------------------------#
+# Resetting the reactive value with the panel figures --------------------------
+#------------------------------------------------------------------------------#
+# About: This section resets the reactive value containing the crude metric    #
+# figures (panel) when the original data is changed.                           # 
+#------------------------------------------------------------------------------#
+  
+  ########################################################################
+  # Observing the change in the reactive value holding the original data #
+  ########################################################################
+  observeEvent(file(), {
+    
+    # Reset the reactive value to NULL when file() changes
+    CrudeMetricsOtherPlots$figures <- NULL
+    
+  })
+  
+#------------------------------------------------------------------------------#
+# Resetting the reactive value containing crude metrics panels if error --------
+#------------------------------------------------------------------------------#
+# About: This section resets the reactive value containing the crude metric    #
+# figures (panel) when the original data is changed.                           #
+#------------------------------------------------------------------------------#
+  
+  #######################################
+  # Observing changes in reactive value #
+  #######################################
+  observe({
+    
+    tryCatch({
+      
+      if(all(is.null(finalCrudeCombined$metricsFULL))){
+        
+        # Resetting the reactive value to NULL
+        CrudeMetricsOtherPlots$figures <- NULL
+    
+      }
+      
+      }, error = function(e){
+        
+        NULL
+      })
+    
+    })
+  
+#------------------------------------------------------------------------------#
+# Creating the download handler for the panel figures --------------------------
+#------------------------------------------------------------------------------#
+# About: This section enables the downloading of the crude metric figures to   #
+# the folder of the user's choosing.                                           #
+#------------------------------------------------------------------------------#
+  
+  #################################################
+  # Message that pops up with downloading options #
+  #################################################
+  
+  #################################
+  # Setting Figure Specifications #
+  #################################
+  observeEvent(input$downloadOtherCombinedMetricsFig, {
+    
+    ################################
+    # Figure specification options #
+    ################################
+    isolate({
+      
+      showModal(modalDialog(
+        
+        title = "Figure Specifications",
+        numericInput("dpi", "Figure DPI:", value = 900),
+        numericInput("width", "Figure Width:", value = 9),
+        numericInput('height', 'Figure Height:', value = 5),
+        pickerInput("units", label = "Unit of Measurement:", choices = c("in", "cm", "mm", "px")),
+        pickerInput("extFig", label = "Figure Type:", choices = c("png", "eps", "pdf", "tiff", "jpeg", "svg")),
+        downloadButton("downloadOtherCrudeMetrics", "Download Forecast Figures"),
+        easyClose = TRUE
+        
+      )) 
+      
+    })
+    
+  })  
+  
+  ##########################
+  # Downloading the images #
+  ##########################
+  output$downloadOtherCrudeMetrics <- downloadHandler(
+    
+    ####################
+    # Filename for ZIP #
+    ####################
+    filename = function(){
+      
+      paste("model-comparison-panel-crude-metrics.zip", sep = "")
+      
+    },
+    
+    ############################################
+    # Determining what should be in the folder #
+    ############################################
+    content = function(file){
+      
+      # Removing the message
+      removeModal()
+      
+      # Creating a temp directory for files 
+      temp_directory <- file.path(tempdir(), as.integer(Sys.time()))
+      
+      # Physically creating the directory 
+      dir.create(temp_directory)
+      
+      # Saving the ggplots 
+      for (plot_name in names(CrudeMetricsOtherPlots$figures)) {
+        
+        # Plot 
+        plot_obj <- CrudeMetricsOtherPlots$figures[[plot_name]]
+        
+        # If plot is found 
+        if (!is.null(plot_obj)) {
+          
+          # File name 
+          file_name <- glue("{plot_name}.{input$extFig}")
+          
+          # TIFF file 
+          if(input$extFig == ".tiff"){
+            ggsave(
+              file.path(temp_directory, file_name),
+              plot = plot_obj,
+              dpi = input$dpi,
+              width = input$width,
+              height = input$height,
+              units = input$units,
+              device = input$extFig,
+              compression = "lzw")
+            
+          }else{
+            
+            # All other image types
+            ggsave(
+              file.path(temp_directory, file_name),
+              plot = plot_obj,
+              dpi = input$dpi,
+              width = input$width,
+              height = input$height,
+              units = input$units,
+              device = input$extFig)
+            
+          }
+          
+        }
+        
+      }
+      
+      #####################
+      # Create a zip file #
+      #####################
+      zip::zip(
+        zipfile = file,
+        files = dir(temp_directory),
+        root = temp_directory
+      )
+      
+    },
+    
+    contentType = "application/zip"
+    
+  )
+  
+  
+#------------------------------------------------------------------------------#
 # Calculating the average metrics ----------------------------------------------
 #------------------------------------------------------------------------------#
 # This section calculates the average metrics based upon the crude metrics     #
 # from above. The average metrics are then saved within a reactive value for   #
 # filtering at later steps.                                                    #
 #------------------------------------------------------------------------------#
+ 
+  ############################################
+  # Reactive value to save the crude metrics #
+  ############################################
+  averageMetricsDataOther <- reactiveValues()
+  
+  ############################################
+  # Observing changes in the reactive values #
+  ############################################
+  observe({
+    
+    ################################
+    # Running if data is available #
+    ################################
+    tryCatch({
+      
+      #######################################################
+      # Function to produce the individual forecast figures #
+      #######################################################
+      observeEvent(crudeMetricsDataOther$data, ignoreNULL = T, {
+        
+        ##################################
+        # Running only if data is loaded #
+        ##################################
+        if(!is.null(crudeMetricsDataOther$data)){
+          
+          # Isolating to when one of the buttons is clicked 
+          isolate({
+            
+            ##################################
+            # Running only if data is loaded #
+            ##################################
+            avgMetricsOutput <- avgAllMetrics(metricsCrude.input = crudeMetricsDataOther$data)
+            
+          }) # End of isolate
+          
+          ##########################################
+          # Saving the metrics in a reactive value #
+          ##########################################
+          averageMetricsDataOther$data <- avgMetricsOutput
+          
+        }
+        
+      }) # End of 'observeEvent'
+      
+      #################################
+      # Runs if data is not available #
+      #################################
+    }, error = function(e){
+      
+      # Returning NULL
+      NULL
+      
+    }) # End of 'tryCaych'
+    
+  }) # End of 'observe'
+  
+  
+#------------------------------------------------------------------------------#
+# Returning the respective errors ----------------------------------------------
+#------------------------------------------------------------------------------#
+# About: This section clears the average metrics reactive value if an error    #
+# occurs with loaded data into the dashboard.                                  #
+#------------------------------------------------------------------------------#
+  
+  #################################################################
+  # Observing changes in the reactive value containing the panels #
+  #################################################################
+  observe({
+    
+    #############################
+    # Runs if data is available #
+    #############################
+    tryCatch({
+      
+      ##################################################################
+      # Error to return if the files are loaded prior to the dashboard #
+      ##################################################################
+      if(crudeMetricsDataOther$data == "ERROR1"){
+        
+        # Clearing the reactive value containing the average data
+        averageMetricsDataOther$data <- NULL
+        
+      #######################################################
+      # Error to return if the column names are not correct #
+      #######################################################
+      }else if(crudeMetricsDataOther$data == "ERROR2"){
+        
+        # Clearing the reactive value containing the average data
+        averageMetricsDataOther$data <- NULL
+        
+      ########################################################
+      # Error to return if the name of the file is incorrect #
+      ########################################################
+      }else if(crudeMetricsDataOther$data == "ERROR3"){
+        
+        # Clearing the reactive value containing the average data
+        averageMetricsDataOther$data <- NULL
+        
+      ###################################################
+      # Error to return if there is an issue with dates #
+      ###################################################
+      }else if(crudeMetricsDataOther$data == "ERROR4"){
+        
+        # Clearing the reactive value containing the average data
+        averageMetricsDataOther$data <- NULL
+        
+      ##########################################################
+      # Error to return if there is an issue with the location #
+      ##########################################################
+      }else if(crudeMetricsDataOther$data == "ERROR5"){
+        
+        # Clearing the reactive value containing the average data
+        averageMetricsDataOther$data <- NULL
+        
+      }
+      
+    #################################
+    # Runs if data is not available #
+    #################################
+    }, error = function(e){
+      
+      NULL
+      
+    })
+    
+  })
+  
+#------------------------------------------------------------------------------#
+# Clearing output --------------------------------------------------------------
+#------------------------------------------------------------------------------#
+# About: This section clears the average metrics output if the original data   #
+# is changed.                                                                  #
+#------------------------------------------------------------------------------#
+  
+  ###############################
+  # Looking for the data change #
+  ###############################
+  observeEvent(file(), {
+    
+    # Clearing the output
+    averageMetricsDataOther$data <- NULL
+    
+  })
+  
+#------------------------------------------------------------------------------#
+# Creating the filtering options for the average metrics data ------------------
+#------------------------------------------------------------------------------#
+# About: This section creates the filtering options for the average metrics    #
+# data table. The filtering options are triggered when the 'Filtering Options' #
+# button is clicked.                                                           #
+#------------------------------------------------------------------------------#
+  
+  ######################################
+  # Creating the needed reactive value #
+  ######################################
+
+  # To store the filtered average data
+  finalAvgCombined <- reactiveValues()
+
+  # Model choices
+  modelReactiveChoiceAvg <- reactiveValues()
+
+  # Selected models
+  modelReactiveSelectAvg <- reactiveValues()
+
+  # Performance metric choice
+  performanceReactiveChoiceAvg <- reactiveValues()
+
+  # Selected performance metric choices
+  performanceReactiveSelectAvg <- reactiveValues()
+
+  # Location choices
+  locationReactiveChoiceAvg <- reactiveValues()
+
+  # Selected locations
+  locationReactiveSelectAvg <- reactiveValues()
+
+  # Calibration length choices
+  calibrationReactiveChoiceAvg <- reactiveValues()
+
+  # Selected calibration lengths
+  calibrationReactiveSelectAvg <- reactiveValues()
+
+  # Horizon choices
+  horizonReactiveChoiceAvg <- reactiveValues()
+
+  # Selected horizon
+  horizonReactiveSelectAvg <- reactiveValues()
+
+  # Indicator for which data to show
+  indicatorForFilterMetricsAvg <- reactiveVal(0)
+
+  ########################################
+  # Observing changes in reactive values #
+  ########################################
+  observe({
+  
+    #####################################
+    # Running if information is entered #
+    #####################################
+    tryCatch({
+
+      # Running only if an error is not returned above
+      if(all(crudeMetricsDataOther$data %!in% c("ERROR1", "ERROR2", "ERROR3",
+                                                "ERROR4", "ERROR5", !is.null(averageMetricsDataOther$data)))){
+
+        # Average metrics data
+        avgMetrics <- averageMetricsDataOther$data
+      
+        #################
+        # Model Options #
+        #################
+
+        # Choices
+        modelReactiveChoiceAvg$data <- unique(avgMetrics$Model)
+
+        # Selected
+        modelReactiveSelectAvg$data <- modelReactiveChoiceAvg$data
+
+        ############################
+        # Performance type metrics #
+        ############################
+
+        # Choices
+        performanceReactiveChoiceAvg$data <- unique(avgMetrics$`Performance Metric Type`)
+
+        # Selected
+        performanceReactiveSelectAvg$data <- performanceReactiveChoiceAvg$data
+
+        ####################
+        # Location Options #
+        ####################
+
+        # Choices
+        locationReactiveChoiceAvg$data <- unique(avgMetrics$Location)
+
+        # Selected
+        locationReactiveSelectAvg$data <- locationReactiveChoiceAvg$data
+
+        #######################
+        # Calibration Options #
+        #######################
+
+        # Choices
+        calibrationReactiveChoiceAvg$data <- unique(avgMetrics$Calibration)
+
+        # Selected
+        calibrationReactiveSelectAvg$data <- calibrationReactiveChoiceAvg$data
+
+        ###################
+        # Horizon Options #
+        ###################
+
+        # Choices
+        horizonReactiveChoiceAvg$data <- unique(avgMetrics$Horizon)
+
+        # Selected
+        horizonReactiveSelectAvg$data <- horizonReactiveChoiceAvg$data
+
+        #######################
+        # Creating the pop-up #
+        #######################
+        observeEvent(input$filterAvgCombinedMetrics, ignoreInit = T,{
+
+          # Changing the indicator to one (i.e., button has been clicked)
+          isolate({indicatorForFilterMetricsAvg(1)})
+
+          # Isolating button click behavior
+          isolate({
+
+            # Button
+            showModal(modalDialog(
+              title = "Filtering Options",
+              pickerInput("ModelCrudeData2", "Model:", c(modelReactiveChoiceAvg$data), selected = c(modelReactiveSelectAvg$data), multiple = T), # Model filtering
+              pickerInput("perfType2", "Performance Metric Type:", c(performanceReactiveChoiceAvg$data), selected = c(performanceReactiveSelectAvg$data), multiple = T), # Metric Type
+              pickerInput("locationChoicesCrude2", "Location:", c(locationReactiveChoiceAvg$data), selected = c(locationReactiveSelectAvg$data), multiple = T), # Location
+              pickerInput("calibrationChoices2", "Calibration:", c(calibrationReactiveChoiceAvg$data), selected = c(calibrationReactiveSelectAvg$data), multiple = T), # Calibration
+              pickerInput("horizonChoices2", "Horizon:", c(horizonReactiveChoiceAvg$data), selected = c(horizonReactiveSelectAvg$data), multiple = T) # Horizon
+
+            ))
+
+          })
+
+        })
+
+        #######################################################
+        # Function to produce the individual forecast figures #
+        #######################################################
+        filteredMetricsAvg  <- filterOtherMetrics(crudeMetrics.input = NULL, # Crude metrics
+                                                  averageMetrics.input = averageMetricsDataOther$data, # Average metrics
+                                                  crudeModel.input = NULL, # Crude model choices
+                                                  crudePerformance.input = NULL, # Crude performance metric type
+                                                  crudeLocation.input = NULL, # Crude location choice
+                                                  crudeCalibration.input = NULL, # Crude calibration choice
+                                                  crudeHorizon.input = NULL, # Crude horizon choice
+                                                  AverageModel.input = input$ModelCrudeData2, # Average model choice
+                                                  AveragePerformance.input = input$perfType2, # Average performance metric type
+                                                  AverageLocation.input = input$locationChoicesCrude2, # Average location choice
+                                                  AverageCalibration.input = input$calibrationChoices2, # Average calibration choice
+                                                  AverageHorizon.input = input$horizonChoices2, # Average horizon choice
+                                                  inputindicator = indicatorForFilterMetricsAvg()) # Indicator for data to show
+                                                   
+
+        # Saving the results to the reactive value
+        finalAvgCombined$metricsFULL <- filteredMetricsAvg
+
+      } # End of 'else'
+
+    ####################################
+    # Running if data is NOT available #
+    ####################################
+    }, error = function(e){
+
+      NULL
+    })
+
+  })
+  
+
+#------------------------------------------------------------------------------#
+# Clearing the rendered average metrics ----------------------------------------
+#------------------------------------------------------------------------------#
+# About: This section clears the data rendered below if an error occurs in the #
+# data loaded process.                                                         #
+#------------------------------------------------------------------------------#
+  
+  #######################################
+  # Observing changes in reactive value #
+  #######################################
+  observe({
+    
+    ################################
+    # Running if data is available #
+    ################################
+    tryCatch({
+      
+      ####################################
+      # Clearing data if an error occurs #
+      ####################################
+      if(clearAverageMetricsOther() == 1){
+        
+        # Clearing the average metrics data 
+        finalAvgCombined$metricsFULL <- NULL
+        
+      #######################################
+      # Keeping the data if no error occurs #
+      #######################################
+      }else{
+        
+        # Keeping the normal metrics
+        finalAvgCombined$metricsFULL <- finalAvgCombined$metricsFULL
+        
+      }
+      
+    ####################################
+    # Running if data is not available #
+    ####################################
+    }, error = function(e){NULL})
+
+  })
+
+#------------------------------------------------------------------------------#
+# Rendering the data table with the average data -------------------------------
+#------------------------------------------------------------------------------#
+# About: This section renders the data table with the average data to the main #
+# dashboard.                                                                   #
+#------------------------------------------------------------------------------#
+
+  ############################
+  # Rendering the data frame #
+  ############################
+  output$AverageMetricsOther <- renderDataTable({
+
+    ###########################
+    # Runs if no errors occur #
+    ###########################
+    tryCatch({
+
+      # Returning the data frame
+      return(datatable(finalAvgCombined$metricsFULL))
+
+    ###########################
+    # Runs if an error occurs #
+    ###########################
+    }, error = function(e){
+
+      # Returning a null
+      NULL
+
+    }) # End of 'tryCatch'
+
+  }) # End of 'renderDataTable'
+
+
+#------------------------------------------------------------------------------#
+# Clearing the filtered data set and indicator ---------------------------------
+#------------------------------------------------------------------------------#
+# About: This section clears the final, filtered data and resets the indicator #
+# for the data to show (i.e., full or filtered). It is triggered when the      #
+# original data is changed.                                                    #
+#------------------------------------------------------------------------------#
+
+  ########################################################################
+  # Observing the change in the reactive value holding the original data #
+  ########################################################################
+  observeEvent(file(), {
+
+    if(is.null(foremattedForecasts$forecasts)){
+
+      # Filtered data
+      finalAvgCombined$metricsFULL <- NULL
+
+      # Resetting the indicator
+      indicatorForFilterMetricsAvg(0)
+
+    }
+
+  })
+
+#------------------------------------------------------------------------------#
+# Downloading the combined metrics data as a '.csv' ----------------------------
+#------------------------------------------------------------------------------#
+# About: This section provides interactivity to download button. Therefore, it #
+# allows users to download the combined average metrics as a '.csv' file to    #
+# the directory of their choosing.                                             #
+#------------------------------------------------------------------------------#
+
+  output$downloadAverageMetrics <- downloadHandler(
+
+    ####################################
+    # Function to create the file-name #
+    ####################################
+    filename = function() {
+
+      # File name
+      paste("combined-average-metrics-", input$dataset, sep = "")
+
+    },
+
+    #############################
+    # Function to save the file #
+    #############################
+    content = function(file) {
+
+      # Saving the file
+      write.csv(finalAvgCombined$metricsFULL, file, row.names = FALSE)
+
+    }
+
+  ) # End of download button
+
+
+#------------------------------------------------------------------------------#
+# Button to edit average metrics figures ---------------------------------------
+#------------------------------------------------------------------------------#
+# About: This section creates the buttons to edit the legend labels for the    #
+# panel figures of average metrics.                                            #
+#------------------------------------------------------------------------------#
+  
+  ############################################
+  # Reactive value for the y-axis scale type #
+  ############################################
+  scaleYOtherAvgMetric <- reactiveValues(logScale = NULL) 
+  
+  ########################################
+  # Reactive value for the low-end color #
+  ########################################
+  lowColorAverageMetricOther <- reactiveValues(lowColor = "#6495ED")
+  
+  #########################################
+  # Reactive value for the high-end color #
+  #########################################
+  highColorAverageMetricOther <- reactiveValues(highColor = "#D0312D")
+  
+  ########################################
+  # Reactive value for the outline color #
+  ########################################
+  outlineColorAverageMetricOther <- reactiveValues(outlineColor = "#FFFFFF")
+  
+  #####################################
+  # Reactive value for the text color #
+  #####################################
+  textColorAverageMetricOther <- reactiveValues(textColor = "#FFFFFF")
+  
+  ##############################
+  # Creating the button pop-up #
+  ##############################
+  observeEvent(input$figOptCombAvgMetrics, {
+    
+    # Determining the metric choices 
+    allMetricNames <- colnames(finalAvgCombined$metricsFULL)
+    
+    # Creating the metric choice variable
+    metricChoices <- allMetricNames[-c(1:5)]
+    
+    # Creating the pop-up
+    showModal(modalDialog(
+      title = "Figure Options",
+      pickerInput("logScaleOtherAvgMetric", "Metrics to Show in Log Base 10:", c("None", metricChoices), selected = scaleYOtherAvgMetric$logScale, multiple = T),
+      textInput("lowColor", "Color for the lowest values (#XXXXXX):", value = lowColorAverageMetricOther$lowColor),
+      textInput("highColor", "Color for the highest values (#XXXXXX):", value = highColorAverageMetricOther$highColor),
+      textInput("outlineColor", "Color for the outline of tiles (#XXXXXX):", value = outlineColorAverageMetricOther$outlineColor),
+      textInput("textColor", "Color for the text (#XXXXXX):", value = textColorAverageMetricOther$textColor)
+    ))
+    
+  })
+  
+  ###############################################
+  # Update the reactive value - scale of y-axis #
+  ###############################################
+  observeEvent(input$logScaleOtherAvgMetric, {
+    
+    scaleYOtherAvgMetric$logScale <- input$logScaleOtherAvgMetric
+    
+  })
   
   ##########################################
-  # Reactive value to save average metrics #
+  # Update the reactive value - Low colors #
   ##########################################
+  observeEvent(input$lowColor,{
+    
+    # Updating the number of date breaks
+    lowColorAverageMetricOther$lowColor <- input$lowColor
+    
+  })
+  
+  ###########################################
+  # Update the reactive value - High colors #
+  ###########################################
+  observeEvent(input$highColor,{
+    
+    # Updating the number of date breaks
+    highColorAverageMetricOther$highColor <- input$highColor
+    
+  })
+  
+  ##############################################
+  # Update the reactive value - Outline colors #
+  ##############################################
+  observeEvent(input$outlineColor,{
+    
+    # Updating the number of date breaks
+    outlineColorAverageMetricOther$outlineColor <- input$outlineColor
+    
+  })
+  
+  ###########################################
+  # Update the reactive value - Text colors #
+  ###########################################
+  observeEvent(input$textColor,{
+    
+    # Updating the number of date breaks
+    textColorAverageMetricOther$textColor <- input$textColor
+    
+  })
+  
+  
+#------------------------------------------------------------------------------#
+# Plotting the average metrics -------------------------------------------------
+#------------------------------------------------------------------------------#
+# About: This section plots the average metrics based upon the entered files,  #
+# the dashboard, and how the users filter the data.                            #
+#------------------------------------------------------------------------------#
+  
+  ####################################################
+  # Creating the reactive value to save the plots in #
+  ####################################################
+  AvgMetricsOtherPlots <- reactiveValues()
+  
+  ###########################################
+  # Observing changes in reactive behaviors #
+  ###########################################
+  observe({
+    
+    ############################# 
+    # Runs if data is available #
+    #############################
+    tryCatch({
+      
+      ######################################
+      # List of triggering reactive values #
+      ######################################
+      AvgMetricsOtherPlotsTrigger <- reactive({
+        
+        # Triggering events 
+        allEvents <- list(finalAvgCombined$metricsFULL,
+                          scaleYOtherAvgMetric$logScale,
+                          lowColorAverageMetricOther$lowColor,
+                          highColorAverageMetricOther$highColor,
+                          outlineColorAverageMetricOther$outlineColor,
+                          textColorAverageMetricOther$textColor) 
+        
+        # Returning the list of reactive values 
+        return(allEvents)
+        
+      })
+      
+      #########################################################
+      # Function to produce the panel average metrics figures #
+      #########################################################
+      observeEvent(AvgMetricsOtherPlotsTrigger(), ignoreNULL = T, {
+        
+        ##################################
+        # Running only if data is loaded #
+        ##################################
+        if(all(!is.null(finalAvgCombined$metricsFULL))){
+          
+          # Isolating to when one of the buttons is clicked 
+          isolate({
+            
+            #######################################################
+            # Function to produce the individual forecast figures #
+            #######################################################
+            avgMetricOtherpanelOutput <- avgMetricsFigureOther(avgData.input = finalAvgCombined$metricsFULL, 
+                                                                scale.y.input = scaleYOtherAvgMetric$logScale, 
+                                                                lowColor.input = lowColorAverageMetricOther$lowColor,
+                                                                highColor.input = highColorAverageMetricOther$highColor,  
+                                                                outlineColor.input = outlineColorAverageMetricOther$outlineColor, 
+                                                                textColor.input = textColorAverageMetricOther$textColor)
+            
+            # Saving the output to the reactive value list
+            AvgMetricsOtherPlots$figures <- avgMetricOtherpanelOutput
+            
+          }) # End of isolate
+          
+        }
+        
+      }) # End of 'observeEvent'
+      
+    }, error = function(e){
+      
+      NULL
+      
+    }) # End of 'tryCatch'
+    
+  }) # End of 'observe'
+  
+  
+#------------------------------------------------------------------------------#
+# Creating the previous and next arrows for the other metric figures -----------
+#------------------------------------------------------------------------------#
+# About: This section creates the reactive value, and previous and next arrow  #
+# buttons for the metric other crude metric figures. It then gives              #
+# functionality to the buttons as its related to going through the list of     #
+# figures.                                                                     #
+#------------------------------------------------------------------------------#
+  
+  #######################################################################
+  # Creating the reactive value to be used with the other panel buttons #
+  #######################################################################
+  current_index_avgMetricPanel <- reactiveVal(1)
+  
+  #################################################
+  # Going backwards if the previous button is hit #
+  #################################################
+  observeEvent(input$otheravgMetricPanelsPrevious, {
+    
+    # Isolating the action to only when the button is clicked
+    isolate({
+      
+      # Running if the current index is greater than one
+      if(current_index_avgMetricPanel() > 1){
+        
+        # Changing the index of the reactive value
+        current_index_avgMetricPanel(max(current_index_avgMetricPanel() - 1))
+        
+      }
+      
+    }) # End of 'isolate' statement
+    
+  }) # End of 'observeEvent' statement
+  
+  ############################################
+  # Going forwards if the next button is hit #
+  ############################################
+  observeEvent(input$otheravgMetricPanelsNext, {
+    
+    # Isolating the action to only when the button is clicked
+    isolate({
+      
+      # Run if the current index is less than the length of the list
+      if (current_index_avgMetricPanel() < length(AvgMetricsOtherPlots$figures)) {
+        
+        # Changing the index of the reactive value
+        current_index_avgMetricPanel(min(current_index_avgMetricPanel() + 1))
+        
+      }
+      
+    }) # End of 'isolate' statement
+    
+  }) # End of 'observeEvent' statement 
+  
+  ########################################################
+  # Resetting the index if the original data is filtered #
+  ########################################################
+  observeEvent(finalAvgCombined$metricsFULL, {
+    
+    # Resetting the index
+    current_index_avgMetricPanel(1)
+    
+  })
+  
+#------------------------------------------------------------------------------#
+# Rendering the average metrics figures ----------------------------------------
+#------------------------------------------------------------------------------#
+# About: This section renders the individual average metrics figures created   #
+# in the above function.                                                       #
+#------------------------------------------------------------------------------#
+  
+  ########################
+  # Rendering the figure #
+  ########################
+  
+  #############################
+  # Try to produce the figure #
+  #############################
+  tryCatch({
+    
+    # Producing the panel plot
+    output$avgMetricOtherPanel <- renderPlot({
+      
+      AvgMetricsOtherPlots$figures[[current_index_avgMetricPanel()]]
+      
+    })
+    
+    ########################
+    # Runs if error occurs #
+    ########################
+  }, error = function(e){
+    
+    output$avgMetricOtherPanel <- NULL
+    
+  })
+  
+#------------------------------------------------------------------------------#
+# Creating the title for individual avg figures  -------------------------------
+#------------------------------------------------------------------------------#
+# About: Creating the title for the individual average figures.                #
+#------------------------------------------------------------------------------#
+  
+  #######################
+  # Rendering the title #
+  #######################
+  output$avgMetricOtherPanelTitle <- renderText({
+    
+    ###########################
+    # Runs if data is entered #
+    ###########################
+    tryCatch({
+      
+      # Rendering the title
+      return(names(AvgMetricsOtherPlots$figures[current_index_avgMetricPanel()]))
+      
+      ##############################
+      # Runs if no data is entered #
+      ##############################
+    }, error = function(e){
+      
+      # Returning a NULL
+      NULL
+      
+    }) # End of 'tryCatch'
+    
+  })
+  
+#------------------------------------------------------------------------------#
+# Resetting the reactive value with the individual average figures -------------
+#------------------------------------------------------------------------------#
+# About: This section resets the reactive value containing the avg metric      #
+# figures when the original data is changed.                                   # 
+#------------------------------------------------------------------------------#
+  
+  ########################################################################
+  # Observing the change in the reactive value holding the original data #
+  ########################################################################
+  observeEvent(file(), {
+    
+    # Reset the reactive value to NULL when file() changes
+    AvgMetricsOtherPlots$figures <- NULL
+    
+  })
+  
+#------------------------------------------------------------------------------#
+# Resetting the reactive value containing avg metrics figures if error ---------
+#------------------------------------------------------------------------------#
+# About: This section resets the reactive value containing the avg metric      #
+# figures when the original data is changed.                                   #
+#------------------------------------------------------------------------------#
+  
+  #######################################
+  # Observing changes in reactive value #
+  #######################################
   observe({
     
     tryCatch({
       
-      metricscrude <- crudeMetricsDataOther$data
-    
+      if(all(is.null(finalAvgCombined$metricsFULL))){
+        
+        # Resetting the reactive value to NULL
+        AvgMetricsOtherPlots$figures <- NULL
+        
+      }
+      
     }, error = function(e){
       
       NULL
@@ -8760,9 +10665,830 @@ server <- function(input, output, session) {
     
   })
   
+#------------------------------------------------------------------------------#
+# Creating the download handler for the panel figures --------------------------
+#------------------------------------------------------------------------------#
+# About: This section enables the downloading of the average metric figures to #
+# the folder of the user's choosing.                                           #
+#------------------------------------------------------------------------------#
+
+  #################################################
+  # Message that pops up with downloading options #
+  #################################################
+
+  #################################
+  # Setting Figure Specifications #
+  #################################
+  observeEvent(input$downloadOtherCombinedMetricsFigAvg, {
+
+    ################################
+    # Figure specification options #
+    ################################
+    isolate({
+
+      showModal(modalDialog(
+
+        title = "Figure Specifications",
+        numericInput("dpi", "Figure DPI:", value = 900),
+        numericInput("width", "Figure Width:", value = 9),
+        numericInput('height', 'Figure Height:', value = 5),
+        pickerInput("units", label = "Unit of Measurement:", choices = c("in", "cm", "mm", "px")),
+        pickerInput("extFig", label = "Figure Type:", choices = c("png", "eps", "pdf", "tiff", "jpeg", "svg")),
+        downloadButton("downloadOtherAvgMetricsFig", "Download Forecast Figures"),
+        easyClose = TRUE
+
+      ))
+
+    })
+
+  })
+
+  ##########################
+  # Downloading the images #
+  ##########################
+  output$downloadOtherAvgMetricsFig <- downloadHandler(
+
+    ####################
+    # Filename for ZIP #
+    ####################
+    filename = function(){
+
+      paste("model-comparison-panel-average-metrics.zip", sep = "")
+
+    },
+
+    ############################################
+    # Determining what should be in the folder #
+    ############################################
+    content = function(file){
+
+      # Removing the message
+      removeModal()
+
+      # Creating a temp directory for files
+      temp_directory <- file.path(tempdir(), as.integer(Sys.time()))
+
+      # Physically creating the directory
+      dir.create(temp_directory)
+
+      # Saving the ggplots
+      for (plot_name in names(AvgMetricsOtherPlots$figures)) {
+
+        # Plot
+        plot_obj <- AvgMetricsOtherPlots$figures[[plot_name]]
+
+        # If plot is found
+        if (!is.null(plot_obj)) {
+
+          # File name
+          file_name <- glue("{plot_name}.{input$extFig}")
+
+          # TIFF file
+          if(input$extFig == ".tiff"){
+            ggsave(
+              file.path(temp_directory, file_name),
+              plot = plot_obj,
+              dpi = input$dpi,
+              width = input$width,
+              height = input$height,
+              units = input$units,
+              device = input$extFig,
+              compression = "lzw")
+
+          }else{
+
+            # All other image types
+            ggsave(
+              file.path(temp_directory, file_name),
+              plot = plot_obj,
+              dpi = input$dpi,
+              width = input$width,
+              height = input$height,
+              units = input$units,
+              device = input$extFig)
+
+          }
+
+        }
+
+      }
+
+      #####################
+      # Create a zip file #
+      #####################
+      zip::zip(
+        zipfile = file,
+        files = dir(temp_directory),
+        root = temp_directory
+      )
+
+    },
+
+    contentType = "application/zip"
+
+  )
+
+
+
+
+#------------------------------------------------------------------------------#
+# Winkler Scores ---------------------------------------------------------------
+#------------------------------------------------------------------------------#
+# About: This section calculates the Winkler Scores based upon the dashboard   #
+# models (i.e., ARIMA, GLM, GAM, and Prophet) and the formatted forecasts      #
+# read into the dashboard.                                                     #
+#------------------------------------------------------------------------------#
+
+######################################################
+# Creating a reactive value to save winkler score in #
+######################################################
+winklerScoresModelCompare <- reactiveValues()
+
+################################################
+# Observing changes in the formatted forecasts #
+################################################
+observe({
+  
+  ########################################
+  # Trying to run - If data is available #
+  ########################################
+  tryCatch({
+    
+    ###########################################
+    # Locations included in the original data #
+    ###########################################
+    dataLocations <- colnames(file())[-1]
+    
+    # Events
+    triggerWinklerOther <- reactive({
+      
+      events <- list(input$winklerOtherAvg, input$dataset2)
+      
+      return(events)
+      
+    })
+    
+    #####################################
+    # Observing changes in the data set #
+    #####################################
+    observeEvent(triggerWinklerOther(), ignoreNULL = T, {
+      
+      ##################################
+      # Running only if data is loaded #
+      ##################################
+      if(all(!is.null(listOtherForecasts$forecastData))){
+    
+        # Isolating to when the data is changed 
+        isolate({
+          
+          #######################################
+          # Running the winkler scores function #
+          #######################################
+          winkler.scores.output <- Winkler.Scores.Model.Comparison(formatted.forecast.Other = listOtherForecasts$forecastData, # Formatted forecast dashboard
+                                                                   formatted.forecast.DASHBOARD = foremattedForecasts$forecasts, # Formatted forecast inputted
+                                                                   calibrationPeriod.input = input$calibrationPeriod, # Calibration
+                                                                   forecastHorizon.input = input$forecastHorizon, # Horizon
+                                                                   locations.input = dataLocations, # Location list 
+                                                                   date.type.input = dateValues$dates, # Date type
+                                                                   avgWinler.input = input$winklerOtherAvg) # Winkler Scores
+        
+      
+          # Saving the output to a reactive value
+          winklerScoresModelCompare$scores <- winkler.scores.output
+        
+       }) # End of isolate
+        
+      } # End of if-else
+      
+    }) # End of 'observeEvent' 
+    
+  ###################################
+  # Returns if the code can not run #
+  ###################################
+  }, error = function(e){
+    
+    # Returning a NULL
+    NULL
+    
+  }) # End of 'tryCatch'
+  
+}) # End of 'observe'
+
+
+
+#------------------------------------------------------------------------------#
+# Clearing the output if an error occurs ---------------------------------------
+#------------------------------------------------------------------------------#
+# About: This section clears the Winkler scores output if an error occurs in   #
+# the loaded data.                                                             #
+#------------------------------------------------------------------------------#
+
+#################################################################
+# Observing changes in the reactive value containing the panels #
+#################################################################
+observe({
+  
+  #############################
+  # Runs if data is available #
+  #############################
+  tryCatch({
+    
+    ##################################################################
+    # Error to return if the files are loaded prior to the dashboard #
+    ##################################################################
+    if(winklerScoresModelCompare$scores == "ERROR1"){
+      
+      # Clearing reactive values holding winkler scores
+      winklerScoresModelCompare$scores <- NULL
+      
+      # Clearing reactive value containing other formatted forecast data 
+      listOtherForecasts$forecastData <- NULL
+      
+    #######################################################
+    # Error to return if the column names are not correct #
+    #######################################################
+    }else if(winklerScoresModelCompare$scores == "ERROR2"){
+      
+      # Clearing reactive values holding winkler scores
+      winklerScoresModelCompare$scores <- NULL
+      
+      # Clearing reactive value containing other formatted forecast data 
+      listOtherForecasts$forecastData <- NULL
+      
+    ########################################################
+    # Error to return if the name of the file is incorrect #
+    ########################################################
+    }else if(winklerScoresModelCompare$scores == "ERROR3"){
+      
+      # Clearing reactive values holding winkler scores
+      winklerScoresModelCompare$scores <- NULL
+      
+      # Clearing reactive value containing other formatted forecast data 
+      listOtherForecasts$forecastData <- NULL
+      
+    ###################################################
+    # Error to return if there is an issue with dates #
+    ###################################################
+    }else if(winklerScoresModelCompare$scores == "ERROR4"){
+      
+      # Clearing reactive values holding winkler scores
+      winklerScoresModelCompare$scores <- NULL
+      
+      # Clearing reactive value containing other formatted forecast data 
+      listOtherForecasts$forecastData <- NULL
+      
+    ##########################################################
+    # Error to return if there is an issue with the location #
+    ##########################################################
+    }else if(winklerScoresModelCompare$scores == "ERROR5"){
+      
+      # Clearing reactive values holding winkler scores
+      winklerScoresModelCompare$scores <- NULL
+      
+      # Clearing reactive value containing other formatted forecast data 
+      listOtherForecasts$forecastData <- NULL
+      
+    }
+    
+  #################################
+  # Runs if data is not available #
+  #################################
+  }, error = function(e){
+    
+    NULL
+    
+  })
+  
+})  
+
+ 
+#------------------------------------------------------------------------------#
+# Clearing output --------------------------------------------------------------
+#------------------------------------------------------------------------------#
+# About: This section clears the Winkler score output if the original data     #
+# is changed.                                                                  #
+#------------------------------------------------------------------------------#
+  
+  ###############################
+  # Looking for the data change #
+  ###############################
+  observeEvent(file(), {
+    
+    # Clearing the output
+    winklerScoresModelCompare$scores <- NULL
+    
+    # Resetting the indicator
+    indicatorForFilterWinkler(0)
+    
+  })
+  
+  
+#------------------------------------------------------------------------------#
+# Creating the filtering options for the Winkler Scores data -------------------
+#------------------------------------------------------------------------------#
+# About: This section creates the filtering options for the Winkler Scores     #
+# data table. The filtering options are triggered when the 'Filtering Options' #
+# button is clicked.                                                           #
+#------------------------------------------------------------------------------#
+  
+  ######################################
+  # Creating the needed reactive value #
+  ######################################
+  
+  # To store the filtered Winkler Scores data
+  finalWinklerCombined <- reactiveValues()
+  
+  # Model choices
+  modelReactiveChoiceWinkler <- reactiveValues()
+  
+  # Selected models
+  modelReactiveSelectWinkler <- reactiveValues()
+  
+  # Performance metric choice
+  performanceReactiveChoiceWinkler <- reactiveValues()
+  
+  # Selected performance metric choices
+  performanceReactiveSelectWinkler <- reactiveValues()
+  
+  # Location choices
+  locationReactiveChoiceWinkler <- reactiveValues()
+  
+  # Selected locations
+  locationReactiveSelectWinkler <- reactiveValues()
+  
+  # Calibration length choices
+  calibrationReactiveChoiceWinkler <- reactiveValues()
+  
+  # Selected calibration lengths
+  calibrationReactiveSelectWinkler <- reactiveValues()
+  
+  # Horizon choices
+  horizonReactiveChoiceWinkler <- reactiveValues()
+  
+  # Selected horizon
+  horizonReactiveSelectWinkler <- reactiveValues()
+  
+  # Indicator for which data to show 
+  indicatorForFilterWinkler <- reactiveVal(0)
+  
+ ########################################
+ # Observing changes in reactive values #
+ ########################################
+ observe({
+
+   #####################################
+   # Running if information is entered #
+   #####################################
+   tryCatch({
+
+     # Running only if an error is not returned above
+     if(all(winklerScoresModelCompare$scores %!in% c("ERROR1", "ERROR2", "ERROR3",
+                                               "ERROR4", "ERROR5", !is.null(winklerScoresModelCompare$scores)))){
+
+       # Winkler Scores data
+       winklerScoreData <- winklerScoresModelCompare$scores
+
+       #################
+       # Model Options #
+       #################
+
+       # Choices
+       modelReactiveChoiceWinkler$data <- unique(winklerScoreData$Model)
+
+       # Selected
+       modelReactiveSelectWinkler$data <- modelReactiveChoiceWinkler$data
+
+       ############################
+       # Performance type metrics #
+       ############################
+
+       # Choices
+       performanceReactiveChoiceWinkler$data <- unique(winklerScoreData$`Performance Metric Type`)
+
+       # Selected
+       performanceReactiveSelectWinkler$data <- performanceReactiveChoiceWinkler$data
+
+       ####################
+       # Location Options #
+       ####################
+
+       # Choices
+       locationReactiveChoiceWinkler$data <- unique(winklerScoreData$Location)
+
+       # Selected
+       locationReactiveSelectWinkler$data <- locationReactiveChoiceWinkler$data
+
+       #######################
+       # Calibration Options #
+       #######################
+
+       # Choices
+       calibrationReactiveChoiceWinkler$data <- unique(winklerScoreData$Calibration)
+
+       # Selected
+       calibrationReactiveSelectWinkler$data <- calibrationReactiveChoiceWinkler$data
+
+       ###################
+       # Horizon Options #
+       ###################
+
+       # Choices
+       horizonReactiveChoiceWinkler$data <- unique(winklerScoreData$Horizon)
+
+       # Selected
+       horizonReactiveSelectWinkler$data <- horizonReactiveChoiceWinkler$data
+
+       #######################
+       # Creating the pop-up #
+       #######################
+       observeEvent(input$filterWinklerOtherMetrics, ignoreInit = T,{
+         
+         # Changing the indicator to one (i.e., button has been clicked)
+         isolate({indicatorForFilterWinkler(1)})
+
+         # Isolating button click behavior
+         isolate({
+
+           # Button
+           showModal(modalDialog(
+             title = "Filtering Options",
+             pickerInput("ModelWinklerOther", "Model:", c(modelReactiveChoiceWinkler$data), selected = c(modelReactiveSelectWinkler$data), multiple = T), # Model filtering
+             pickerInput("perfTypeWinkler", "Performance Metric Type:", c(performanceReactiveChoiceWinkler$data), selected = c(performanceReactiveSelectWinkler$data), multiple = T), # Metric Type
+             pickerInput("locationChoicesWinkler", "Location:", c(locationReactiveChoiceWinkler$data), selected = c(locationReactiveSelectWinkler$data), multiple = T), # Location
+             pickerInput("calibrationChoicesWinkler", "Calibration:", c(calibrationReactiveChoiceWinkler$data), selected = c(calibrationReactiveSelectWinkler$data), multiple = T), # Calibration
+             pickerInput("horizonChoicesWinkler", "Horizon:", c(horizonReactiveChoiceWinkler$data), selected = c(horizonReactiveSelectWinkler$data), multiple = T) # Horizon
+
+           ))
+
+         })
+
+       })
+
+       #####################################################
+       # Function to filter Winkler Scores - Other Metrics #
+       #####################################################
+       filterOtherWinkler <- filterOtherWinkler(Winkler.input = winklerScoresModelCompare$scores, # Original metrics 
+                                                WinklerModel.input = input$ModelWinklerOther, # Winkler model filter
+                                                WinklerPerformance.input = input$perfTypeWinkler, # Winkler performance filter
+                                                WinklerLocation.input = input$locationChoicesWinkler, # Winkler location filter 
+                                                WinklerCalibration.input = input$calibrationChoicesWinkler, # Winkler calibration filter
+                                                WinklerHorizon.input = input$horizonChoicesWinkler, # Winkler horizon filter
+                                                indicatorToShow = indicatorForFilterWinkler()) # Indicator to show
+
+
+       # Saving the results to the reactive value
+       finalWinklerCombined$metricsFULL <- filterOtherWinkler
+
+     } # End of 'else'
+
+    ####################################
+    # Running if data is NOT available #
+    ####################################
+    }, error = function(e){
+
+      NULL
+    })
+
+ })
+  
+#------------------------------------------------------------------------------#
+# Rendering the data table with the winkler scores data ------------------------
+#------------------------------------------------------------------------------#
+# About: This section renders the data table with the winkler data to the main #
+# dashboard.                                                                   #
+#------------------------------------------------------------------------------#
+  
+  ############################
+  # Rendering the data frame #
+  ############################
+  output$winklerScoresOther <- renderDataTable({
+    
+    ###########################
+    # Runs if no errors occur #
+    ###########################
+    tryCatch({
+      
+      # Returning the data frame
+      return(datatable(finalWinklerCombined$metricsFULL))
+      
+    ###########################
+    # Runs if an error occurs #
+    ###########################
+    }, error = function(e){
+      
+      # Returning a null 
+      NULL
+      
+    }) # End of 'tryCatch'
+    
+  }) # End of 'renderDataTable'  
+  
+ 
+#------------------------------------------------------------------------------#
+# Downloading the Winkler data as a '.csv' -------------------------------------
+#------------------------------------------------------------------------------#
+# About: This section provides interactivity to download button. Therefore, it #
+# allows users to download the Winkler Scores as a '.csv' file to              #
+# the directory of their choosing.                                             #
+#------------------------------------------------------------------------------#
+  
+  output$downloadWinklerMetrics <- downloadHandler(
+    
+    ####################################
+    # Function to create the file-name #
+    ####################################
+    filename = function() {
+      
+      # File name
+      paste("model-compare-Winkler-Scores-", input$dataset, sep = "")
+      
+    },
+    
+    #############################
+    # Function to save the file #
+    #############################
+    content = function(file) {
+      
+      # Saving the file
+      write.csv(finalWinklerCombined$metricsFULL, file, row.names = FALSE)
+      
+    }
+    
+  ) # End of download button 
+  
+  
+#------------------------------------------------------------------------------#
+# Creating the filtering options for the Skill Scores data ---------------------
+#------------------------------------------------------------------------------#
+# About: This section creates the filtering options for the Skill Scores       #
+# data table. The filtering options are triggered when the 'Filtering Options' #
+# button is clicked.                                                           #
+#------------------------------------------------------------------------------#
+  
+  ######################################
+  # Creating the needed reactive value #
+  ######################################
+  
+  # To store the filtered Skill Scores data
+  finalSSCombined <- reactiveValues()
+  
+  # Model choices - Baseline
+  modelReactiveChoiceBaseline <- reactiveValues()
+  
+  # Selected models - Baseline
+  modelReactiveSelectBaseline <- reactiveValues()
+  
+  # Model choices - Comparison
+  modelReactiveChoiceComparison <- reactiveValues()
+  
+  # Selected models - Comparison
+  modelReactiveSelectComparison <- reactiveValues()
+  
+  # Performance Metrics Choices 
+  performanceReactiveChoiceSS <- reactiveValues()
+  
+  # Performance Metrics Selected 
+  performanceReactiveSelectSS <- reactiveValues()
+  
+  # Location choices
+  locationReactiveChoiceSS <- reactiveValues()
+  
+  # Selected locations
+  locationReactiveSelectSS <- reactiveValues()
+  
+  # Calibration length choices
+  calibrationReactiveChoiceSS <- reactiveValues()
+  
+  # Selected calibration lengths
+  calibrationReactiveSelectSS <- reactiveValues()
+  
+  # Horizon choices
+  horizonReactiveChoiceSS <- reactiveValues()
+  
+  # Selected horizon
+  horizonReactiveSelectSS <- reactiveValues() 
+  
+  # Indicator for which metrics to show
+  filterSSIndicator <- reactiveVal(0)
+  
+  ########################################
+  # Observing changes in reactive values #
+  ########################################
+  observe({
+    
+    #####################################
+    # Running if information is entered #
+    #####################################
+    tryCatch({
+      
+      # Running only if an error is not returned above
+      if(all(averageMetricsDataOther$data %!in% c("ERROR1", "ERROR2", "ERROR3",
+                                                      "ERROR4", "ERROR5", !is.null(averageMetricsDataOther$data)))){
+        
+        # Average Metrics Data
+        avgMetData <- averageMetricsDataOther$data
+        
+        ############################
+        # Model Options - Baseline #
+        ############################
+        
+        # Choices
+        modelReactiveChoiceBaseline$data <- c(unique(avgMetData$Model))
+        
+        # Selected
+        modelReactiveSelectBaseline$data <- modelReactiveChoiceBaseline$data
+        
+        ##############################
+        # Model Options - Comparison #
+        ##############################
+
+        # Choices
+        modelReactiveChoiceComparison$data <- c(unique(avgMetData$Model))
+
+        # Selected
+        modelReactiveSelectComparison$data <- modelReactiveChoiceComparison$data
+
+        ############################
+        # Performance type metrics #
+        ############################
+
+        # Choices
+        performanceReactiveChoiceSS$data <- c(unique(avgMetData$`Performance Metric Type`))
+
+        # Selected
+        performanceReactiveSelectSS$data <- performanceReactiveChoiceSS$data
+
+        ####################
+        # Location Options #
+        ####################
+
+        # Choices
+        locationReactiveChoiceSS$data <- c(unique(avgMetData$Location))
+
+        # Selected
+        locationReactiveSelectSS$data <- locationReactiveChoiceSS$data
+
+        #######################
+        # Calibration Options #
+        #######################
+
+        # Choices
+        calibrationReactiveChoiceSS$data <- unique(avgMetData$Calibration)
+
+        # Selected
+        calibrationReactiveSelectSS$data <- calibrationReactiveChoiceSS$data
+
+        ###################
+        # Horizon Options #
+        ###################
+
+        # Choices
+        horizonReactiveChoiceSS$data <- unique(avgMetData$Horizon)
+
+        # Selected
+        horizonReactiveSelectSS$data <- horizonReactiveChoiceSS$data
+
+        #######################
+        # Creating the pop-up #
+        #######################
+        observeEvent(input$filterSkillScoresOtherMetrics, ignoreInit = T,{
+          
+          # Setting the indicator
+          isolate({filterSSIndicator(1)})
+        
+            # Button
+            showModal(modalDialog(
+              title = "Filtering Options",
+              pickerInput("baselineModels", "Baseline Model(s):", c(modelReactiveChoiceBaseline$data), selected = c(modelReactiveSelectBaseline$data), multiple = T), # Model filtering - Baseline
+              pickerInput("compareModels2", "Comparison Model(s):", c(modelReactiveChoiceComparison$data), selected = c(modelReactiveSelectComparison$data), multiple = T), # Model filtering - Comparison
+              pickerInput("perfTypeSS", "Performance Metric Type:", c(performanceReactiveChoiceSS$data), selected = c(performanceReactiveSelectSS$data), multiple = T), # Metric Type
+              pickerInput("locationInputSelect", "Location:", c(locationReactiveChoiceSS$data), selected = c(locationReactiveSelectSS$data), multiple = T), # Location
+              pickerInput("calibrationChoicesSS", "Calibration:", c(calibrationReactiveChoiceSS$data), selected = c(calibrationReactiveSelectSS$data), multiple = T), # Calibration
+              pickerInput("horizonChoicesSS", "Horizon:", c(horizonReactiveChoiceSS$data), selected = c(horizonReactiveSelectSS$data), multiple = T) # Horizon
+
+              ))
+  
+          
+        })
+        
+        ################################
+        # Calculating the skill scores #
+        ################################
+        skillScores <- skillScoresOther(winkler.input = winklerScoresModelCompare$scores, # Winkler Scores 
+                                        averageMetrics.input = averageMetricsDataOther$data, # Average Metrics 
+                                        crudeMetrics.input = crudeMetricsDataOther$data, # Crude metrics
+                                        averageIndicator.input = input$seeAvgSSOther, # Average metrics Indicator
+                                        baseline.input = input$baselineModels, # Baseline models  
+                                        compare.input = input$compareModels2, # Comparison models 
+                                        filter.input = filterSSIndicator(), # Filtering input
+                                        performance.input = input$perfTypeSS, # Performance metrics input
+                                        location.input = input$locationInputSelect, # Location input 
+                                        calibration.input = input$calibrationChoicesSS, # Calibration input 
+                                        horizon.input = input$horizonChoicesSS) # Forecasting horizon input
+                         
+        
+
+
+        # Saving the results to the reactive value
+        finalSSCombined$metricsFULL <- skillScores
+        
+      } # End of 'else'
+      
+    ####################################
+    # Running if data is NOT available #
+    ####################################
+    }, error = function(e){
+      
+      NULL
+    })
+    
+  })
+  
+#------------------------------------------------------------------------------#
+# Clearing output --------------------------------------------------------------  
+#------------------------------------------------------------------------------#
+# About: This section clears the skill score output if the original data     #
+# is changed.                                                                  #
+#------------------------------------------------------------------------------#
+  
+  ###############################
+  # Looking for the data change #
+  ###############################
+  observeEvent(file(), {
+    
+    # Clearing the output
+    finalSSCombined$metricsFULL <- NULL
+    
+    # Resetting the indicator
+    filterSSIndicator(0)
+    
+  })
+  
+#------------------------------------------------------------------------------#
+# Rendering the data table with the skill scores data -------------------------
+#------------------------------------------------------------------------------#
+# About: This section renders the data table with the skill scores data to the #
+# main dashboard.                                                              #
+#------------------------------------------------------------------------------#
+  
+  ############################
+  # Rendering the data frame #
+  ############################
+  output$skillScoresOtherOUTPUT <- renderDataTable({
+    
+    ###########################
+    # Runs if no errors occur #
+    ###########################
+    tryCatch({
+      
+      # Returning the data frame
+      return(datatable(finalSSCombined$metricsFULL))
+      
+    ###########################
+    # Runs if an error occurs #
+    ###########################
+    }, error = function(e){
+      
+      # Returning a null 
+      NULL
+      
+    }) # End of 'tryCatch'
+    
+  }) # End of 'renderDataTable'  
+
+#------------------------------------------------------------------------------#
+# Downloading the skill scores data as a '.csv' --------------------------------
+#------------------------------------------------------------------------------#
+# About: This section provides interactivity to download button. Therefore, it #
+# allows users to download the skill Scores as a '.csv' file to                #
+# the directory of their choosing.                                             #
+#------------------------------------------------------------------------------#
+  
+  output$downloadSSMetricsOther <- downloadHandler(
+    
+    ####################################
+    # Function to create the file-name #
+    ####################################
+    filename = function() {
+      
+      # File name
+      paste("model-compare-Skill-Scores-", input$dataset, sep = "")
+      
+    },
+    
+    #############################
+    # Function to save the file #
+    #############################
+    content = function(file) {
+      
+      # Saving the file
+      write.csv(finalSSCombined$metricsFULL, file, row.names = FALSE)
+      
+    }
+    
+  ) # End of download button 
   
   
 }
-
 
 shinyApp(ui = ui, server = server)

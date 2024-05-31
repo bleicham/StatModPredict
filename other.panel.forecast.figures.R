@@ -19,7 +19,7 @@ other.panel.forecast.figures <- function(formatted.forecast.input,
                                          date.type.input, yAxisScale.input,
                                          yAxisLabel.input, dateBreaks.input,
                                          startY.input, dataDot.input,
-                                         errorGLM.input){
+                                         errorGLM.input, location.input) {
   
 
   
@@ -46,7 +46,7 @@ other.panel.forecast.figures <- function(formatted.forecast.input,
   ###########################
   # Formatted Forecast list #
   ###########################
-  formatted.forecast.Figure <- formatted.forecast.input
+  orignalData.input <- formatted.forecast.input
   
   ############################################
   # Reading in the other formatted forecasts #
@@ -87,6 +87,11 @@ other.panel.forecast.figures <- function(formatted.forecast.input,
   # Error term - GLM #
   ####################
   errorGLM <- errorGLM.input 
+  
+  ######################
+  # Original Locations #
+  ######################
+  locationOrg <- location.input
     
   ###############################################################
   # Creating and empty list for figures - Forecast period dates #
@@ -112,6 +117,111 @@ other.panel.forecast.figures <- function(formatted.forecast.input,
   # Final list of figures #
   #########################
   finalList <- list()
+  
+  
+#------------------------------------------------------------------------------#
+# Error for running the figures without the dashboard results ------------------
+#------------------------------------------------------------------------------#
+# About: This section returns an error if a user trys to load other files      #
+# prior to running the full dashboard.                                         #
+#------------------------------------------------------------------------------#
+  
+  if(all(any(is.null(orignalData.input) || length(orignalData.input) == 0) & !is.null(other.formatted.forecasts))){
+    
+    # Error to return
+    return("ERROR1")
+    
+  }
+  
+#------------------------------------------------------------------------------#
+# Potential errors with the loaded data ----------------------------------------
+#------------------------------------------------------------------------------#
+# About: This section checks for errors in the column names and file names of  #
+# the loaded data.                                                             #
+#------------------------------------------------------------------------------#
+  
+  for(i in 1:length(other.formatted.forecasts)){
+    
+    # Indexed file
+    data <- other.formatted.forecasts[[i]]
+    
+    #############################
+    # Checking the column names #
+    #############################
+    
+    # Expected
+    expectedNames <- c("Date", "data", "median", "LB", "UB")
+    
+    # Observed
+    observedNames <- c(colnames(data))
+    
+    # Checking if they match each other
+    if(any(expectedNames != observedNames)){
+      
+      # Returning an error
+      return("ERROR2")
+      
+    }
+    
+    ##########################
+    # Checking the file name #
+    ##########################
+    
+    # Indexed file name
+    dataName <- names(other.formatted.forecasts)[i]
+    
+    # Checking for the word horizon #
+    horizonModel <- qdapRegex::ex_between(dataName, "-", "-calibration")[[1]][1]
+    
+    # Horizon
+    horizon <- qdapRegex::ex_between(horizonModel, "-", "-")[[1]][1]
+    
+    # Checking for the word calibration #
+    calibration <- qdapRegex::ex_between(dataName, paste0(horizonModel, "-"), "-")[[1]][1]
+    
+    # Checking if they match what is expected
+    if(any(horizon != "horizon" || calibration != "calibration")){
+      
+      # Returning an error
+      return("ERROR3")
+      
+    }
+    
+    ###############################
+    # Checking date specification #
+    ###############################
+    
+    # Pulling the calibration period length
+    caliLength <- qdapRegex::ex_between(dataName, paste0(calibration, "-"), "-")[[1]][1]
+    
+    # Pulling the location
+    location <- qdapRegex::ex_between(dataName, paste0(calibration, "-", caliLength, "-"), "-")[[1]][1]
+    
+    # Pulling the date
+    date <- qdapRegex::ex_between(dataName,  paste0(location, "-"), ".csv")[[1]][1]
+    
+    # Checking the date
+    if(all(date.Figure == 'year' & nchar(date) != 4)){
+      
+      # Returning an Error
+      return("ERROR4")
+      
+    }else if(all(date.Figure %in% c("week", "day") & nchar(date) != 10)){
+      
+      return("ERROR4")
+      
+    }
+    
+    ##########################
+    # Checking the locations #
+    ##########################
+    if(location %!in% c(locationOrg)){
+      
+      return("ERROR5")
+      
+    }
+    
+  }
   
 #------------------------------------------------------------------------------#
 # Fixing the scale for the time series data -------------------------------------
@@ -189,6 +299,14 @@ other.panel.forecast.figures <- function(formatted.forecast.input,
     # Location
     location <- qdapRegex::ex_between(indexedOtherName, paste0("calibration-", calibration, "-"), "-")[[1]][1]
     
+    # Checking the location
+    if(location %!in% locationOrg){
+      
+      print("Error1")
+      return("Error1")
+      
+    }
+    
     # Determining the forecast period from the name
     forecastPeriod <- qdapRegex::ex_between(indexedOtherName, paste0(location, "-"), ".csv")[[1]][1]
     
@@ -254,15 +372,15 @@ other.panel.forecast.figures <- function(formatted.forecast.input,
   ###############################################################
   # Running only if ARIMA/GLM/GAM/Prophet forecasts are entered #
   ###############################################################
-  if(!is.null((formatted.forecast.Figure))){
+  if(!is.null((orignalData.input))){
   
   #########################################################
   # Cleaning up the ARIMA, GLM, GAM and Prophet forecasts #
   #########################################################
-  for(i in 1:length(formatted.forecast.Figure)){
+  for(i in 1:length(orignalData.input)){
     
     # Determining the name of the indexed forecast
-    nameIndex <- names(formatted.forecast.Figure[i])
+    nameIndex <- names(orignalData.input[i])
     
     # Model type 
     model <- strsplit(nameIndex, "[-]")[[1]][1]
@@ -290,7 +408,7 @@ other.panel.forecast.figures <- function(formatted.forecast.input,
     if(model == "ARIMA"){
       
       # Data for plot 
-      data.for.plot <- formatted.forecast.Figure[[i]] %>% # Re-naming the orginal data 
+      data.for.plot <- orignalData.input[[i]] %>% # Re-naming the orginal data 
         dplyr::mutate(median = ifelse(is.na(median), data, median), # Handling NAs for the median model fit
                       LB = ifelse(is.na(LB), data, LB), # Handling the NAs for the LB model fit
                       UB = ifelse(is.na(UB), data, UB)) # Handling the NAs for the UB model fit
@@ -302,7 +420,7 @@ other.panel.forecast.figures <- function(formatted.forecast.input,
     }else{
       
       # Renaming the data 
-      data.for.plot <- formatted.forecast.Figure[[i]]
+      data.for.plot <- orignalData.input[[i]]
       
     }
     

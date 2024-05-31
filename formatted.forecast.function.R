@@ -245,7 +245,8 @@ formatted.forecast.function <- function(quantile.input, data.input,
     
     # Rounding
     formattedForecast <- formattedForecast %>%
-      dplyr::mutate(median = round(median, 2), # Rounding Median
+      dplyr::mutate(data = round(data, 2), # Rounding the data 
+                    median = round(median, 2), # Rounding Median
                     LB = round(LB, 2), # Rounding LB
                     UB = round(UB, 2)) # Rounding UB
     

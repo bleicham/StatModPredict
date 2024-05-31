@@ -5,10 +5,24 @@
 #------------------------------------------------------------------------------#
 #                         By: Amanda Bleichrodt                                #
 #------------------------------------------------------------------------------#
-Otherforecast.figures <- function(formattedForecastInput, date.type.input,
+Otherforecast.figures <- function(OTHERformattedForecastInput, date.type.input,
                                   scaleYAxis.input, yAxisLabel.input, 
                                   dateBreaks.input, startYPoint.input, 
-                                  dotSize.input) {
+                                  dotSize.input, locations.input,
+                                  orignalData.input) {
+  
+#------------------------------------------------------------------------------#
+# Creating the 'not-in' function -----------------------------------------------
+#------------------------------------------------------------------------------#
+# About: This section creates the 'not-in' function. Therefore, `%!in%` now    #
+# can be used as the inverse of the built-in `%in%` function.                  #
+#------------------------------------------------------------------------------#
+  
+  `%!in%` <- function(x, y) {
+    
+    !(x %in% y)
+    
+  }
   
 #------------------------------------------------------------------------------#
 # Reading in inputs from the main script ---------------------------------------
@@ -20,43 +34,160 @@ Otherforecast.figures <- function(formattedForecastInput, date.type.input,
   ###########################
   # Formatted Forecast list #
   ###########################
-  formatted.forecast.Figure <- formattedForecastInput
+  otherForecasts <<- OTHERformattedForecastInput
   
   #############
   # Date type #
   #############
-  date.Figure <- date.type.input
+  date.Figure <<- date.type.input
   
   ###################
   # Scale of y-axis #
   ###################
-  scaleY <- scaleYAxis.input
+  scaleY <<- scaleYAxis.input
   
   ################
   # Y-Axis label #
   ################
-  yAxisLabel <- yAxisLabel.input
+  yAxisLabel <<- yAxisLabel.input
   
   ###############
   # Date breaks #
   ###############
-  dateBreaks <- dateBreaks.input
+  dateBreaks <<- dateBreaks.input
   
   #######################
   # Start point, Y Axis #
   #######################
-  startYAxis <- startYPoint.input
+  startYAxis <<- startYPoint.input
   
   ############
   # Dot size #
   ############
-  dotSizeData <- dotSize.input
+  dotSizeData <<- dotSize.input
+  
+  #############
+  # Locations #
+  #############
+  locationsOrg <<- locations.input 
   
   ###########################
   # Creating the empty list #
   ###########################
   figureList <- list()
   
+  ######################################
+  # Reading in the formatted forecasts #
+  ######################################
+  crudeForemattedForecasts <<- orignalData.input
+  
+  
+#------------------------------------------------------------------------------#
+# Error for running the figures without the dashboard results ------------------
+#------------------------------------------------------------------------------#
+# About: This section returns an error if a user trys to load other files      #
+# prior to running the full dashboard.                                         #
+#------------------------------------------------------------------------------#
+  
+  if(all(any(is.null(crudeForemattedForecasts) || length(crudeForemattedForecasts) == 0) & !is.null(otherForecasts))){
+    
+    # Error to return
+    return("ERROR1")
+    
+  }
+  
+
+#------------------------------------------------------------------------------#
+# Potential errors with the loaded data ----------------------------------------
+#------------------------------------------------------------------------------#
+# About: This section checks for errors in the column names and file names of  #
+# the loaded data.                                                             #
+#------------------------------------------------------------------------------#
+  
+  for(i in 1:length(otherForecasts)){
+    
+    # Indexed file
+    data <- otherForecasts[[i]]
+    
+    #############################
+    # Checking the column names #
+    #############################
+    
+    # Expected
+    expectedNames <- c("Date", "data", "median", "LB", "UB")
+    
+    # Observed
+    observedNames <- c(colnames(data))
+    
+    # Checking if they match each other
+    if(any(expectedNames != observedNames)){
+      
+      # Returning an error
+      return("ERROR2")
+      
+    }
+    
+    ##########################
+    # Checking the file name #
+    ##########################
+    
+    # Indexed file name
+    dataName <- names(otherForecasts)[i]
+    
+    # Checking for the word horizon #
+    horizonModel <- qdapRegex::ex_between(dataName, "-", "-calibration")[[1]][1]
+    
+    # Horizon
+    horizon <- qdapRegex::ex_between(horizonModel, "-", "-")[[1]][1]
+    
+    # Checking for the word calibration #
+    calibration <- qdapRegex::ex_between(dataName, paste0(horizonModel, "-"), "-")[[1]][1]
+    
+    # Checking if they match what is expected
+    if(any(horizon != "horizon" || calibration != "calibration")){
+      
+      # Returning an error
+      return("ERROR3")
+      
+    }
+   
+    ###############################
+    # Checking date specification #
+    ###############################
+    
+    # Pulling the calibration period length
+    caliLength <- qdapRegex::ex_between(dataName, paste0(calibration, "-"), "-")[[1]][1]
+    
+    # Pulling the location
+    location <- qdapRegex::ex_between(dataName, paste0(calibration, "-", caliLength, "-"), "-")[[1]][1]
+    
+    # Pulling the date
+    date <- qdapRegex::ex_between(dataName,  paste0(location, "-"), ".csv")[[1]][1]
+    
+    # Checking the date
+    if(all(date.Figure == 'year' & nchar(date) != 4)){
+      
+      # Returning an Error
+      return("ERROR4")
+      
+    }else if(all(date.Figure %in% c("week", "day") & nchar(date) != 10)){
+      
+      return("ERROR4")
+      
+    }
+    
+    ##########################
+    # Checking the locations #
+    ##########################
+    if(location %!in% c(locationsOrg)){
+      
+      return("ERROR5")
+      
+    }
+      
+      
+    
+  }
   
 #------------------------------------------------------------------------------#
 # Fixing the scale for the time series data -------------------------------------
@@ -102,10 +233,10 @@ Otherforecast.figures <- function(formattedForecastInput, date.type.input,
 # About: This section loops through formatted forecasts and creates a list of  #
 # of forecast figures.                                                         #
 #------------------------------------------------------------------------------#
-  for(i in 1:length(formatted.forecast.Figure)){
+  for(i in 1:length(otherForecasts)){
     
     # Determining the name of the indexed forecast
-    nameIndex <- names(formatted.forecast.Figure[i])
+    nameIndex <- names(otherForecasts[i])
     
     # Model Abbr. 
     modelAbbr <- qdapRegex::ex_between(nameIndex, "", "-")[[1]][1]
@@ -130,12 +261,12 @@ Otherforecast.figures <- function(formattedForecastInput, date.type.input,
     #######################
     if(date.Figure %in% c("week", "day")){
       
-      data.for.plot <- formatted.forecast.Figure[[i]] %>%
+      data.for.plot <- otherForecasts[[i]] %>%
         dplyr::mutate(Date = anytime::anydate(Date)) 
       
     }else{
       
-      data.for.plot <- formatted.forecast.Figure[[i]] %>%
+      data.for.plot <- otherForecasts[[i]] %>%
         dplyr::mutate(Date = as.numeric(Date)) 
       
     }
@@ -271,8 +402,8 @@ Otherforecast.figures <- function(formattedForecastInput, date.type.input,
 #------------------------------------------------------------------------------#
 # Cleaning up, and preparing the dates -----------------------------------------
 #------------------------------------------------------------------------------#
-# About: This section prepares the dates for individual figure. It allows users to  #
-# select the number of breaks in the date labels.                              #
+# About: This section prepares the dates for individual figure. It allows      #
+# users to select the number of breaks in the date labels.                     #
 #------------------------------------------------------------------------------#    
     
   ################################################
@@ -396,12 +527,12 @@ Otherforecast.figures <- function(formattedForecastInput, date.type.input,
 # files read into the dashboard.                                               #
 #------------------------------------------------------------------------------#
     
-  individual.figure <- ggplot(data.for.plot, aes(x = dates, y = medianVar, text = paste('Date: ', dates, '<br>Median:', round(as.numeric(median), 2)), group = 1)) +
+  individual.figure <- ggplot(data.for.plot, aes(x = dates, y = medianVar, text = paste('Date: ', dates, '<br>Median:', round(as.numeric(medianVar), 2)), group = 1)) +
       geom_ribbon(aes(ymin = LBVar, ymax = UBVar), fill = "grey90")+ # 95% PI ribbon
       geom_line(aes(x = dates, y = UBVar, text = paste('Date: ', dates, '<br>UB:', round(as.numeric(UB), 2)), group = 1), linetype = "dashed", size = 0.65) + # UB
       geom_line(aes(x = dates, y = LBVar, text = paste('Date: ', dates, '<br>LB:', round(as.numeric(LB), 2)), group = 1), linetype = "dashed", size = 0.65) + # LB
       geom_line(color = "red", size = 0.9) + # Median line
-      geom_point(aes(x = dates, y = dataVar, text = paste('Date: ', dates, '<br>Count:', data)), color = "black", shape = 1, size = as.numeric(sizeOfDataPoint)) + # Data points
+      geom_point(aes(x = dates, y = dataVar, text = paste('Date: ', dates, '<br>Count:', dataVar)), color = "black", shape = 1, size = as.numeric(sizeOfDataPoint)) + # Data points
       geom_vline(xintercept = breakLine, linetype = "dashed") + # Vertical line
       xAxisBreaks + # X axis breaks (i.e., dates)
       scale_y_continuous(breaks = seq(start, maxValue + start, by = breaks.graph), # Y-axis breaks
@@ -430,6 +561,7 @@ Otherforecast.figures <- function(formattedForecastInput, date.type.input,
   # Returning the list #
   ######################
   return(figureList)
+    
   
 } # End of function
 

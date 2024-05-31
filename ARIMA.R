@@ -230,12 +230,12 @@ ARIMA <- function(calibration.input, horizon.input,
                                   max.p = parameter.selection.arima.input.A[2], # Non-seasonal
                                   start.q = parameter.selection.arima.input.A[3],# Non-seasonal
                                   max.q = parameter.selection.arima.input.A[4], # Non-seasonal
-                                  start.P = parameter.selection.arima.input.A[1], # Seasonal 
-                                  max.P = parameter.selection.arima.input.A[2], # Seasonal
-                                  start.Q = parameter.selection.arima.input.A[3], # Seasonal
-                                  max.Q = parameter.selection.arima.input.A[4], # Seasonal
+                                  start.P = parameter.selection.arima.input.A[6], # Seasonal 
+                                  max.P = parameter.selection.arima.input.A[7], # Seasonal
+                                  start.Q = parameter.selection.arima.input.A[8], # Seasonal
+                                  max.Q = parameter.selection.arima.input.A[9], # Seasonal
                                   max.d = parameter.selection.arima.input.A[5], # Non-seasonal
-                                  max.D = parameter.selection.arima.input.A[5], # Seasonal
+                                  max.D = parameter.selection.arima.input.A[10], # Seasonal
                                   trace = F) # Showing all possible ARIMA models
       
       #########################################################

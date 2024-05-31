@@ -13,7 +13,9 @@
 #------------------------------------------------------------------------------#
 # Author: Amanda Bleichrodt                                                    #
 #------------------------------------------------------------------------------#
-CrudeMetricsFigure <- function(crudeMetrics, dateType){
+CrudeMetricsFigure <- function(crudeMetrics, dateType, scaleY.input,
+                               lowColor.input, highColor.input,
+                               outlineColor.input){
   
   ########################################
   # Reading in the list of crude metrics #
@@ -24,6 +26,26 @@ CrudeMetricsFigure <- function(crudeMetrics, dateType){
   # Reading in the type of date data #
   ####################################
   dateType.TP <- dateType 
+  
+  ################################################
+  # Reading in the list of variables to be log10 #
+  ################################################
+  logMetrics <- scaleY.input
+  
+  #############
+  # Low color #
+  #############
+  lowColor <- lowColor.input
+  
+  ##############
+  # High color #
+  ##############
+  highColor <- highColor.input
+  
+  #################
+  # Outline color #
+  #################
+  outlineColor <- outlineColor.input
   
   ###############################
   # Empty data frame for graphs #
@@ -36,32 +58,117 @@ CrudeMetricsFigure <- function(crudeMetrics, dateType){
   figureFinalList <- list()
   
 #------------------------------------------------------------------------------#
-# Creating the main data frame used in plotting --------------------------------
+# Determining which metrics should be in log-scale -----------------------------
 #------------------------------------------------------------------------------#
-# About: This section loops through each of the crude metrics, pulls           #
-# information from each file and then combines the data into a data frame for  #
-# plotting.                                                                    #
+# About: This section determine which of the metrics should be presented in    #
+# the log-scale.                                                               #
 #------------------------------------------------------------------------------#
 
-  # Data for figure 
+  ###################
+  # Data for figure #
+  ###################
   fullMetrics <- crude.metric.input.TP
   
   # Fixing names in the read-in data
   names(fullMetrics)[1] <- "Location"
   
-  #############################################
-  # Adjusting the scale for MSE, WIS, and MAE #
-  #############################################
+  ###############################
+  # Adjusting the scale for MSE #
+  ###############################
+  if("MSE" %in% c(logMetrics)){
+    
+    # Changing MSE to log10 scale
+    fullMetrics$logMSE <- log10(fullMetrics$MSE + 1)
+    
+    # Variable to use
+    fullMetrics$MSEmetricToUse <- fullMetrics$logMSE
+    
+    # Label for legend 
+    labelForLegendMSE <- "Log10"
   
-  # Changing MSE to log10 scale
-  fullMetrics$logMSE <- log10(fullMetrics$MSE + 1)
+  }else{
+    
+    # Variable to use
+    fullMetrics$MSEmetricToUse <- fullMetrics$MSE
+    
+    # Label for legend 
+    labelForLegendMSE <- NULL
+    
+  }
   
-  # Changing MAE to log10 scale
-  fullMetrics$logMAE <- log10(fullMetrics$MAE + 1)
+  ###############################
+  # Adjusting the scale for MAE #
+  ###############################
+  if("MAE" %in% c(logMetrics)){
+    
+    # Changing MAE to log10 scale
+    fullMetrics$logMAE <- log10(fullMetrics$MAE + 1)
+    
+    # Variable to use
+    fullMetrics$MAEmetricToUse <- fullMetrics$logMAE
+    
+    # Label for legend 
+    labelForLegendMAE <- "Log10"
+    
+  }else{
+    
+    # Variable to use
+    fullMetrics$MAEmetricToUse <- fullMetrics$MAE
+    
+    # Label for legend 
+    labelForLegendMAE <- NULL
+    
+  }
   
-  # Changing WIS to log10 scale
-  fullMetrics$logWIS <- log10(fullMetrics$WIS + 1)
+  ###############################
+  # Adjusting the scale for WIS #
+  ###############################
+  if("WIS" %in% c(logMetrics)){
+    
+    # Changing WIS to log10 scale
+    fullMetrics$logWIS <- log10(fullMetrics$WIS + 1)
+    
+    # Variable to use
+    fullMetrics$WISmetricToUse <- fullMetrics$logWIS
+    
+    # Label for legend 
+    labelForLegendWIS <- "Log10"
+    
+  }else{
+    
+    # Variable to use
+    fullMetrics$WISmetricToUse <- fullMetrics$WIS
+    
+    # Label for legend 
+    labelForLegendWIS <- NULL
+    
+  }
   
+  ###########################################
+  # Adjusting the scale for 95% PI Coverage #
+  ###########################################
+  if("95%PI" %in% c(logMetrics)){
+    
+    # Changing 95%PI to log10 scale
+    fullMetrics$log95 <- log10(fullMetrics$`95%PI` + 1)
+    
+    # Variable to use
+    fullMetrics$PImetricToUse <- fullMetrics$log95
+    
+    # Label for legend 
+    labelForLegend95 <- "Log10"
+    
+  }else{
+    
+    # Variable to use
+    fullMetrics$PImetricToUse <- fullMetrics$`95%PI`
+    
+    # Label for legend 
+    labelForLegend95 <- NULL
+    
+  }
+  
+
 #------------------------------------------------------------------------------#
 # Plotting the data ------------------------------------------------------------
 #------------------------------------------------------------------------------#
@@ -88,57 +195,57 @@ CrudeMetricsFigure <- function(crudeMetrics, dateType){
     ###############################
     # Plotting Mean Squared Error #
     ###############################
-    MSEPlot <- ggplot(data = dataForGraph, aes(x = Date, y = Model, fill = logMSE)) +
-      geom_tile(color = "white") +
-      scale_fill_gradient2() +
+    MSEPlot <- ggplot(data = dataForGraph, aes(x = Date, y = Model, fill = MSEmetricToUse)) +
+      geom_tile(color = outlineColor) +
+      scale_fill_gradient(low = lowColor, high = highColor, n.breaks = 7) +
       theme_bw() + 
       coord_fixed() +
       labs(title = bquote(bold("A")~"  MSE"),
            y = "",
            x = "",
-           fill = "Log10") +
+           fill = labelForLegendMSE) +
       theme(axis.text.x = element_blank())
     
     ################################
     # Plotting Mean Absolute Error #
     ################################
-    MAEPlot <- ggplot(data = dataForGraph, aes(x = Date, y = Model, fill = logMAE)) +
-      geom_tile(color = "white") +
-      scale_fill_gradient2() +
+    MAEPlot <- ggplot(data = dataForGraph, aes(x = Date, y = Model, fill = MAEmetricToUse)) +
+      geom_tile(color = outlineColor) +
+      scale_fill_gradient(low = lowColor, high = highColor, n.breaks = 7) +
       theme_bw() + 
       coord_fixed() +
       labs(title = bquote(bold("B")~"  MAE"),
            y = "",
            x = "",
-           fill = "Log10") +
+           fill = labelForLegendMAE) +
       theme(axis.text.x = element_blank())
   
     #####################################
     # Plotting Weighted Interval Scores #
     #####################################
-    WISPlot <- ggplot(data = dataForGraph, aes(x = Date, y = Model, fill = logWIS)) +
-      geom_tile(color = "white") +
-      scale_fill_gradient2() +
+    WISPlot <- ggplot(data = dataForGraph, aes(x = Date, y = Model, fill = WISmetricToUse)) +
+      geom_tile(color = outlineColor) +
+      scale_fill_gradient(low = lowColor, high = highColor, n.breaks = 7) +
       theme_bw() + 
       coord_fixed() +
       labs(title = bquote(bold("C")~"  WIS"),
            y = "",
            x = "",
-           fill = "Log 10")+
+           fill = labelForLegendWIS)+
       theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
     
     ###################
     # Plotting 95% PI #
     ###################
-    PIPlot <- ggplot(data = dataForGraph, aes(x = Date, y = Model, fill = PI)) +
-      geom_tile(color = "white") +
-      scale_fill_gradient2() +
+    PIPlot <- ggplot(data = dataForGraph, aes(x = Date, y = Model, fill = PImetricToUse)) +
+      geom_tile(color = outlineColor) +
+      scale_fill_gradient(low = lowColor, high = highColor, n.breaks = 7) +
       theme_bw() + 
       coord_fixed() +
       labs(title = bquote(bold("D")~"  95% PI Coverage"),
            y = "",
            x = "",
-           fill = "") +
+           fill = labelForLegend95) +
       theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
     
     #####################################################
@@ -158,4 +265,6 @@ CrudeMetricsFigure <- function(crudeMetrics, dateType){
   return(figureFinalList)
   
 }
+
+
 

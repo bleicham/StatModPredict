@@ -329,6 +329,19 @@ for(q in 1:length(quantile.forecast.input.MF)){
 
   } # End of calibration loop
 
+  ##################################
+  # Renaming the model fit columns #
+  ##################################
+  Model_Fits <- Model_Fits %>%
+    dplyr::rename("MSE" = meanMSE,
+                  "MAE" = meanMAE,
+                  "95%PI" = mean95PI,
+                  "WIS" = meanWIS) %>%
+    dplyr::mutate(MSE = round(MSE, 2),
+                  MAE = round(MAE, 2),
+                  `95%PI` = round(`95%PI`, 2),
+                  WIS = round(WIS, 2))
+
 
 #------------------------------------------------------------------------------#
 # Adding the ARIMA indicator to the list, and exporting ------------------------
