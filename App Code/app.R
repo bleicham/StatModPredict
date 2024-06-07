@@ -5475,7 +5475,7 @@ server <- function(input, output, session) {
            file_name <- glue("{plot_name}.{input$extFig}")
            
            # TIFF file 
-           if(input$extFig == ".tiff"){
+           if(input$extFig == "tiff"){
              ggsave(
                file.path(temp_directory, file_name),
                plot = plot_obj,
@@ -6291,7 +6291,7 @@ server <- function(input, output, session) {
            file_name <- glue("{plot_name}.{input$extFig}")
            
            # TIFF file 
-           if(input$extFig == ".tiff"){
+           if(input$extFig == "tiff"){
              ggsave(
                file.path(temp_directory, file_name),
                plot = plot_obj,
@@ -8198,7 +8198,7 @@ server <- function(input, output, session) {
           file_name <- glue("{plot_name}.{input$extFig}")
           
           # TIFF file 
-          if(input$extFig == ".tiff"){
+          if(input$extFig == "tiff"){
             
             ggsave(
               file.path(temp_directory, file_name),
@@ -8732,7 +8732,7 @@ server <- function(input, output, session) {
           file_name <- glue("{plot_name}.{input$extFig}")
           
           # TIFF file 
-          if(input$extFig == ".tiff"){
+          if(input$extFig == "tiff"){
             ggsave(
               file.path(temp_directory, file_name),
               plot = plot_obj,
@@ -9802,7 +9802,7 @@ server <- function(input, output, session) {
           file_name <- glue("{plot_name}.{input$extFig}")
           
           # TIFF file 
-          if(input$extFig == ".tiff"){
+          if(input$extFig == "tiff"){
             ggsave(
               file.path(temp_directory, file_name),
               plot = plot_obj,
@@ -10744,7 +10744,7 @@ server <- function(input, output, session) {
           file_name <- glue("{plot_name}.{input$extFig}")
 
           # TIFF file
-          if(input$extFig == ".tiff"){
+          if(input$extFig == "tiff"){
             ggsave(
               file.path(temp_directory, file_name),
               plot = plot_obj,
