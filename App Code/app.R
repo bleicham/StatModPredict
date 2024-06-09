@@ -7387,7 +7387,7 @@ server <- function(input, output, session) {
 # directory of their choosing.                                                 #
 #------------------------------------------------------------------------------#
    
-  output$downloadSSData <- downloadHandler(
+  output$downloadSSMetrics <- downloadHandler(
     
     ####################################
     # Function to create the file-name #
