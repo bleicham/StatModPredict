@@ -14,16 +14,17 @@
 #------------------------------------------------------------------------------#
 #                         Author: Amanda Bleichrodt                            #
 #------------------------------------------------------------------------------#
-panel.forecast.figures <- function(formatted.forecast.input, data.type.input,
-                                   smoothing.input, scaleYAxis.input, yAxisLabel.input, 
-                                   dateBreaks.input, startYPoint.input, 
-                                   dotSize.input, linetype.input, lineColor.input,
-                                   lineWidth.input, dotColor.input, boundtype.input,
-                                   boundWidth.input, boundColor.input,
-                                   ribbonColor.input, yLabelSize.input, yLabelFace.input,
-                                   yTickSize.input, yTickBreaks.input, xAxisLabel.input,
-                                   xAxisLabelSize.input, xAxisLabelFace.input,
-                                   xAxisTickSize.input, quantile.input){
+panel.forecast.figures.other <- function(formatted.forecast.input, formatted.forecast.other.input,
+                                         other.panel.input, data.type.input,
+                                         smoothing.input, scaleYAxis.input, yAxisLabel.input, 
+                                         dateBreaks.input, startYPoint.input, 
+                                         dotSize.input, linetype.input, lineColor.input,
+                                         lineWidth.input, dotColor.input, boundtype.input,
+                                         boundWidth.input, boundColor.input,
+                                         ribbonColor.input, yLabelSize.input, yLabelFace.input,
+                                         yTickSize.input, yTickBreaks.input, xAxisLabel.input,
+                                         xAxisLabelSize.input, xAxisLabelFace.input,
+                                         xAxisTickSize.input, quantile.input){
   
 #------------------------------------------------------------------------------#
 # Reading in inputs from the main script ---------------------------------------
@@ -36,6 +37,11 @@ panel.forecast.figures <- function(formatted.forecast.input, data.type.input,
   # Formatted Forecast list #
   ###########################
   formatted.forecast.Figure <- formatted.forecast.input
+  
+  #####################################
+  # Formatted Forecast - Other models #
+  #####################################
+  formatted.forecast.Figure.other <- formatted.forecast.other.input
 
   #############
   # Date type #
@@ -166,6 +172,32 @@ panel.forecast.figures <- function(formatted.forecast.input, data.type.input,
   # Creating and empty list for data #
   ####################################
   listData <- list()
+  
+  
+#------------------------------------------------------------------------------#
+# Combining the forecast lists -------------------------------------------------
+#------------------------------------------------------------------------------#
+# About: This section combines the forecasts from the dashboard and the        #
+# forecasts read in by the user.                                               #
+#------------------------------------------------------------------------------#
+  
+  #####################################################
+  # Combining the list if all forecasts are available #
+  #####################################################
+  if(!is.null(formatted.forecast.Figure)){
+    
+    # Combined list
+    combinedList <- c(formatted.forecast.Figure, formatted.forecast.Figure.other)
+    
+  ######################################
+  # Including only the other forecasts #
+  ######################################
+  }else{
+    
+    # Combined list
+    combinedList <- formatted.forecast.Figure.other
+    
+  }
   
   
 #------------------------------------------------------------------------------#
@@ -314,38 +346,72 @@ panel.forecast.figures <- function(formatted.forecast.input, data.type.input,
 # and then combines them all into one data frame for later plotting.           #
 #------------------------------------------------------------------------------#
   
-  for(i in 1:length(formatted.forecast.Figure)){
+  for(i in 1:length(combinedList)){
   
     ################################################
     # Determining the name of the indexed forecast #
     ################################################
-    nameIndex <- names(formatted.forecast.Figure[i])
+    nameIndex <- names(combinedList[i])
     
-    ###########################################################
-    # Pulling the required information from the forecast name #
-    ###########################################################
+    #############################################################################
+    # Pulling the required information from the forecast name: Dashboard models #
+    #############################################################################
+    if(strsplit(nameIndex, "[-]")[[1]][1] %in% c("ARIMA", "GLM", "GAM", "Prophet")){
     
-    # Model type
-    model.Figure <- strsplit(nameIndex, "[-]")[[1]][1]
-  
-    # Location/group name
-    locationGroupName <- strsplit(nameIndex, "[-]")[[1]][2]
+      # Model type
+      model.Figure <- strsplit(nameIndex, "[-]")[[1]][1]
     
-    # Calibration
-    calibration.FF <- qdapRegex::ex_between(nameIndex, "Calibration-", "(")[[1]][1]
-  
-    # Forecast period date - week or day
-    if(date.Figure %in% c("week", "day")){
-  
-      forecastPeriod <- anytime::anydate(paste0(strsplit(nameIndex, "[-]")[[1]][3], "-", strsplit(nameIndex, "[-]")[[1]][4], "-", strsplit(nameIndex, "[-]")[[1]][5]))
+      # Location/group name
+      locationGroupName <- strsplit(nameIndex, "[-]")[[1]][2]
       
-    # Forecast period date - year or time index 
+      # Calibration
+      calibration.FF <- qdapRegex::ex_between(nameIndex, "Calibration-", "(")[[1]][1]
+    
+      # Forecast period date - week or day
+      if(date.Figure %in% c("week", "day")){
+    
+        forecastPeriod <- anytime::anydate(paste0(strsplit(nameIndex, "[-]")[[1]][3], "-", strsplit(nameIndex, "[-]")[[1]][4], "-", strsplit(nameIndex, "[-]")[[1]][5]))
+        
+      # Forecast period date - year or time index 
+      }else{
+        
+        # Forecast period date
+        forecastPeriod <- strsplit(nameIndex, "[-]")[[1]][3]
+        
+      }
+      
+    #########################################################################
+    # Pulling the required information from the forecast name: Other models #
+    #########################################################################
     }else{
       
-      # Forecast period date
-      forecastPeriod <- strsplit(nameIndex, "[-]")[[1]][3]
+      # Model type
+      model.Figure <- paste0(strsplit(nameIndex, "[-]")[[1]][1], "-", strsplit(nameIndex, "[-]")[[1]][2])
       
-    }
+      # Location/group name
+      locationGroupName <- strsplit(nameIndex, "[-]")[[1]][7]
+      
+      # Calibration
+      calibration.FF <- strsplit(nameIndex, "[-]")[[1]][6]
+      
+      # Forecast period date - week or day
+      if(date.Figure %in% c("week", "day")){
+        
+        # Pulling the year
+        yearChar <- strsplit(strsplit(nameIndex, "[-]")[[1]][10], "[.]")[[1]][1]
+        
+        # Forecast period date
+        forecastPeriod <- anytime::anydate(paste0(yearChar, "-", strsplit(nameIndex, "[-]")[[1]][8], "-", strsplit(nameIndex, "[-]")[[1]][9]))
+        
+      # Forecast period date - year or time index 
+      }else{
+        
+        # Forecast period date
+        forecastPeriod <- as.numeric(strsplit(strsplit(nameIndex, "[-]")[[1]][8], "[.]")[[1]][1])
+        
+      }
+      
+    } # End of 'else' for other models 
     
     ##########################################################
     # Handling the NAs in the data - ARIMA models, Smoothing #
@@ -353,7 +419,7 @@ panel.forecast.figures <- function(formatted.forecast.input, data.type.input,
     if(model.Figure == "ARIMA" || (smoothingIndicator == 1 & model.Figure != "Prophet")){
   
       # Data for plot
-      data.for.plot <- formatted.forecast.Figure[[i]] %>% # Re-naming the orginal data
+      data.for.plot <- combinedList[[i]] %>% # Re-naming the orginal data
         dplyr::mutate(median = ifelse(is.na(median), data, median), # Handling NAs for the median model fit
                       LB = ifelse(is.na(LB), data, LB), # Handling the NAs for the LB model fit
                       UB = ifelse(is.na(UB), data, UB)) # Handling the NAs for the UB model fit
@@ -364,7 +430,7 @@ panel.forecast.figures <- function(formatted.forecast.input, data.type.input,
     }else{
   
       # Renaming the data
-      data.for.plot <- formatted.forecast.Figure[[i]]
+      data.for.plot <- combinedList[[i]]
   
     }
   
@@ -653,10 +719,6 @@ panel.forecast.figures <- function(formatted.forecast.input, data.type.input,
     ################################################
     if(date.Figure %in% c("week")){
         
-      # Dates on x-axis
-      dataFilteredFinal <- dataFilteredFinal %>%
-        mutate(dates = anytime::anydate(Date)) # Handling dates if working with weekly and daily data
-        
       # Vertical line
       breakLine <- anytime::anydate(unique(dataFilteredFinal$forecastPeriod))
         
@@ -678,10 +740,6 @@ panel.forecast.figures <- function(formatted.forecast.input, data.type.input,
     # Handling dates in the forecast files - Days #
     ################################################
     }else if(date.Figure == "day"){
-      
-      # Dates on x-axis
-      dataFilteredFinal <- dataFilteredFinal %>%
-        mutate(dates = anytime::anydate(Date)) # Handling dates if working with weekly and daily data
       
       # Vertical line
       breakLine <- anytime::anydate(unique(dataFilteredFinal$forecastPeriod))
@@ -705,10 +763,6 @@ panel.forecast.figures <- function(formatted.forecast.input, data.type.input,
     ##############################################################
     }else{
       
-      # Dates on x-axis
-      dataFilteredFinal <- dataFilteredFinal %>%
-        mutate(dates = as.numeric(Date)) # Changing years and time index to numeric 
-      
       # Vertical line
       breakLine <- as.numeric(unique(dataFilteredFinal$forecastPeriod))
       
@@ -730,22 +784,35 @@ panel.forecast.figures <- function(formatted.forecast.input, data.type.input,
       
       
 #------------------------------------------------------------------------------#
-# Plotting the panel figures  ---------------------------------------------
+# Plotting the panel figures  -------------------------------------------------
 #------------------------------------------------------------------------------#
 # About: This section creates the panel forecast figures for the main          #
 # portion of the dashboard.                                                    #
-#------------------------------------------------------------------------------#      
+#------------------------------------------------------------------------------# 
+          
+        ####################################
+        # Setting the orders of the models #
+        ####################################
+        important_models <- c("ARIMA", "GAM", "GLM", "Prophet")
+        
+        # Unique model names 
+        all_models <- unique(dataFilteredFinal$model)  # Get all unique model names
+          
+        # Reorder the 'model' factor 
+        dataFilteredFinal$model <- factor(dataFilteredFinal$model, 
+                                          levels = c(important_models, setdiff(all_models, important_models)))
+          
       
         ###########################
         # Creating the plot panel #
         ###########################
-        panel <- ggplot(dataFilteredFinal, aes(x = dates, y = medianVar, text = paste('Date: ', dates, '<br>Median:', round(as.numeric(medianVar), 2)), group = 1)) +
-          facet_grid(~model) +
+        panel <- ggplot(dataFilteredFinal, aes(x = dates, y = medianVar)) +
+          facet_wrap(~ model, ncol = 4) +
           geom_ribbon(aes(ymin = LBVar, ymax = UBVar), fill = ribbonColor.input)+ # 95% PI ribbon
-          geom_line(linetype = BlinetypeFinal, aes(x = dates, y = UBVar, text = paste('Date: ', dates, '<br>UB:', round(as.numeric(UB), 2)), group = 1), size = boundWidth.input, color = BLineColor) + # UB
-          geom_line(linetype = BlinetypeFinal, aes(x = dates, y = LBVar, text = paste('Date: ', dates, '<br>LB:', round(as.numeric(LB), 2)), group = 1), size = boundWidth.input, color = BLineColor) + # LB
+          geom_line(linetype = BlinetypeFinal, aes(x = dates, y = UBVar), size = boundWidth.input, color = BLineColor) + # UB
+          geom_line(linetype = BlinetypeFinal, aes(x = dates, y = LBVar), size = boundWidth.input, color = BLineColor) + # LB
           geom_line(color = MLineColor, size = MLineWidth, linetype = linetypeFinal) + # Median line
-          geom_point(aes(x = dates, y = dataVar, text = paste('Date: ', dates, '<br>', yAxisLabel, ':', dataVar)), color = dotColorData, shape = 1, size = as.numeric(sizeOfDataPoint)) + # Data points
+          geom_point(aes(x = dates, y = dataVar), color = dotColorData, shape = 1, size = as.numeric(sizeOfDataPoint)) + # Data points
           geom_vline(xintercept = breakLine, linetype = "dashed") + # Vertical line
           xAxisBreaks + # X axis breaks (i.e., dates)
           scale_y_continuous(breaks = seq(start, maxValue + (breaks.graph), by = breaks.graph), # Y-axis breaks
@@ -759,8 +826,7 @@ panel.forecast.figures <- function(formatted.forecast.input, data.type.input,
                 axis.title.x = element_text(size = xAxisLabelSize), # X-Axis Label
                 axis.text.y = element_text(size = YAxisTickSize, face = XFaceLabelFinal), # Y-Axis tick options 
                 panel.grid.major = element_line(color = "grey95")) # Background grid lines 
-        
-        
+
         ####################################
         # Saving the plot in the main list #
         ####################################

@@ -5,20 +5,14 @@
 #------------------------------------------------------------------------------#
 # About:                                                                       #
 #                                                                              #
-# This file reads in the formatted forecasts created during an earlier step in #
-# to produce individual forecast figures. Individual forecast figures show the #
-# median prediction, upper prediction interval, lower prediction interval, and #
-# any available observed data. The observed data will always be shown during   #
-# calibration period for each model. Additionally, as we can not get the model #
-# fit for ARIMA models, the median, upper and lower bounds along with the data #
-# overlap during the calibration period. Users have a variety of options to    #
-# customize the figures prior to export. The figures can be downloaded within  #
-# a '.zip' folder or as an individual file dependent on the number of forecast #
-# conducted.                                                                   #
+# This file takes the vetted forecast files read into the model comparison     #
+# page, and then produced forecast figures for each file. The forecast figure  #
+# follows the same format as for the ARIMA, GLM, GAM and Prophet figures.      #
+# Additionally, the same figure formatting options are available.              #
 #------------------------------------------------------------------------------#
 #                         Author: Amanda Bleichrodt                            #
 #------------------------------------------------------------------------------#
-forecast.figures <- function(formatted.forecast.input, data.type.input,
+forecast.figures.other <- function(formatted.forecast.input, data.type.input,
                              smoothing.input, scaleYAxis.input, yAxisLabel.input, 
                              dateBreaks.input, startYPoint.input, 
                              dotSize.input, linetype.input, lineColor.input,
@@ -309,20 +303,14 @@ forecast.figures <- function(formatted.forecast.input, data.type.input,
     #####################################
     # Pulling the necessary information #
     #####################################
-    
-    # Model type 
-    model.Figure <- strsplit(nameIndex, "[-]")[[1]][1]
-    
-    # Sub-setting location/group name 
-    locationGroupName <- strsplit(nameIndex, "[-]")[[1]][2]
-
+  
     #####################################################
     # Determining the forecast period date: Week or Day #
     #####################################################
     if(date.Figure %in% c("week", "day")){
       
       # Determining the forecast period date from the name
-      forecastPeriod <- anytime::anydate(paste0(strsplit(nameIndex, "[-]")[[1]][3], "-", strsplit(nameIndex, "[-]")[[1]][4], "-", strsplit(nameIndex, "[-]")[[1]][5]))
+      forecastPeriod <- anytime::anydate(paste0(strsplit(nameIndex, "[-]")[[1]][8], "-", strsplit(nameIndex, "[-]")[[1]][9], "-", strsplit(nameIndex, "[-]")[[1]][10]))
       
     ############################################################
     # Determining the forecast period date: Year or Time Index #
@@ -330,28 +318,15 @@ forecast.figures <- function(formatted.forecast.input, data.type.input,
     }else{
       
       # Determining the forecast period date from the name
-      forecastPeriod <- strsplit(nameIndex, "[-]")[[1]][3]
+      forecastPeriod <- strsplit(nameIndex, "[-]")[[1]][8]
       
     }
     
     ################################
     # Handling the NAs in the data #
     ################################
-    if(model.Figure == "ARIMA" || (smoothingIndicator == 1 & model.Figure != "Prophet")){
+    data.for.plot <- formatted.forecast.Figure[[i]]
       
-      # Data for plot 
-      data.for.plot <- formatted.forecast.Figure[[i]] %>%
-        dplyr::mutate(median = ifelse(is.na(median), data, median), # Handling NAs for the median model fit
-                      LB = ifelse(is.na(LB), data, LB), # Handling the NAs for the LB model fit
-                      UB = ifelse(is.na(UB), data, UB)) # Handling the NAs for the UB model fit
-      
-    }else{
-      
-      # Data for plot
-      data.for.plot <- formatted.forecast.Figure[[i]]
-      
-    }
-    
 #------------------------------------------------------------------------------#
 # Adjusting the scale of the y-axis and number of breaks -----------------------
 #------------------------------------------------------------------------------#
@@ -667,12 +642,12 @@ forecast.figures <- function(formatted.forecast.input, data.type.input,
     ######################
     # Plotting the graph #
     ######################
-    individual.figure <- ggplot(data.for.plot, aes(x = dates, y = medianVar, text = paste('Date: ', dates, '<br>Median:', round(as.numeric(medianVar), 2)), group = 1)) +
+    individual.figure <- ggplot(data.for.plot, aes(x = dates, y = medianVar)) +
       geom_ribbon(aes(ymin = LBVar, ymax = UBVar), fill = ribbonColor.input)+ # 95% PI ribbon
-      geom_line(linetype = BlinetypeFinal, aes(x = dates, y = UBVar, text = paste('Date: ', dates, '<br>UB:', round(as.numeric(UB), 2)), group = 1), size = boundWidth.input, color = BLineColor) + # UB
-      geom_line(linetype = BlinetypeFinal, aes(x = dates, y = LBVar, text = paste('Date: ', dates, '<br>LB:', round(as.numeric(LB), 2)), group = 1), size = boundWidth.input, color = BLineColor) + # LB
+      geom_line(linetype = BlinetypeFinal, aes(x = dates, y = UBVar), size = boundWidth.input, color = BLineColor) + # UB
+      geom_line(linetype = BlinetypeFinal, aes(x = dates, y = LBVar), size = boundWidth.input, color = BLineColor) + # LB
       geom_line(color = MLineColor, size = MLineWidth, linetype = linetypeFinal) + # Median line
-      geom_point(aes(x = dates, y = dataVar, text = paste('Date: ', dates, '<br>', yAxisLabel, ':', dataVar)), color = dotColorData, shape = 1, size = as.numeric(sizeOfDataPoint)) + # Data points
+      geom_point(aes(x = dates, y = dataVar), color = dotColorData, shape = 1, size = as.numeric(sizeOfDataPoint)) + # Data points
       geom_vline(xintercept = breakLine, linetype = "dashed") + # Vertical line
       xAxisBreaks + # X axis breaks (i.e., dates)
       scale_y_continuous(breaks = seq(start, maxValue + (breaks.graph), by = breaks.graph), # Y-axis breaks

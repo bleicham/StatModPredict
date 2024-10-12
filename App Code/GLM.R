@@ -73,10 +73,20 @@ GLM <- function(calibration.input, horizon.input, date.Type.input,
   #######################################################
   quantile.list.locations <- list()
   
+  #######################################################
+  # Creating the empty data frame for model fit metrics #
+  #######################################################
+  modelFit <- data.frame("Location" = NA, 
+                         "Forecast Date" = NA,
+                         "Calibration Period Length" = NA, 
+                         "AIC" = NA,
+                         "AICc" = NA,
+                         "BIC" = NA)
+  
 #------------------------------------------------------------------------------#
 # Setting up the GLM loop  -----------------------------------------------------
 #------------------------------------------------------------------------------#
-# About: This section sets up the information needed for GAM forecasting,      #
+# About: This section sets up the information needed for GLM forecasting,      #
 # including preparing the data and setting up the parameters needed for GAM    #
 # forecasting. It also sets up the loops going through calibration periods.    #
 #------------------------------------------------------------------------------#
@@ -91,6 +101,9 @@ GLM <- function(calibration.input, horizon.input, date.Type.input,
     ##############################
     index.calibration.period <- calibration.list.GLM[[c]]
     
+    # Determining the length of the index calibration period
+    indexCaliLength <- nrow(index.calibration.period)
+    
     ###########################################################
     # Pulling information from the indexed calibration period # 
     ###########################################################
@@ -98,12 +111,12 @@ GLM <- function(calibration.input, horizon.input, date.Type.input,
     # Location names
     location.names <- names(index.calibration.period)[-1]
     
-    
-    # Determining the forecast period - Daily or Weekly
+    # Determining the forecast period date - Daily or Weekly
     if(all(str_length(index.calibration.period[,1]) > 4)){
       
       forecast.period.date <- max(anytime::anydate(index.calibration.period[,1]))
       
+    # Determining the forecast period date - Yearly or Time Index 
     }else{
       
       forecast.period.date <- max(as.numeric(index.calibration.period[,1]))
@@ -198,35 +211,85 @@ GLM <- function(calibration.input, horizon.input, date.Type.input,
       #############################################################
       # Fitting the GLM model, based on error assumption selected #
       #############################################################
-    
-      # Checking for the error
-      test <- try(
+      
+      errorChecker <- try(
         
-        # Selecting the model fit based on the error distribution selected by the user
-        glm.mod <- base::switch(error.input.GLM,
-                                "Normal" = stats::glm(data.cur ~ time), # Normal distribution 
-                                "Poisson" = glm(data.cur ~ time, family = poisson), # Poisson distribution
-                                glm.nb(data.cur ~ time)) # Negative-binomial distribution 
-        
+      # Selecting the model fit based on the error distribution selected by the user
+      glm.mod <- base::switch(error.input.GLM,
+                              "Normal" = stats::glm(data.cur ~ time), # Normal distribution 
+                              "Poisson" = stats::glm(data.cur ~ time, family = poisson), # Poisson distribution
+                              glm.nb(data.cur ~ time)) # Negative-binomial distribution 
+      
       )
       
-      #######################
-      # If the error occurs #
-      #######################
-      if (inherits(test, 'try-error')) {
+      ################################
+      # If an error occurs initially #
+      ################################
+      if (inherits(errorChecker, 'try-error')) {
         
         # Saving an NA in the list 
         quantile.list.locations[[s]] <- NA
         
         # Adding names to list data frames
-        names(quantile.list.locations)[s] <- paste0("GLM-", location.index, "-", forecast.period.date)
+        names(quantile.list.locations)[s] <- paste0("GLM-", location.index, "-", forecast.period.date, "-Calibration-", indexCaliLength)
         
         # Skipping to next loop 
         next
         
       }
-
-
+      
+      #########################################
+      # If the error occurs but model outputs #
+      #########################################
+      if(glm.mod[["aic"]] == "-Inf"){
+        
+        # Saving an NA in the list 
+        quantile.list.locations[[s]] <- NA
+        
+        # Adding names to list data frames
+        names(quantile.list.locations)[s] <- paste0("GLM-", location.index, "-", forecast.period.date, "-Calibration-", indexCaliLength)
+        
+        # Skipping to next loop 
+        next
+        
+      }
+      
+#------------------------------------------------------------------------------#
+# Calculating the model fit statistics -----------------------------------------
+#------------------------------------------------------------------------------#
+# About: This section calculates the AIC, AICc, and BIC for the GLM model fits.#
+#------------------------------------------------------------------------------#
+      
+      ##################################
+      # Calculating the log likelihood #
+      ##################################
+      LL <- as.numeric(logLik(glm.mod))
+      
+      ############################
+      # The number of parameters #
+      ############################
+      k <- attributes(logLik(glm.mod))$df
+      
+      ###########################
+      # Calibration period size #
+      ###########################
+      n <- indexCaliLength 
+      
+      ########################
+      # Creating the new row #
+      ########################
+      newRow <- data.frame("Location" = location.index, 
+                           "Forecast Date" = as.character(forecast.period.date),
+                           "Calibration Period Length" = indexCaliLength, 
+                           "AIC" = -2*LL + (2*k),
+                           "AICc" = -2*(LL) + 2*k + (2*k*(k+1)/(n-k-1)),
+                           "BIC" = -2 * LL + k * log(n))
+      
+      ##############################################
+      # Combining the row with the full data frame #
+      ##############################################
+      modelFit <- rbind(modelFit, newRow)
+      
 #------------------------------------------------------------------------------#
 # GLM Forecasting --------------------------------------------------------------
 #------------------------------------------------------------------------------#
@@ -314,7 +377,7 @@ GLM <- function(calibration.input, horizon.input, date.Type.input,
                     `upper.90%` = `u 0.1`,
                     `upper.95%` = `u 0.05`,
                     `upper.98%` = `u 0.02`) %>%
-      mutate_all(~ round(., 2))
+      mutate_all(~ round(., 2)) # Rounding the results to two decimals 
     
     ########################################
     # Handling when data smoothing is used #
@@ -324,9 +387,9 @@ GLM <- function(calibration.input, horizon.input, date.Type.input,
       # Keeping what was used before
       GLMForecast <- GLMForecast 
     
-    ############################
-    # Runs if an error occured #
-    ############################
+    #################################
+    # Runs if an smoothing occurred #
+    #################################
     }else{
 
       # Keeping only the forecast horizon
@@ -334,7 +397,6 @@ GLM <- function(calibration.input, horizon.input, date.Type.input,
 
     }
     
-
 #------------------------------------------------------------------------------#
 # Creating a list of quantile frames -------------------------------------------
 #------------------------------------------------------------------------------#
@@ -349,15 +411,7 @@ GLM <- function(calibration.input, horizon.input, date.Type.input,
     quantile.list.locations[[s]] <- GLMForecast
     
     # Adding names to list data frames
-    names(quantile.list.locations)[s] <- paste0("GLM-", location.index, "-", forecast.period.date)
-    
-    # #########################################
-    # # Adding residuals to the residual list #
-    # #########################################
-    # residuals.list.locations[[g]] <- residuals
-    # 
-    # # Adding names to list data frames
-    # names(residuals.list.locations)[g] <- paste0("GAM-", location.index, "-", forecast.period.date)
+    names(quantile.list.locations)[s] <- paste0("GLM-", location.index, "-", forecast.period.date, "-Calibration-", indexCaliLength)
     
     } # End of locations loop 
     
@@ -366,27 +420,22 @@ GLM <- function(calibration.input, horizon.input, date.Type.input,
     #########################################
     quantile.list <- c(quantile.list, quantile.list.locations)
     
-    #####################################
-    # Adding residuals to the main list #
-    #####################################
-    #residuals.list <- c(residuals.list, residuals.list.locations)
-    
   } # End of calibration period loop 
   
-  #------------------------------------------------------------------------------#
-  # Combining lists to return ----------------------------------------------------
-  #------------------------------------------------------------------------------#
-  # About: This section combines the quantile forecasts and residual info        #
-  # to be returned to the main shiny app.                                        #
-  #------------------------------------------------------------------------------#
+#------------------------------------------------------------------------------#
+# Combining lists to return ----------------------------------------------------
+#------------------------------------------------------------------------------#
+# About: This section combines the quantile forecasts and model fit            #
+# information to be returned to the main dashbaord.                            #
+#------------------------------------------------------------------------------#
   
   ###################
   # Making the list #
   ###################
-  final.list <- list(quantile.list)
+  final.list <- list(quantile.list, modelFit)
   
   # Adding names
-  names(final.list) <- c("Forecasts")
+  names(final.list) <- c("Forecasts", "ModelFit")
   
   ######################
   # Returning the list #

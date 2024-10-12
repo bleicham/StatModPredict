@@ -8,12 +8,13 @@
 # This function filters the quantile forecast data used in the first panel of  #
 # main dashboard page.                                                         #
 #------------------------------------------------------------------------------#
-# By: Amanda Bleichrodt                                                        #
+#                    Author: Amanda Bleichrodt                                 #
 #------------------------------------------------------------------------------#
 filteringQuantileForecasts <- function(QuantileForecast.input, 
                                        modelFilterQ.input,
                                        locationFilterQ.input,
-                                       indicator.input){
+                                       indicator.input,
+                                       calibrationQ.input){
   
 #------------------------------------------------------------------------------#
 # Renaming the input variables -------------------------------------------------
@@ -25,22 +26,27 @@ filteringQuantileForecasts <- function(QuantileForecast.input,
   ###########################
   # Quantile forecast input #
   ###########################
-  quantileForecast <- QuantileForecast.input
+  quantileForecast <<- QuantileForecast.input
   
   ################
   # Model filter #
   ################
-  modelFilter <- modelFilterQ.input
+  modelFilter <<- modelFilterQ.input
   
   ###################
   # Location Filter #
   ###################
-  locationFilter <- locationFilterQ.input
+  locationFilter <<- locationFilterQ.input
   
   ################################
   # Forecast to show - Indicator #
   ################################
-  dataToShow <- indicator.input
+  dataToShow <<- indicator.input
+  
+  #############################
+  # Calibration period filter #
+  #############################
+  calibrationFilter <<- calibrationQ.input
   
   ################################
   # Empty list to file with data #
@@ -52,7 +58,7 @@ filteringQuantileForecasts <- function(QuantileForecast.input,
 #------------------------------------------------------------------------------#
 # About: This section determines if the data should be filtered or not. The    #
 # only time it will not be filtered is the initial time it is rendered, or if  #
-# truely no filters are specified.                                             #
+# truly no filters are specified.                                              #
 #------------------------------------------------------------------------------#
   
   ######################################
@@ -60,7 +66,7 @@ filteringQuantileForecasts <- function(QuantileForecast.input,
   ######################################
   if(dataToShow == 0 || all(is.null(modelFilter), is.null(locationFilter))){
     
-    # Filtering the data
+    # No filtering of the data
     finalData <-  quantileForecast
     
 #------------------------------------------------------------------------------#
@@ -97,12 +103,15 @@ filteringQuantileForecasts <- function(QuantileForecast.input,
       # Location
       location <- qdapRegex::ex_between(forecastFileName, paste0(model,"-"), "-")[[1]][1]
       
+      # Calibration
+      calibration <- str_sub(forecastFileName, -2)
+      
       #############################################################
       # Determining if the data should be added to the final list #
       #############################################################
       
       # Adding to the list
-      if(all(model %in% c(modelFilter) & location %in% c(locationFilter))){
+      if(all(model %in% c(modelFilter) & location %in% c(locationFilter) & calibration %in% c(calibrationFilter))){
         
         # Adding the data
         finalData[[i]] <- forecastFile

@@ -56,37 +56,37 @@ Prophet <- function(calibration.input, horizon.input, date.type.input,
   ######################################
   # Reading in the calibration periods #
   ######################################
-  calibration.input.P <<- calibration.input
+  calibration.input.P <- calibration.input
   
   ##################################
   # Saving the forecasting horizon #
   ##################################
-  horizon.input.P <<- horizon.input
+  horizon.input.P <- horizon.input
   
   #############
   # Date type #
   #############
-  date.Type.input.P <<- date.type.input
+  date.Type.input.P <- date.type.input
   
   #####################
   # Smoothing of data #
   #####################
-  smoothing.input.P <<- smoother.input
+  smoothing.input.P <- smoother.input
   
   ###############
   # Growth type #
   ###############
-  growth.input.P <<- growthTrend.input
+  growth.input.P <- growthTrend.input
   
   #######################
   # Seasonality Prophet #
   #######################
-  seasonality.input.P <<- seasonalityProphet.input
+  seasonality.input.P <- seasonalityProphet.input
   
   #################
   # Holiday dates #
   #################
-  holidayDates.input.P <<- holidayDates.input
+  holidayDates.input.P <- holidayDates.input
   
   ########################################
   # Creating an empty list for quantiles #
@@ -138,33 +138,33 @@ Prophet <- function(calibration.input, horizon.input, date.type.input,
     # What is shown for 'yearly', 'weekly', and 'daily'
     seasonalDataFrame <- c("auto", "auto", "auto")
     
-    #########################
-    # If 'None' is selected #
-    #########################
+  #########################
+  # If 'None' is selected #
+  #########################
   }else if(seasonality.input.P == "None"){
     
     # What is shown for 'yearly', 'weekly', and 'daily'
     seasonalDataFrame <- c(FALSE, FALSE, FALSE)
     
-    ###########################
-    # If 'Yearly' is selected #
-    ###########################
+  ###########################
+  # If 'Yearly' is selected #
+  ###########################
   }else if(seasonality.input.P == "Yearly"){
     
     # What is shown for 'yearly', 'weekly', and 'daily'
     seasonalDataFrame <- c(TRUE, FALSE, FALSE)
     
-    ###########################
-    # If 'Weekly' is selected #
-    ###########################
+  ###########################
+  # If 'Weekly' is selected #
+  ###########################
   }else if(seasonality.input.P == "Weekly"){
     
     # What is shown for 'yearly', 'weekly', and 'daily'
     seasonalDataFrame <- c(FALSE, TRUE, FALSE)
     
-    ##########################
-    # If 'Daily' is selected #
-    ##########################
+  ##########################
+  # If 'Daily' is selected #
+  ##########################
   }else{
     
     # What is shown for 'yearly', 'weekly', and 'daily'
@@ -194,6 +194,9 @@ Prophet <- function(calibration.input, horizon.input, date.type.input,
     # Indexed calibration period
     data.input.P <- calibration.input.P[[i]]
     
+    # Length of calibration period
+    calibrationLength <- nrow(data.input.P)
+    
     ################################
     # Creating a list of locations #
     ################################
@@ -211,11 +214,16 @@ Prophet <- function(calibration.input, horizon.input, date.type.input,
       data1 <- data.input.P %>%
         dplyr::select(date, location.index)
       
-      # Determining the forecast period - Daily or Weekly
+      #####################################################
+      # Determining the forecast period - Daily or Weekly #
+      #####################################################
       if(all(str_length(data1[,1]) > 4)){
         
         forecast.period.date <- max(anytime::anydate(data1[,1]))
         
+      ##########################################################
+      # Determining the forecast period - Yearly or Time Index #
+      ##########################################################
       }else{
         
         forecast.period.date <- max(as.numeric(data1[,1]))
@@ -225,41 +233,22 @@ Prophet <- function(calibration.input, horizon.input, date.type.input,
       # Re-naming columns for forecasting 
       names(data1) <- c("ds", "y")
       
-#------------------------------------------------------------------------------#
-# Data Smoothing ---------------------------------------------------------------
-#------------------------------------------------------------------------------#
-# About: The following section implements smoothing if indicated by the user.  #
-# Additionally, it runs a check to see if smoothing can be implemented         #
-# (i.e., only with daily data). If smoothing is miss-entered, the function will#
-# return a warning, and not implement the smoothing indicated by the user.     #
-#------------------------------------------------------------------------------#
-      
-      # ####################################################
-      # # Applying (or not applying) smoothing to the data #
-      # ####################################################
-      # if(smoothing.input.P == 0 || is.null(smoothing.input.P)){
-      #   
-      #   # Data to be used for the remainder of the code
-      #   data1 <- data1
-      #   
-      #   # Run if smoothing is indicated 
-      # }else{
-      #   
-      #   # Data w/smoothing employed 
-      #   data1 <- rollmean(data1[,2], smoothing.input.P) 
-      #   
-      # } 
-      
-      # Determining the forecast period - Daily or Weekly
+      ##################################################################
+      # Determining the structure of the date column - Daily or Weekly #
+      ##################################################################
       if(all(str_length(data1$ds) > 4)){
           
         data1 <- data1 %>%
           dplyr::mutate(ds = anytime::anydate(ds))
         
+      #######################################################################
+      # Determining the structure of the date column - Yearly or Time Index #
+      #######################################################################
       }else{
         
         data1 <- data1 %>%
           dplyr::mutate(ds = as.numeric(ds))
+        
       }
       
 #------------------------------------------------------------------------------#
@@ -299,7 +288,7 @@ Prophet <- function(calibration.input, horizon.input, date.type.input,
         # Checking for the error
         test <- try(
           
-        # Fitting a prophet model that does not assume weekly seasonality
+        # Fitting a prophet model 
         prophet_object_current <- prophet::prophet(data1, 
                                                    interval.width = uncertainty_level_current, 
                                                    growth = growth.input.P,
@@ -307,7 +296,6 @@ Prophet <- function(calibration.input, horizon.input, date.type.input,
                                                    yearly.seasonality = seasonalDataFrame[1], 
                                                    weekly.seasonality = seasonalDataFrame[2],
                                                    daily.seasonality = seasonalDataFrame[3])
-        
         )
         
         if (inherits(test, 'try-error')) {
@@ -315,7 +303,6 @@ Prophet <- function(calibration.input, horizon.input, date.type.input,
           break
           
         }
-        
 
 #------------------------------------------------------------------------------#
 # Producing Prophet Forecasts --------------------------------------------------
@@ -422,7 +409,8 @@ Prophet <- function(calibration.input, horizon.input, date.type.input,
                       `upper.90%`,
                       `upper.95%`,
                       `upper.98%`) %>%
-        mutate_all(~ round(., 2))
+        mutate_all(~ round(., 2)) # Rounding all quantiles to two
+      
       
       
 #------------------------------------------------------------------------------#
@@ -442,12 +430,29 @@ Prophet <- function(calibration.input, horizon.input, date.type.input,
         quantileListLocations[[p]] <- NA
         
         # Adding names to list data frames
-        names(quantileListLocations)[p] <- paste0("Prophet-", location.index, "-", forecast.period.date)
+        names(quantileListLocations)[p] <- paste0("Prophet-", location.index, "-", forecast.period.date, "-Calibration-", calibrationLength)
         
         # Skipping to next loop
         next
         
       }
+      
+      ##########################
+      # Checking for all zeros #
+      ##########################
+      if(all(as.data.frame(all_forecast) == 0)) {
+        
+        # Saving an NA in the list
+        quantileListLocations[[p]] <- NA
+        
+        # Adding names to list data frames
+        names(quantileListLocations)[p] <- paste0("Prophet-", location.index, "-", forecast.period.date, "-Calibration-", calibrationLength)
+        
+        # Skipping to next loop
+        next
+        
+      }
+      
 
       ############################################
       # Adding the forecast to the quantile list #
@@ -455,7 +460,7 @@ Prophet <- function(calibration.input, horizon.input, date.type.input,
       quantileListLocations[[p]] <- all_forecast
       
       # Adding names to list data frames
-      names(quantileListLocations)[p] <- paste0("Prophet-", location.index, "-", forecast.period.date)
+      names(quantileListLocations)[p] <- paste0("Prophet-", location.index, "-", forecast.period.date, "-Calibration-", calibrationLength)
  
     } # End of location loop 
     

@@ -5,15 +5,18 @@
 #------------------------------------------------------------------------------#
 # About:                                                                       #
 #                                                                              #
-# This function filters the formatted forecast figs used in the first panel of #
-# main dashboard page.                                                         #
+# This function filters the formatted forecast figure list based upon the      #
+# users' selection. If no filtering is indicator, or the button is not         #
+# clicked, all forecast files will show. The results of this page are shown    #
+# on the main dashboard page.                                                  #
 #------------------------------------------------------------------------------#
-# By: Amanda Bleichrodt                                                        #
+#                       Author: Amanda Bleichrodt                              #                                                    
 #------------------------------------------------------------------------------#
 filteringFormattedIndivFigs <- function(formattedForecast.input, 
                                         modelFilterFF.input,
                                         locationFilterFF.input,
-                                        indicator.input){
+                                        indicator.input,
+                                        calibrationFilterFF.input){
   
 #------------------------------------------------------------------------------#
 # Renaming the input variables -------------------------------------------------
@@ -37,6 +40,11 @@ filteringFormattedIndivFigs <- function(formattedForecast.input,
   ###################
   locationFilter <- locationFilterFF.input
   
+  ######################
+  # Calibration filter #
+  ######################
+  calibrationFilter <- calibrationFilterFF.input
+  
   ################################
   # Forecast to show - Indicator #
   ################################
@@ -52,13 +60,13 @@ filteringFormattedIndivFigs <- function(formattedForecast.input,
 #------------------------------------------------------------------------------#
 # About: This section determines if the figures should be filtered or not. The #
 # only time it will not be filtered is the initial time it is rendered, or if  #
-# truely no filters are specified.                                             #
+# truly no filters are specified.                                              #
 #------------------------------------------------------------------------------#
   
   ######################################
   # Checking if filtering should occur #
   ######################################
-  if(dataToShow == 0 || all(is.null(modelFilter), is.null(locationFilter))){
+  if(dataToShow == 0 || all(is.null(modelFilter), is.null(locationFilter), is.null(calibrationFilter))){
     
     # Filtering the data
     finalData <- formattedForecast
@@ -66,8 +74,8 @@ filteringFormattedIndivFigs <- function(formattedForecast.input,
 #------------------------------------------------------------------------------#
 # Filtering the figures --------------------------------------------------------
 #------------------------------------------------------------------------------#
-# About: This section filters the figures based upon the user inputs selected by  #
-# the user. It loops through each forecast file and determines if it should    #
+# About: This section filters the figures based upon the user inputs selected  #
+# by the user. It loops through each forecast file and determines if it should #
 # be returned or not.                                                          #
 #------------------------------------------------------------------------------#
     
@@ -87,9 +95,9 @@ filteringFormattedIndivFigs <- function(formattedForecast.input,
       # Forecast file name
       forecastFileName <- names(formattedForecast)[i]
       
-      ###########################################################
-      # Pulling the location and model names from the file name #
-      ###########################################################
+      #######################################################################################
+      # Pulling the location, model names, and calibration period length from the file name #
+      #######################################################################################
       
       # Model 
       model <- qdapRegex::ex_between(forecastFileName, "", "-")[[1]][1]
@@ -97,12 +105,15 @@ filteringFormattedIndivFigs <- function(formattedForecast.input,
       # Location
       location <- qdapRegex::ex_between(forecastFileName, paste0(model,"-"), "-")[[1]][1]
       
+      # Calibration period length 
+      caliLength <- qdapRegex::ex_between(forecastFileName, "Calibration-", "(")[[1]][1]
+      
       #############################################################
       # Determining if the data should be added to the final list #
       #############################################################
       
       # Adding to the list
-      if(all(model %in% c(modelFilter) & location %in% c(locationFilter))){
+      if(all(model %in% c(modelFilter) & location %in% c(locationFilter) & caliLength %in% c(calibrationFilter))){
         
         # Adding the data
         finalData[[i]] <- forecastFile
@@ -110,7 +121,7 @@ filteringFormattedIndivFigs <- function(formattedForecast.input,
         # Adding the name
         names(finalData)[i] <- forecastFileName
         
-        # Not adding to the list 
+      # Not adding to the list 
       }else{
         
         # Adding an NA

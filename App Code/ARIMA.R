@@ -74,13 +74,45 @@ ARIMA <- function(calibration.input, horizon.input,
   quantile.list.locations <- list()
   
   ##############################################
-  # Creating an empty list for best fit models #
+  # Creating an empty list for the output data #
   ##############################################
-  best.fit.models.list <- list()
+  final.list <- list()
+  
+  ################################################################
+  # Creating an empty table to fill with the best fitting models #
+  ################################################################
+  best.fit.models <- data.frame("Location" = NA, 
+                                "Forecast Date" = NA,
+                                "Calibration Period Length" = NA, 
+                                "Model-Specification (Non-Seasonal)" = NA,
+                                "Model-Specification (Seasonal)" = NA,
+                                "Intercept" = NA, 
+                                "Q*" = NA,
+                                "df" = NA,
+                                "p-value" = NA,
+                                "AIC" = NA,
+                                "AICc" = NA,
+                                "BIC" = NA)
+  
+  #######################################################
+  # Creating the parameter for checking for seasonality #
+  #######################################################
+  if(seasonality.input.A == 1){seasonCheck <- F}else{seasonCheck <- T}
+  
+  
+#------------------------------------------------------------------------------#
+# Master Calibration loop ------------------------------------------------------
+#------------------------------------------------------------------------------#
+# About: This section creates the loop that goes through each of the           #
+# data sets containing the calibration periods indicated by the user. Once the #
+# loop is complete, the user will have a few large lists containing model fit  #
+# information and related forecasts. Each element will be used throughout the  #
+# remainder of the toolbox quite frequently.                                   #
+#------------------------------------------------------------------------------#
 
-  ###########################################
-  # Looping through the calibration periods #
-  ###########################################
+  ################################################
+  # Looping through the calibration periods list #
+  ################################################
   for(c in 1:length(calibration.periods.A)){
     
 #------------------------------------------------------------------------------#
@@ -102,11 +134,15 @@ ARIMA <- function(calibration.input, horizon.input,
     # Location names
     location.names <- names(index.calibration.period)[-1]
     
-    # Determining the forecast period - Daily or Weekly
+    # Determining the calibration period length
+    calibrationPeriodLength <- nrow(index.calibration.period)
+    
+    # Determining the forecast period date - Daily or Weekly data
     if(all(str_length(index.calibration.period[,1]) > 4)){
    
        forecast.period.date <- max(anytime::anydate(index.calibration.period[,1]))
-       
+     
+    # Determining the forecast period date - Yearly or Time Index
     }else{
       
       forecast.period.date <- max(as.numeric(index.calibration.period[,1]))
@@ -119,14 +155,13 @@ ARIMA <- function(calibration.input, horizon.input,
     timeseries.no.date <- index.calibration.period %>%
       dplyr::select(all_of(location.names)) # Selecting only locations 
     
-    ################################################################
-    # Creating an empty table to fill with the best fitting models #
-    ################################################################
-    best.fit.models <- data.frame("Location" = NA, 
-                                  "Model-Specification" = NA,
-                                  "Q*" = NA,
-                                  "df" = NA,
-                                  "p-value" = NA)
+#------------------------------------------------------------------------------#
+# Looping through the locations ------------------------------------------------
+#------------------------------------------------------------------------------#
+# About: This section loops through all of the locations selected by the user. #
+# For each combination of location and calibration period length, it then      #
+# returns information related to the model fit and the assoicated forecast.    #
+#------------------------------------------------------------------------------#
     
     #############################
     # Looping through locations #
@@ -139,39 +174,53 @@ ARIMA <- function(calibration.input, horizon.input,
 # About: This section sets up the information needed to run the ARIMA model.   #
 #------------------------------------------------------------------------------#
       
-      # Selecting the data associated with the indexed location 
+      ###########################################################
+      # Selecting the data associated with the indexed location #
+      ###########################################################
       data <- timeseries.no.date[i]
       
-      # Location indexed 
+      ####################
+      # Location indexed #
+      ####################
       location.index <- location.names[i]
          
-      # Creating a matrix containing all zeros,
+      #####################################################################
+      # Creating a matrix containing all zeros to fill in with parameters #
+      #####################################################################
+      
       # the number of rows = number of columns in the data, and 7 columns
       orders <- matrix(0,ncol(timeseries.no.date), 7)
 
-      # Setting the rownames for the orders 
+      # Setting the row names for the orders 
       rownames(orders) <- location.names
 
-      # Creating a vector of zeros that is the length of
-      # the number of columns in the data
+      #######################################################
+      # Creating a vector of zeros to fill in with p-values #
+      #######################################################
       pvalues <- rep(0,1)
 
-      # Creating an matrix of zeros, that has the number of rows = the forecast
-      # period length (e.g., 4 for # 4 weeks) and the number of columns =
-      # the number of columns in the data -- Will be filled in with  # the
-      # forecasted means
+      ###########################################################################
+      # Creating an matrix of zeros, that has the number of rows = the forecast #
+      # period length (e.g., 4 for # 4 weeks) and the number of columns =       #
+      # the number of columns in the data -- Will be filled in with the         #
+      # forecasted means.                                                       #
+      ########################################################################### 
       forecast.mean <- matrix(0, horizon.input.A, 1)
 
-      # Creating an matrix of zeros, that has the number of rows = the forecast
-      # period length (e.g., 4 for # 4 weeks) and the number of columns = the
-      # number of columns in the data -- Will be filled in with  # the upper
-      # bounds of the forecasts means
+      ###########################################################################
+      # Creating an matrix of zeros, that has the number of rows = the forecast #
+      # period length (e.g., 4 for # 4 weeks) and the number of columns = the   #
+      # number of columns in the data -- Will be filled in with the upper       #
+      # bounds of the forecasts means                                           #
+      ###########################################################################
       forecast.upper <- forecast.mean
 
-      # Creating an matrix of zeros, that has the number of rows = the forecast
-      # period length (e.g., 4 for # 4 weeks) and the number of columns = the
-      # number of columns in the data -- Will be filled in with  # the lower
-      # bounds of the forecasts means
+      ###########################################################################
+      # Creating an matrix of zeros, that has the number of rows = the forecast #
+      # period length (e.g., 4 for # 4 weeks) and the number of columns = the   #
+      # number of columns in the data -- Will be filled in with  # the lower    #
+      # bounds of the forecasts means                                           #
+      ###########################################################################
       forecast.lower <- forecast.mean
 
       # Creating a vector of "p-values" to run through the model
@@ -179,7 +228,6 @@ ARIMA <- function(calibration.input, horizon.input,
 
       # Creating an empty list to fill in with forecasts
       coefs <- list()
-      
       
 #------------------------------------------------------------------------------#
 # Smoothing --------------------------------------------------------------------
@@ -198,33 +246,37 @@ ARIMA <- function(calibration.input, horizon.input,
         # Data to be used for the remainder of the code
         data <- data
         
-        #################################
-        # Run if smoothing is indicated #
-        #################################
-        }else{
-          
-          # Data w/smoothing employed
-          data <- rollmean(data, smoothing.input.A)
-          
-        }
-
+      #################################
+      # Run if smoothing is indicated #
+      #################################
+      }else{
+        
+        # Data w/smoothing employed
+        data <- rollmean(data, smoothing.input.A)
+        
+      }
+      
 #------------------------------------------------------------------------------#
 # Fitting the ARIMA Model ------------------------------------------------------
 #------------------------------------------------------------------------------#
 # About: This section fits the ARIMA model to the time series data, using the  #
-# the 'auto.arima' function. The residuals from the fit are also outputted.    #
+# the 'auto.arima' function. The residuals from the fit are also outputted,    #
+# along with information related to the model fit: AIC, BIC, AICc, etc.        #
 #------------------------------------------------------------------------------#
+      
+      ############################################################
+      # Transforming the sdata vector to a R-time series object. #
+      ############################################################
+      sdata.ts <- ts(data, start=1, frequency=as.numeric(seasonality.input.A))
       
       # Transforming the sdata vector to a R-time series object. The start = 1,
       # indicates that the # time series starts at the first value of the
       # vector read into the ts() function ('sdata') and the # frequency = 1
       # indicates that there is only one "observation" per unit of time
-      sdata.ts <- ts(data, start=1, frequency=as.numeric(seasonality.input.A))
-
+      
       ###########################
       # Fitting the ARIMA model #
       ###########################
-      
       fit <- forecast::auto.arima(sdata.ts,
                                   start.p = parameter.selection.arima.input.A[1], # Non-seasonal
                                   max.p = parameter.selection.arima.input.A[2], # Non-seasonal
@@ -236,30 +288,32 @@ ARIMA <- function(calibration.input, horizon.input,
                                   max.Q = parameter.selection.arima.input.A[9], # Seasonal
                                   max.d = parameter.selection.arima.input.A[5], # Non-seasonal
                                   max.D = parameter.selection.arima.input.A[10], # Seasonal
-                                  trace = F) # Showing all possible ARIMA models
+                                  trace = F, # Showing all possible ARIMA models
+                                  seasonal = seasonCheck) # Considering seasonality
       
-      #########################################################
-      # Returning an error if the calibration fit is to small #
-      #########################################################
+      ###########################################################################################
+      # Returning an error if the calibration fit is to small or if the model could not be fit. #
+      ###########################################################################################
       if(AIC(fit) == "-Inf"){
         
+        # Filling in the exported list with an error 
         quantile.list.locations[[i]] <- NA
         
-        names(quantile.list.locations)[i] <- paste0("ARIMA-", location.index, "-", forecast.period.date)
-        print("noo")
+        # Adding names to list data frames
+        names(quantile.list.locations)[i] <- paste0("ARIMA-", location.index, "-", forecast.period.date, "-Calibration-", calibrationPeriodLength)
         
+        # Going to next loop iteration 
         next
-    
         
-      }
+        }
       
-
 #------------------------------------------------------------------------------#
 # ARIMA model fit and best ft statistics ---------------------------------------
 #------------------------------------------------------------------------------#
 # About: This section creates a list of best fit models and Ljung-Box test     #
-# statistics. The results are then outputted to the model fit section of the   #
-# dashboard.                                                                   #
+# statistics. In addition, it exports statistics related to the model fit such #
+# as the AIC, BIC, and AICc. The results are then outputted to the model fit   #
+# section of the dashboard.                                                    #
 #------------------------------------------------------------------------------#
       
       #################################
@@ -272,25 +326,63 @@ ARIMA <- function(calibration.input, horizon.input,
       ##############################
       pvalues <- forecast::checkresiduals(fit)
       
+      ##########################
+      # Re-formatting the date #
+      ##########################
+      
+      # Determining the forecast period date - Daily or Weekly data
+      if(all(str_length(index.calibration.period[,1]) > 4)){
+        
+        forecast.period.date <- max(anytime::anydate(index.calibration.period[,1]))
+        
+        # Determining the forecast period date - Yearly or Time Index
+      }else{
+        
+        forecast.period.date <- max(as.numeric(index.calibration.period[,1]))
+        
+      }
+      
       ##########################################################################
-      # Creating a table that contains the best fit parameters, and results of #
-      # the Ljung-Box test                                                     #
+      # Creating a table that contains the best fit parameters, results of     #
+      # the Ljung-Box test, AIC, BIC, and AICc.                                #
       ##########################################################################
       
-      # Location
-      best.fit.models[i,1] <- location.index
+      # If considering seasonal patterns
+      if(seasonCheck){
+        
+        newRowFit <- data.frame("Location" = location.index, 
+                                "Forecast Date" = as.character(forecast.period.date),
+                                "Calibration Period Length" = calibrationPeriodLength, 
+                                "Model-Specification (Non-Seasonal)" = paste0("ARIMA(", orders[i,1], ",", orders[i,6], ",", orders[i,2],")"),
+                                "Model-Specification (Seasonal)" = paste0("SARIMA(", orders[i,3], ",", orders[i,7], ",", orders[i,6],")"),
+                                "Intercept" = orders[i,5], 
+                                "Q*" = pvalues$statistic,
+                                "df" =  pvalues$parameter,
+                                "p-value" = pvalues$p.value,
+                                "AIC" = fit[["aic"]],
+                                "AICc" = fit[["aicc"]],
+                                "BIC" = fit[["bic"]])
+        
+      # If working with non-Seasonal data 
+      }else{
+        
+        newRowFit <- data.frame("Location" = location.index, 
+                                "Forecast Date" = as.character(forecast.period.date),
+                                "Calibration Period Length" = calibrationPeriodLength, 
+                                "Model-Specification (Non-Seasonal)" = paste0("ARIMA(", orders[i,1], ",", orders[i,6], ",", orders[i,2],")"),
+                                "Model-Specification (Seasonal)" = NA,
+                                "Intercept" = orders[i,5], 
+                                "Q*" = pvalues$statistic,
+                                "df" =  pvalues$parameter,
+                                "p-value" = pvalues$p.value,
+                                "AIC" = fit[["aic"]],
+                                "AICc" = fit[["aicc"]],
+                                "BIC" = fit[["bic"]])
+
+      }
       
-      # Model parameters
-      best.fit.models[i,2] <- paste0("ARIMA(", orders[i,1], ",", orders[i,6], ",", orders[i,2],")")
-      
-      # Q* statistic - Ljung-Box test
-      best.fit.models[i,3] <- pvalues$statistic
-      
-      # Df - Ljung-Box test
-      best.fit.models[i,4] <- pvalues$parameter
-      
-      # p-value - Ljung-Box test
-      best.fit.models[i,5] <- pvalues$p.value
+      # Merging with the old data
+      best.fit.models <- rbind(best.fit.models, newRowFit)
       
 #------------------------------------------------------------------------------#
 # ARIMA Forecasting ------------------------------------------------------------
@@ -333,7 +425,7 @@ ARIMA <- function(calibration.input, horizon.input,
 #------------------------------------------------------------------------------#
 # About: This section creates a list of quantile forecasts to be later added   #
 # to a list with the best-fit models. Each forecast is labeled with its        #
-# location and forecast period.                                                #
+# location and forecast period and calibration period length                   #
 #------------------------------------------------------------------------------#
       
       ############################################
@@ -342,7 +434,7 @@ ARIMA <- function(calibration.input, horizon.input,
       quantile.list.locations[[i]] <- fcstval
       
       # Adding names to list data frames
-      names(quantile.list.locations)[i] <- paste0("ARIMA-", location.index, "-", forecast.period.date)
+      names(quantile.list.locations)[i] <- paste0("ARIMA-", location.index, "-", forecast.period.date, "-Calibration-", calibrationPeriodLength)
       
     } # End of location loop 
     
@@ -351,16 +443,7 @@ ARIMA <- function(calibration.input, horizon.input,
     #########################################
     quantile.list <- c(quantile.list, quantile.list.locations)
     
-    ###############################################
-    # Adding the best fit models to the main list #
-    ###############################################
-    best.fit.models.list[[c]] <- best.fit.models
-    
-    # Adding names to list data frames
-    names(best.fit.models.list)[c] <- paste0(forecast.period.date)
-    
   } # End of calibration loop
-
 
 #------------------------------------------------------------------------------#
 # Combining lists to return ----------------------------------------------------
@@ -372,7 +455,7 @@ ARIMA <- function(calibration.input, horizon.input,
   ###################
   # Making the list #
   ###################
-  final.list <- list(quantile.list, best.fit.models.list)
+  final.list <- list(quantile.list, best.fit.models)
   
   # Adding names
   names(final.list) <- c("Forecasts", "ModelFit")

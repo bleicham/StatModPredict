@@ -26,7 +26,8 @@
 #------------------------------------------------------------------------------#
 
 forecastingMetrics <- function(crude.data.input, horizon.input, 
-                               date.Type.input, quantile.list.input){
+                               date.Type.input, quantile.list.input,
+                               selectedQuantile){
   
   
 #------------------------------------------------------------------------------#
@@ -56,27 +57,29 @@ forecastingMetrics <- function(crude.data.input, horizon.input,
   ##############################
   quantile.forecast.input.FM <- quantile.list.input 
   
+  #####################
+  # Selected quantile #
+  #####################
+  quantileCalculation <- selectedQuantile
+  
+#------------------------------------------------------------------------------#
+# Preparing the needed data frames and lists -----------------------------------
+#------------------------------------------------------------------------------#
+# About: This section prepares the needed data frames and list for the loop    #
+# below.                                                                       #
+#------------------------------------------------------------------------------#
+  
   ######################################
   # Empty list to add forecast metrics #
   ######################################
   forecastMetrics <- data.frame(Location = NA, 
                                 Model = NA, 
                                 Date = NA, 
+                                Calibration = NA, 
                                 MSE = NA, 
                                 MAE = NA, 
-                                mean95PI = NA, 
+                                PI = NA, 
                                 WIS = NA)
-  
-  ##############################################
-  # Empty list for metrics that can not be run #
-  ##############################################
-  notRun <- list()
-  
-  ########################
-  # Final list to export #
-  ########################
-  finalList <- list()
-  
   
 #------------------------------------------------------------------------------#
 # Looping through the quantile forecast ----------------------------------------
@@ -105,29 +108,33 @@ forecastingMetrics <- function(crude.data.input, horizon.input,
     # Location name
     location <- strsplit(indexedQuantileName, "[-]")[[1]][2]
     
-    # Forecast period
-    
-    # Forecast period for weekly or daily data 
+    # Forecast period and calibration period length for weekly or daily data 
     if(date.Type.input.FM %in% c("week", "day")){
       
       # Determining the forecast period from the name
-      forecastPeriod <- substring(indexedQuantileName, regexpr("-", indexedQuantileName) + (nchar(location) + 2))
+      forecastPeriod <- paste0(strsplit(indexedQuantileName, "[-]")[[1]][3], "-", strsplit(indexedQuantileName, "[-]")[[1]][4], "-", strsplit(indexedQuantileName, "[-]")[[1]][5])
       
-      # Forecast period for yearly or time index data 
+      # Calibration period length 
+      calibrationLength <- as.numeric(strsplit(indexedQuantileName, "[-]")[[1]][7])
+      
+    # Forecast period and calibration period length for yearly or time index data 
     }else{
       
       # Determining the forecast period from the name
       forecastPeriod <- strsplit(indexedQuantileName, "[-]")[[1]][3]
       
+      # Calibration period length 
+      calibrationLength <- as.numeric(strsplit(indexedQuantileName, "[-]")[[1]][5])
+
     }
     
-    ############################################
-    # Determining the calibration period dates #
-    ############################################
+    #########################################
+    # Determining the forecast period dates #
+    #########################################
     forecastDates <- switch(date.Type.input.FM,
                             "week" = c(seq.Date(anydate(forecastPeriod) + 7, anydate(forecastPeriod) + (horizon.input.FM * 7), by = "1 week")),
-                             "day" = c(seq.Date(anydate(forecastPeriod) + 1, anydate(forecastPeriod) + horizon.input.FM, by = "1 day")),
-                              c(seq(as.numeric(forecastPeriod) + 1, as.numeric(forecastPeriod) + horizon.input.FM, by = 1))
+                            "day" = c(seq.Date(anydate(forecastPeriod) + 1, anydate(forecastPeriod) + horizon.input.FM, by = "1 day")),
+                             c(seq(as.numeric(forecastPeriod) + 1, as.numeric(forecastPeriod) + horizon.input.FM, by = 1))
     )
     
     ###############################
@@ -152,27 +159,8 @@ forecastingMetrics <- function(crude.data.input, horizon.input,
     ##################################
     if(nrow(observedData) < horizon.input.FM){
       
-      # Empty data frame
-      notRunData <- NA
-      
-      # Creating the data frame to add to list
-      notRunData <- data.frame(Model = modelName, 
-                               Location = location, 
-                               Date = forecastPeriod)
-      
-      # Adding it to the list
-      notRun[[q]] <- notRunData
-      
-      # Skipping to next loop iteration
-      next
-    
-    ######################################################
-    # Saving an NA in the row if the forecast can be run #
-    ######################################################
-    }else{
-      
-      # Adding a NA to the list
-      notRun[[q]] <- NA
+      # Skipping to next iteration 
+      next 
       
     }
     
@@ -182,14 +170,14 @@ forecastingMetrics <- function(crude.data.input, horizon.input,
     if(modelName == "Prophet"){
       
       quantileForecastCleaned <- indexedQuantile[(nrow(indexedQuantile) - (horizon.input.FM - 1)):nrow(indexedQuantile),] %>%
-        dplyr::select(prediction, `lower.95%`, `upper.95%`) %>% # Selecting needed columns
+        dplyr::select(prediction, paste0("lower.", quantileCalculation, "%"), paste0("upper.", quantileCalculation, "%")) %>% # Selecting needed columns
         dplyr::mutate(observed = observedData[,1]) %>% # Adding observed data 
         dplyr::rename("means" = prediction)
       
     }else{
       
       quantileForecastCleaned <- indexedQuantile[(nrow(indexedQuantile) - (horizon.input.FM - 1)):nrow(indexedQuantile),] %>%
-        dplyr::select(means, `lower.95%`, `upper.95%`) %>% # Selecting needed columns
+        dplyr::select(means, paste0("lower.", quantileCalculation, "%"), paste0("upper.", quantileCalculation, "%")) %>% # Selecting needed columns
         dplyr::mutate(observed = observedData[,1]) # Adding observed data 
       
     }
@@ -197,30 +185,33 @@ forecastingMetrics <- function(crude.data.input, horizon.input,
     # Vector of observed data
     true_values <- c(observedData[,1])
     
+    
 #------------------------------------------------------------------------------#
-# Calculating 95% PI, MSE, and MAE for forecast metrics ------------------------
+# Calculating the prediction interval coverage, MSE, and MAE -------------------
 #------------------------------------------------------------------------------#
-# About: This section calculates the 95% PI, MSE, and MAE for the forecast     #
-# metrics.                                                                     #
+# About: This section calculates the selected prediction interval coverage,    #
+# mean squared error, and mean absolute error for the indexed quantile         #
+# forecast. The comparison data is either the original data used to produce    #
+# the forecasts or the data uploaded by the user.                              #
 #------------------------------------------------------------------------------#
     
     PI_MSE_MAE <- quantileForecastCleaned %>%
-      dplyr::mutate(inCoverage = ifelse(observed <= `upper.95%` & observed >= `lower.95%`, 1, 0), # Determining if in coverage
-                    PercentCoverage = (sum(inCoverage)/horizon.input.FM)*100, # Calculating the percent coverage
-                    mean95PI = round(mean(PercentCoverage), 2)) %>% # Avg 95% PI
+      dplyr::mutate(inCoverage = ifelse(observed <= get(paste0("upper.", quantileCalculation, "%")) & observed >= get(paste0("lower.", quantileCalculation, "%")), 1, 0), # Determining if in coverage
+                    mean95PI = (sum(inCoverage)/horizon.input.FM)*100) %>% # Calculating the percent coverage
       dplyr::select(observed, means, mean95PI) %>% # Selected needed variables 
-      dplyr::mutate(MSE = ((observed-means)^2), # Calculating MSE
-                    MAE = (abs(observed - means)), # Calculating MAE
-                    meanMAE = round(mean(MAE), 2), # Avg MAE
-                    meanMSE = round(mean(MSE), 2)) %>% # Avg MSE
+      dplyr::mutate(MSE = ((means - observed)^2), # Calculating MSE
+                    MAE = (abs(means - observed)), # Calculating MAE
+                    meanMAE = mean(MAE), # Avg MAE
+                    meanMSE = mean(MSE)) %>% # Avg MSE
       dplyr::select(meanMSE, meanMAE, mean95PI) %>% # Selecting the needed variables 
       dplyr::distinct(.keep_all = T) # Keeping only unique rows 
     
-
 #------------------------------------------------------------------------------#
-# Calculating Weighted Interval Scores for the forecast metrics ----------------
+# Calculating Weighted Interval Scores for forecast performance ----------------
 #------------------------------------------------------------------------------#
-# About: This section calculates the average WIS for the forecast metrics.     #
+# About: This section calculates the average WIS for the ARIMA, GLM, GAM, and  #
+# Prophet models for the model forecast performance. It is then averaged       #
+# across the entire forecast period.                                           #
 #------------------------------------------------------------------------------#
     
     ##################################################
@@ -305,24 +296,25 @@ forecastingMetrics <- function(crude.data.input, horizon.input,
     } # End of loop through observed values
     
 #------------------------------------------------------------------------------#
-# Creating the final data frame with all metrics -------------------------------
+# Creating the data frame with the calculated metrics --------------------------
 #------------------------------------------------------------------------------#
-# About: This section combines all average metrics into one data frame, and    #
-# saves them in a list for later exportation.                                  #
-#------------------------------------------------------------------------------#
+# About: This section combines the above calculated metrics into one data set. #
+# It also formats the data for final exportation.                              #
+#------------------------------------------------------------------------------#    
     
-    #########################
-    # Combining all metrics #
-    #########################
+    ##################################
+    # Cleaning and preparing one row #
+    ##################################
     allMetrics <- PI_MSE_MAE %>%
-      dplyr::mutate(meanWIS = round(mean(WISF[,1]), 2), 
+      dplyr::mutate(WIS = round(mean(WISF[,1]), 2), 
                     Model = modelName,
+                    PI = round(mean95PI, 2),  
                     Location = location,
-                    Date = forecastPeriod) %>%
-      dplyr::select(Location, Model, Date, meanMSE, meanMAE, mean95PI, meanWIS) %>%
-      dplyr::rename("MSE" = meanMSE,
-                    "MAE" = meanMAE,
-                    "WIS" = meanWIS)
+                    Date = forecastPeriod,
+                    Calibration = calibrationLength,
+                    MSE = round(meanMSE, 2), 
+                    MAE = round(meanMAE, 2)) %>%
+      dplyr::select(Location, Model, Date, Calibration, MSE, MAE, PI, WIS)
     
     ##################################
     # Adding the metrics to the list #
@@ -332,23 +324,15 @@ forecastingMetrics <- function(crude.data.input, horizon.input,
     
   } # End of calibration loop
   
-  ##############################
-  # Renaming the 95% PI Column #
-  ##############################
-  forecastMetrics <- forecastMetrics %>%
-    dplyr::rename("95%PI" = mean95PI)
-    
-
 #------------------------------------------------------------------------------#
-# Adding the 'Not-Run' list to the metrics list, and exporting -----------------
+# Preparing the final data set for export --------------------------------------
 #------------------------------------------------------------------------------#
-# About: This section adds the non run list to the main metrics list, and      #
-# outputs it to the main list that is exported.                                #
+# About: This section prepares the final data for export, and then returns the #
+# data set to the main dashboard.                                              #
 #------------------------------------------------------------------------------#
 
   # Removing NA in Model_Fits data
   forecastMetrics <- forecastMetrics[-1,]
-  
   
   # Returning the list
   return(forecastMetrics)

@@ -23,10 +23,10 @@ date.type.function <- function(dates.input){
 # from the crude data selected by the user.                                    #
 #------------------------------------------------------------------------------#
   
-###########################################
-# Reading in the dates from the main code #
-###########################################
-dates.input.T <<- dates.input
+  ###########################################
+  # Reading in the dates from the main code #
+  ###########################################
+  dates.input.T <- dates.input
 
 #------------------------------------------------------------------------------#
 # Determining the "type" of dates ----------------------------------------------
@@ -39,101 +39,108 @@ dates.input.T <<- dates.input
 # to check for missing data or skips in dates.                                 #
 #------------------------------------------------------------------------------#
 
-########################################
-# Determining the length of the "date" #
-########################################
-date.length <- base::nchar(as.character(dates.input.T[1]))
-
-############################
-# Working with yearly data # 
-############################
-if(date.length == 4){
+  ########################################
+  # Determining the length of the "date" #
+  ########################################
+  date.length <- base::nchar(as.character(dates.input.T[1]))
   
-  # Returning a date type of "year"
-  date.type <- "year"
-  
-  # Checking to see if there are skips in years, or years missing
-  for(i in 1:(length(dates.input.T) - 1)){
+  ############################
+  # Working with yearly data # 
+  ############################
+  if(date.length == 4){
     
-    # Determining what the next "year" should be 
-    nextYear <- as.numeric(dates.input.T)[i] + 1
+    # Returning a date type of "year"
+    date.type <- "year"
     
-    # Checking if what the next year should be and actually is match
-    if(nextYear != as.numeric(dates.input.T)[i + 1]){
+    # Checking to see if there are skips in years, or years missing
+    for(i in 1:(length(dates.input.T) - 1)){
       
-      # Returning a warning 
-      warning("Please check the time column of your data. There may be years missing.")
-      return("Please check the time column of your data. There may be years missing.")
+      # Determining what the next "year" should be 
+      nextYear <- as.numeric(dates.input.T)[i] + 1
       
-      # Stopping the script
-      stop()
+      # Checking if what the next year should be and actually is match
+      if(nextYear != as.numeric(dates.input.T)[i + 1]){
+        
+        # Returning a warning 
+        warning("Please check the time column of your data. There may be years missing.")
+        return("Please check the time column of your data. There may be years missing.")
+        
+        # Stopping the script
+        stop()
+        
+      }
+      
     }
-  }
     
-#############################
-# Working with time-indexes #
-#############################
-}else if(date.length < 4){
-  
-  # Returning a date type of "index"
-  date.type <- "index"
-  
-  # Checking to see if there are skips in time indexes, or time indexes missing
-  for(i in 1:(length(dates.input.T) - 1)){
+  #############################
+  # Working with time-indexes #
+  #############################
+  }else if(date.length < 4){
     
-    # Determining what the next "year" should be 
-    nextIndex <- as.numeric(dates.input.T)[i] + 1
+    # Returning a date type of "index"
+    date.type <- "index"
     
-    # Checking if what the next year should be and actually is match
-    if(nextIndex != as.numeric(dates.input.T)[i + 1]){
+    # Checking to see if there are skips in time indexes, or time indexes missing
+    for(i in 1:(length(dates.input.T) - 1)){
       
-      # Returning a warning 
-      warning("Please check the time column of your data. There may be time-indexes missing.")
-      return("Please check the time column of your data. There may be time-indexes missing.")
+      # Determining what the next "year" should be 
+      nextIndex <- as.numeric(dates.input.T)[i] + 1
       
-      # Stopping the script
-      stop()
+      # Checking if what the next year should be and actually is match
+      if(nextIndex != as.numeric(dates.input.T)[i + 1]){
+        
+        # Returning a warning 
+        warning("Please check the time column of your data. There may be time-indexes missing.")
+        return("Please check the time column of your data. There may be time-indexes missing.")
+        
+        # Stopping the script
+        stop()
+        
+      }
+      
     }
-  }
   
-##############################
-# Working with days or weeks #
-##############################
-}else{
-  
-  # Determining the amount of time between two dates 
-  date.duration <- as.character(difftime(anytime::anydate(dates.input.T[2]), anytime::anydate(dates.input.T[1]), units = "days"))
-  
-  # Creating the date.type variable
-  date.type <- switch(date.duration,
-                            "7" = "week", # If there are seven days between dates
-                            "1" = "day", # If there is one day between dates
-                     return("Please check your dates. They do not appear to be in a format that this toolbox supports."))
-  
-  # Checking for missing or skipped dates
-  for(i in 1:(length(dates.input.T) - 1)){
+  ##############################
+  # Working with days or weeks #
+  ##############################
+  }else{
     
-    # Determining what the next "year" should be 
-    nextIndex <- anytime::anydate(dates.input.T)[i] + as.numeric(date.duration)
+    # Determining the amount of time between two dates 
+    date.duration <- as.character(difftime(anytime::anydate(dates.input.T[2]), anytime::anydate(dates.input.T[1]), units = "days"))
     
-    # Checking if what the next year should be and actually is match
-    if(nextIndex != anytime::anydate(dates.input.T)[i + 1] & 
-       (i + as.numeric(date.duration)) < (length(dates.input.T) - 1)){
+    # Creating the date.type variable
+    date.type <- switch(date.duration,
+                              "7" = "week", # If there are seven days between dates
+                              "1" = "day", # If there is one day between dates
+                       return("Please check your dates. They do not appear to be in a format that this toolbox supports."))
+    
+    # Checking for missing or skipped dates
+    for(i in 1:(length(dates.input.T) - 1)){
       
-      # Returning a warning 
-      warning("Please check the time column of your data. There may be dates missing.")
-      return("Please check the time column of your data. There may be dates missing.")
+      # Determining what the next "year" should be 
+      nextIndex <- anytime::anydate(dates.input.T)[i] + as.numeric(date.duration)
       
-      # Stopping the script
-      stop()
+      # Checking if what the next year should be and actually is match
+      if(nextIndex != anytime::anydate(dates.input.T)[i + 1] & 
+         (i + as.numeric(date.duration)) < (length(dates.input.T) - 1)){
+        
+        # Returning a warning 
+        warning("Please check the time column of your data. There may be dates missing.")
+        return("Please check the time column of your data. There may be dates missing.")
+        
+        # Stopping the script
+        stop()
+        
+      }
+      
     }
+    
   }
-}
 
-
-###########################
-# Returning the date.type #
-###########################
-return(date.type)
+ 
+  ###########################
+  # Returning the date.type #
+  ###########################
+  return(date.type)
 
 }

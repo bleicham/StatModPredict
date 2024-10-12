@@ -16,11 +16,9 @@
 #------------------------------------------------------------------------------#
 Winkler.Scores.Model.Comparison <- function(formatted.forecast.DASHBOARD,
                                             formatted.forecast.Other,
-                                            calibrationPeriod.input,
-                                            forecastHorizon.input,
-                                            locations.input,
                                             date.type.input,
-                                            avgWinler.input) {
+                                            avgWinler.input,
+                                            quantile.input) {
   
 #------------------------------------------------------------------------------#
 # Creating the 'not-in' function -----------------------------------------------
@@ -52,21 +50,6 @@ Winkler.Scores.Model.Comparison <- function(formatted.forecast.DASHBOARD,
   ##############################################
   formatted.forecast.other.input <<- formatted.forecast.Other 
   
-  #####################################
-  # Reading in the calibration period #
-  #####################################
-  calibrationPeriod <<- calibrationPeriod.input
-  
-  ##########################
-  # Reading in the horizon #
-  ##########################
-  forecastingHorizon <<- forecastHorizon.input
-  
-  #####################################
-  # Reading in the original locations #
-  #####################################
-  locationList <<- locations.input
-  
   ############################
   # Reading in the date type #
   ############################
@@ -75,12 +58,12 @@ Winkler.Scores.Model.Comparison <- function(formatted.forecast.DASHBOARD,
   ##########################
   # Average Winkler Scores #
   ##########################
-  avgWinkler <- avgWinler.input
+  averageWinklerIndicator <<- avgWinler.input
   
-  #########################################
-  # Empty list to fill with renamed files #
-  #########################################
-  formattedForecastOtherRenamed <- list()
+  #####################
+  # Selected quantile #
+  #####################
+  quantileSelected <<- quantile.input
   
   ##########################################
   # Data frame to fill with winkler scores #
@@ -89,117 +72,52 @@ Winkler.Scores.Model.Comparison <- function(formatted.forecast.DASHBOARD,
   
   
 #------------------------------------------------------------------------------#
-# Error for running the figures without the dashboard results ------------------
+# Determining the alpha value --------------------------------------------------
 #------------------------------------------------------------------------------#
-# About: This section returns an error if a user trys to load other files      #
-# prior to running the full dashboard.                                         #
+# About: This section determines the alpha value that is used in the Winkler   #
+# score calculations based upon the prediction interval selected by the user.  #
 #------------------------------------------------------------------------------#
   
-  if(all(any(is.null(formatted.forecast.input) || length(formatted.forecast.input) == 0) & !is.null(formatted.forecast.other.input))){
+  #########################
+  # Calculating the alpha #
+  #########################
+  alphaToUse <-(100-as.numeric(quantileSelected))/100
+  
+  
+#------------------------------------------------------------------------------#
+# Combining the forecast lists -------------------------------------------------
+#------------------------------------------------------------------------------#
+# About: This section combines the forecasts from the dashboard and the        #
+# forecasts read in by the user.                                               #
+#------------------------------------------------------------------------------#
+  
+  #####################################################
+  # Combining the list if all forecasts are available #
+  #####################################################
+  if(!is.null(formatted.forecast.input)){
     
-    # Error to return
-    return("ERROR1")
+    # Combined list
+    combinedList <- c(formatted.forecast.input, formatted.forecast.other.input)
+    
+  ######################################
+  # Including only the other forecasts #
+  ######################################
+  }else{
+    
+    # Combined list
+    combinedList <- formatted.forecast.other.input
     
   }
   
 #------------------------------------------------------------------------------#
-# Potential errors with the loaded data ----------------------------------------
-#------------------------------------------------------------------------------#
-# About: This section checks for errors in the column names and file names of  #
-# the loaded data.                                                             #
-#------------------------------------------------------------------------------#
-  
-  for(i in 1:length(formatted.forecast.other.input)){
-    
-    # Indexed file
-    data <- formatted.forecast.other.input[[i]]
-    
-    #############################
-    # Checking the column names #
-    #############################
-    
-    # Expected
-    expectedNames <- c("Date", "data", "median", "LB", "UB")
-    
-    # Observed
-    observedNames <- c(colnames(data))
-    
-    # Checking if they match each other
-    if(any(expectedNames != observedNames)){
-      
-      # Returning an error
-      return("ERROR2")
-      
-    }
-    
-    ##########################
-    # Checking the file name #
-    ##########################
-    
-    # Indexed file name
-    dataName <- names(formatted.forecast.other.input)[i]
-    
-    # Checking for the word horizon #
-    horizonModel <- qdapRegex::ex_between(dataName, "-", "-calibration")[[1]][1]
-    
-    # Horizon
-    horizon <- qdapRegex::ex_between(horizonModel, "-", "-")[[1]][1]
-    
-    # Checking for the word calibration #
-    calibration <- qdapRegex::ex_between(dataName, paste0(horizonModel, "-"), "-")[[1]][1]
-    
-    # Checking if they match what is expected
-    if(any(horizon != "horizon" || calibration != "calibration")){
-      
-      # Returning an error
-      return("ERROR3")
-      
-    }
-    
-    ###############################
-    # Checking date specification #
-    ###############################
-    
-    # Pulling the calibration period length
-    caliLength <- qdapRegex::ex_between(dataName, paste0(calibration, "-"), "-")[[1]][1]
-    
-    # Pulling the location
-    location <- qdapRegex::ex_between(dataName, paste0(calibration, "-", caliLength, "-"), "-")[[1]][1]
-    
-    # Pulling the date
-    date <- qdapRegex::ex_between(dataName,  paste0(location, "-"), ".csv")[[1]][1]
-    
-    # Checking the date
-    if(all(dateType == 'year' & nchar(date) != 4)){
-      
-      # Returning an Error
-      return("ERROR4")
-      
-    }else if(all(dateType %in% c("week", "day") & nchar(date) != 10)){
-      
-      return("ERROR4")
-      
-    }
-    
-    ##########################
-    # Checking the locations #
-    ##########################
-    if(location %!in% c(locationList)){
-      
-      return("ERROR5")
-      
-    }
-    
-  }
-  
-#------------------------------------------------------------------------------#
-# Winkler scores function ------------------------------------------------------
+# Winkler scores Function ------------------------------------------------------
 #------------------------------------------------------------------------------#
 # About: This section creates the function to calculate Winkler scores for     #
-# each formatted forecast executed in the main dashboard.                      #
+# each formatted forecast created in the main dashboard. It takes in the UB    #
+# and LB, observed data, and alpha value that corresponds to the prediction    #
+# interval coverage. 
 #------------------------------------------------------------------------------#
-
-  winkler_score <- function(upper.bound, lower.bound, data){
+  winkler_score <- function(upper.bound, lower.bound, data, alpha){
     
     ##################################################
     # Runs if the observed data is lower than the LB #
@@ -207,7 +125,7 @@ Winkler.Scores.Model.Comparison <- function(formatted.forecast.DASHBOARD,
     if(data < lower.bound){
       
       # Calculated Winkler Score
-      score <- (upper.bound - lower.bound) + (2/0.05)*(lower.bound-data)
+      score <- (upper.bound - lower.bound) + (2/alpha)*(lower.bound-data)
       
     #################################################
     # Runs if the observed data falls in the bounds #
@@ -223,7 +141,7 @@ Winkler.Scores.Model.Comparison <- function(formatted.forecast.DASHBOARD,
     }else{
       
       # Calculated Winkler score 
-      score <- (upper.bound - lower.bound) + (2/0.05)*(data - upper.bound)
+      score <- (upper.bound - lower.bound) + (2/alpha)*(data - upper.bound)
       
     }
     
@@ -234,271 +152,202 @@ Winkler.Scores.Model.Comparison <- function(formatted.forecast.DASHBOARD,
     
   }
   
-
-  
-#------------------------------------------------------------------------------#
-# Cleaning up the names of the other formatted forecasts -----------------------
-#------------------------------------------------------------------------------#
-# About: This section fixes the names of the other formatted forecasts to      #
-# allow for easy merging and manipulation with the dashboard models.           #
-#------------------------------------------------------------------------------#
-  
-  #######################################
-  # Looping through formatted forecasts #
-  #######################################
-  for(i in 1:length(formatted.forecast.other.input)){
-    
-    # Name of forecast file
-    forecastFileName <- names(formatted.forecast.other.input[i])
-    
-    #########################
-    # Determining the model #
-    #########################
-    model <- qdapRegex::ex_between(forecastFileName, "", "-horizon")[[1]][1]
-    
-    ######################################
-    # Determining the calibration period #
-    ######################################
-    calibration <-  qdapRegex::ex_between(forecastFileName, "calibration-", "-")[[1]][1]
-    
-    ############################
-    # Determining the location #
-    ############################
-    location <- qdapRegex::ex_between(forecastFileName, paste0("calibration-", calibration, "-"), "-")[[1]][1]
-    
-    ####################################
-    # Determining the forecast horizon #
-    ####################################
-    horizon <- qdapRegex::ex_between(forecastFileName, "horizon-", "-calibration")[[1]][1]
-    
-    ###################################
-    # Determining the forecast period #
-    ###################################
-    
-    # Forecast period 
-    forecastDate <- qdapRegex::ex_between(forecastFileName, paste0(location, "-"), ".csv")[[1]][1]
-    
-    ################################################
-    # Fixing the date format: Daily or Weekly data #
-    ################################################
-    if(nchar(forecastDate) > 4){
-      
-      # Changing the forecast date to a date YYYY-MM-DD format
-      forecastDateFormat <- anytime::anydate(forecastDate)
-      
-      # Changing the date back to a character
-      forecastDateFinal <- as.character(forecastDateFormat)
-      
-    #####################################
-    # Setting the date: Yearly or Index #
-    #####################################
-    }else{ 
-      
-      forecastDateFinal <- as.character(forecastDate)
-      
-      } # End of 'if-else' for dates
-    
-    ######################################
-    # Creating the new name for the file #
-    ######################################
-    fileNameNew <- paste0(model, "-", location, "-", forecastDateFinal)
-    
-    ##################################################
-    # Adding calibration and horizon to the forecast #
-    ##################################################
-    forecast <- formatted.forecast.other.input[[i]] %>%
-      dplyr::mutate(Calibration = as.numeric(calibration), # Calibration period 
-                    Horizon = as.numeric(horizon)) # Horizon 
-    
-    ###############################
-    # Renaming the forecast files #
-    ###############################
-    
-    # Adding the file to the new list
-    formattedForecastOtherRenamed[[i]] <- forecast
-    
-    # Renaming the file
-    names(formattedForecastOtherRenamed)[i] <- fileNameNew
-    
-  }
-  
-#------------------------------------------------------------------------------#
-# Cleaning the dashboard model forecasts ---------------------------------------
-#------------------------------------------------------------------------------#
-# About: This section adds the calibration and forecast horizon columns to the #
-# formatted forecast files for the dashboard models. It then adds them back to #
-# a list to be combined with the other dashboard models.                       #
-#------------------------------------------------------------------------------#
-  
-  #######################################
-  # Empty list to save the edited files #
-  #######################################
-  newDashboardForecasts <- list()
-  
-  ##################################
-  # Looping through forecast files #
-  ##################################
-  for(i in 1:length(formatted.forecast.input)){
-    
-    ######################################
-    # Pulling the forecast name and file #
-    ######################################
-    
-    # Forecast name
-    nameForecast <- names(formatted.forecast.input[i])
-    
-    # Forecast file
-    data <- formatted.forecast.input[[i]]
-    
-    ####################################
-    # Adding the necessary information #
-    ####################################
-    finaldata <- data %>%
-      dplyr::mutate(Calibration = as.numeric(calibrationPeriod),
-                    Horizon = as.numeric(forecastingHorizon))
-    
-    ####################################
-    # Adding the data back to the list #
-    ####################################
-    
-    # Adding the data 
-    newDashboardForecasts[[i]] <- finaldata
-    
-    # Adding the name
-    names(newDashboardForecasts)[i] <- nameForecast
-  }
-  
-#------------------------------------------------------------------------------#
-# Combining the other list with the dashboard list -----------------------------
-#------------------------------------------------------------------------------#
-# About: This section combines the newly-named other formatted forecasts and   #
-# the forematted forecasts from the main dashboard into one list.              #
-#------------------------------------------------------------------------------#
-  
-  #####################
-  # Creating the list #
-  #####################
-  allForecasts <- c(formattedForecastOtherRenamed, newDashboardForecasts)
-  
-  
 #------------------------------------------------------------------------------#
 # Looping through formatted forecasts ------------------------------------------
 #------------------------------------------------------------------------------#
 # About: This section loops through the formatted forecasts to determine the   #
 # forecast period (i.e., split calibration and forecasts), and to calculate    #
-# the winkler scores, and saving the results for outputting.                   #
+# the Winkler scores, and saving the results for outputting.                   #
 #------------------------------------------------------------------------------#
-  for(w in 1:length(allForecasts)){
+  
+  for(w in 1:length(combinedList)){
     
     # Indexed forecast
-    indexForecast <- allForecasts[[w]]
+    indexForecast <- combinedList[[w]]
     
     # Name indexed forecast
-    nameForecast <- names(allForecasts[w])
-
+    nameForecast <- names(combinedList[w])
     
-    #########################################################
-    # Pulling needed information from the list element name #
-    #########################################################
+    ##########################################################
+    # Determining what pattern to use in pulling information #
+    ##########################################################
     
-    # Model name - Dashboard models
-    if(grepl("ARIMA|GLM|GAM|SLR|Prophet", nameForecast)){
+    # Splitting file name 
+    splitName <- strsplit(nameForecast, "[-]")[[1]]
+    
+    # List of dashboard models
+    dashboardModels <- c("ARIMA", "GLM", "GAM", "Prophet")
+    
+    ###########################################################################
+    # Pulling needed information from the list element name: Dashboard Models #
+    ###########################################################################
+    if(splitName[1] %in% c(dashboardModels)){
       
+      # Model name
       model <- qdapRegex::ex_between(nameForecast, "", "-")[[1]][1]
       
-    # Model name - Other models
+      # Location name
+      location <- qdapRegex::ex_between(nameForecast, paste0(model, "-"), "-")[[1]][1]
+      
+      # Calibration period length
+      calibrationLength <- as.numeric(qdapRegex::ex_between(nameForecast, "Calibration-", " (")[[1]][1])
+      
+      # Forecast period: Day or Week
+      if(dateType %in% c("week", "day")){
+        
+        forecastDate <- anytime::anydate(paste0(str_split(nameForecast, pattern = "-")[[1]][3], "-", str_split(nameForecast, pattern = "-")[[1]][4], "-", str_split(nameForecast, pattern = "-")[[1]][5]))
+        
+      # Forecast period: Year or Time Index
+      }else{
+        
+        forecastDate <- as.numeric(paste0(str_split(nameForecast, pattern = "-")[[1]][3]))
+        
+      }
+      
+    #######################################################################
+    # Pulling needed information from the list element name: Other Models #
+    #######################################################################
     }else{
       
-      model <- paste0(qdapRegex::ex_between(nameForecast, "", "-")[[1]][1], "-", qdapRegex::ex_between(nameForecast, "", "-")[[1]][3])
+      # Model name
+      model <- paste0(splitName[1], "-", splitName[2])
       
-    }
+      # Location name
+      location <- splitName[7]
+      
+      # Calibration period length
+      calibrationLength <- as.numeric(splitName[6])
+      
+      # Forecast period date - week or day
+      if(dateType %in% c("week", "day")){
+        
+        # Pulling the year
+        yearChar <- strsplit(strsplit(nameForecast, "[-]")[[1]][10], "[.]")[[1]][1]
+        
+        # Forecast period date
+        forecastPeriod <- anytime::anydate(paste0(yearChar, "-", strsplit(nameForecast, "[-]")[[1]][8], "-", strsplit(nameForecast, "[-]")[[1]][9]))
+        
+      # Forecast period date - year or time index 
+      }else{
+        
+        # Forecast period date
+        forecastPeriod <- as.numeric(strsplit(strsplit(nameForecast, "[-]")[[1]][8], "[.]")[[1]][1])
+        
+      }
+      
+    } # End of 'else'
+  
+      
+#------------------------------------------------------------------------------#
+# Preparing the final data -----------------------------------------------------
+#------------------------------------------------------------------------------#
+# About: This section prepares the final data prior to applying the Winkler    #
+# score function.                                                              #
+#------------------------------------------------------------------------------#
     
-    # Location name
-    location <- qdapRegex::ex_between(nameForecast, paste0(model, "-"), "-")[[1]][1]
-    
-    # Adjusting for possible parenthesis in the name
-    if(grepl("\\)", location) | grepl("\\(", location)) {
-      
-      # Adding \\ before the first instance of parenthesis 
-      firstParenthesis <- gsub("\\(", "\\\\(", location)
-      
-      # Adding \\ before he last instance of parenthesis 
-      locationForDate <- gsub("\\)", "\\\\)", firstParenthesis)
-      
-    }else{
-      
-      
-      locationForDate <- location
-      
-    }
-    
-    # Forecast period
-    forecastDate <- sub(paste0('.*-', locationForDate, '-'), '', nameForecast)
-    
-    #######################################################
-    # Formatted the data frame prior to applying function #
-    #######################################################
-    
+    ##############
+    # Final data #
+    ##############
     formattedPreWinkler <- indexForecast %>%
       dplyr::mutate(Model = model, # Model type 
                     Location = location, # Location
+                    Calibration = calibrationLength, # Calibration length 
                     `Forecast Date` = forecastDate, # Forecast date
-                    `Winkler Score` = NA) # Empty column for later step 
+                     CalibrationIndicator = ifelse(Date <= `Forecast Date`, 1, 0)) %>%
+      dplyr::mutate(`Winkler Score` = NA) %>% # Empty column for later step 
+      dplyr::select(CalibrationIndicator, Model, Location, Calibration, `Forecast Date`, Date, data, median, LB, UB, `Winkler Score`)
     
-
-    ########################################
-    # Applying the winkler scores function #
-    ########################################
     
-    # Looping through rows of data set
+#------------------------------------------------------------------------------#
+# Checking if the Winkler Scores can be calculated for the forecast ------------
+#------------------------------------------------------------------------------#
+# About: This section checks if all observed data is available for the         #
+# forecast period. If it is not, the forecast rows are removed from the data.  #
+#------------------------------------------------------------------------------#
+    
+    ############################
+    # Sub-setting the forecast #
+    ############################
+    forecast.temp <- formattedPreWinkler %>%
+      dplyr::filter(CalibrationIndicator == 0)
+    
+    ####################
+    # Checking for NAs #
+    ####################
+    if(any(is.na(forecast.temp$data))){
+      
+      formattedPreWinkler <- formattedPreWinkler %>%
+        dplyr::filter(CalibrationIndicator == 1)
+      
+    }else{
+      
+      formattedPreWinkler <- formattedPreWinkler 
+      
+    }
+    
+#------------------------------------------------------------------------------#
+# Applying the Winkler Score function ------------------------------------------
+#------------------------------------------------------------------------------#
+# About: This section applies the Winkler Score function to each row of the    #
+# formatted forecast. Later steps will calculate the average Winkler score for #
+# each forecast period, which is then exported in a later step.                #
+#------------------------------------------------------------------------------#
+    
+    ####################################
+    # Looping through rows of data set #
+    ####################################
     for(r in 1:nrow(formattedPreWinkler)){
       
       # Handling NAs in the data - Skipping that row 
-      if(is.na(formattedPreWinkler[r,5]) | is.na(formattedPreWinkler[r,4]) | is.na(formattedPreWinkler[r,2])){
+      if(is.na(formattedPreWinkler[r,9]) | is.na(formattedPreWinkler[r,10])){
         
         next
         
       }
       
       # Indexed row 
-      winklerScore <- winkler_score(formattedPreWinkler[r,5], formattedPreWinkler[r,4], formattedPreWinkler[r,2])
+      winklerScore <- winkler_score(upper.bound = formattedPreWinkler[r,10], 
+                                    lower.bound = formattedPreWinkler[r,9], 
+                                    data = formattedPreWinkler[r,7], 
+                                    alpha = alphaToUse)
       
       # Adding the score to the data frame
       formattedPreWinkler[r,11] <- winklerScore
       
     } # End of row loop
     
+    
+#------------------------------------------------------------------------------#
+# Preparing the final Winkler score data frames --------------------------------
+#------------------------------------------------------------------------------#
+# About: This section prepares the final data frame with Winkler scores for    #
+# exporting to the main dashboard. It also calculates the average Winker score #
+# for each forecast period date, location, calibration combonation.            #
+#------------------------------------------------------------------------------#
+    
     ####################################
     # Preparing the data for exporting #
     ####################################
     
     # If working with daily or weekly data
-    if(nchar(formattedPreWinkler[1,1]) > 4){
+    if(dateType %in% c("week", "day")){
       
-        # Final data set to export 
-        winklerData <- formattedPreWinkler %>%
-          dplyr::mutate(`Forecast Date` = anytime::anydate(`Forecast Date`)) %>% # Formatted forecast date
-          dplyr::mutate(CalibrationIndicator = ifelse(Date <= `Forecast Date`, 1, 0)) %>% # Indicator for calibration period
-          dplyr::mutate(Date = anytime::anydate(Date)) %>% # Formatted date 
-          dplyr::select(Location, Model, Date, `Forecast Date`, Calibration, Horizon, `Winkler Score`, CalibrationIndicator) %>% # Selecting needed variables 
-          dplyr::group_by(CalibrationIndicator) %>% # Grouping by forecast period type 
-          dplyr::mutate(`Winkler Score` = round(mean(`Winkler Score`), 2)) # Average Winkler score across forecast or calibration periods 
-        
-      # If working with yearly or time index data  
-      }else{
-        
-        # Final data set to export 
-        winklerData <- formattedPreWinkler %>%
-          dplyr::mutate(`Forecast Date` = as.numeric(`Forecast Date`)) %>% # Formatted forecast date
-          dplyr::mutate(CalibrationIndicator = ifelse(Date <= `Forecast Date`, 1, 0)) %>% # Indicator for calibration period 
-          dplyr::mutate(Date = as.numeric(Date)) %>% # Formatted date 
-          dplyr::select(Location, Model, Date, `Forecast Date`, Calibration, Horizon, `Winkler Score`, CalibrationIndicator) %>% # Selecting needed variables 
-          dplyr::group_by(CalibrationIndicator) %>% # Grouping by forecast period type 
-          dplyr::mutate(`Winkler Score` = round(mean(`Winkler Score`), 2)) # Average Winkler score across forecast or calibration periods
-        
-      }
+      winklerData <- formattedPreWinkler %>%
+        dplyr::mutate(`Forecast Date` = anytime::anydate(`Forecast Date`)) %>%
+        dplyr::select(CalibrationIndicator, Model, Location, Calibration, Date, `Forecast Date`, `Winkler Score`) %>%
+        dplyr::group_by(CalibrationIndicator) %>%
+        dplyr::mutate(`Avg. Winkler Score` = round(mean(`Winkler Score`), 2))
+      
+    # If working with yearly or time index data  
+    }else{
+      
+      winklerData <- formattedPreWinkler %>%
+        dplyr::mutate(`Forecast Date` = as.numeric(`Forecast Date`)) %>%
+        dplyr::select(CalibrationIndicator, Model, Location, Calibration, Date, `Forecast Date`, `Winkler Score`) %>%
+        dplyr::group_by(CalibrationIndicator) %>%
+        dplyr::mutate(`Avg. Winkler Score` = round(mean(`Winkler Score`), 2))
+    }
     
-   
     ####################################################
     # Adding the winkler score to the final data frame #
     ####################################################
@@ -506,37 +355,44 @@ Winkler.Scores.Model.Comparison <- function(formatted.forecast.DASHBOARD,
     
   } # End of loop going through forecast files 
   
- 
-  #######################################
-  # Preparing the data frame for export #
-  #######################################
+#------------------------------------------------------------------------------#
+# Determining if the Winkler Scores should be averaged across forecast dates ---
+#------------------------------------------------------------------------------#
+# About: This section averages the Winkler scores across forecast period dates #
+# if indicated by the user. If it is not indicated, the scores remain for      #
+# each forecast period date.                                                   #
+#------------------------------------------------------------------------------#
   
-  # If non-average metrics 
-  if(!avgWinkler){
+  ###############################
+  # Calculating average metrics #
+  ###############################
+  if(averageWinklerIndicator == 1){
     
     finalWinkler <- allWinklerScores %>%
-      dplyr::ungroup() %>% # Removing any grouping from earlier 
-      dplyr::mutate(`Performance Metric Type` = ifelse(CalibrationIndicator == 0, "Forecast", "Fit")) %>% # Creating the formatted variable for indicator
-      dplyr::distinct(Location, Model, `Forecast Date`, CalibrationIndicator, .keep_all = T) %>% # Removing un-needed rows 
-      dplyr::select(`Performance Metric Type`, Location, Model, `Forecast Date`, Calibration, Horizon,`Winkler Score`) %>% # Ordering variables 
-      na.omit() # Removing NA rows 
-  
-  # If working with average metrics  
+      dplyr::group_by(Location, Model, Calibration, CalibrationIndicator) %>%
+      dplyr::mutate(`Avg. Winkler` = round(mean(`Avg. Winkler Score`, na.rm = T), 2)) %>% # Calculating the average Winkler Score
+      dplyr::distinct(Location, Model, Calibration, CalibrationIndicator, .keep_all = T) %>% # Removing un-needed rows 
+      na.omit() %>% # Removing NA rows
+      dplyr::select(CalibrationIndicator, Location, Model, Calibration,`Avg. Winkler`) %>% # Selecting needed variables 
+      dplyr::rename("Type" = CalibrationIndicator) %>% # Renaming the type indicator 
+      dplyr::mutate(Type = ifelse(Type == 1, "Fit", "Forecast"))
+    
+    
+  #############################   
+  # Keeping the crude metrics #
+  #############################
   }else{
     
     finalWinkler <- allWinklerScores %>%
-      dplyr::ungroup() %>% # Removing any grouping from earlier 
-      dplyr::mutate(`Performance Metric Type` = ifelse(CalibrationIndicator == 0, "Forecast", "Fit")) %>% # Creating the formatted variable for indicator
-      dplyr::distinct(Location, Model, `Forecast Date`, CalibrationIndicator, .keep_all = T) %>% # Removing un-needed rows 
-      dplyr::group_by(Location, Model, `Performance Metric Type`) %>% # Grouping variables
-      dplyr::mutate(`Avg. Winkler Score` = round(mean(`Winkler Score`), 2)) %>%
-      dplyr::select(`Performance Metric Type`, Location, Model, Calibration, Horizon, `Avg. Winkler Score`, `Forecast Date`) %>% # Ordering variables 
-      na.omit() %>% # Removing NA rows 
-      dplyr::ungroup() %>% # Ungroup
-      dplyr::distinct(`Performance Metric Type`, Location, Model, Calibration, Horizon, .keep_all = T) # Removing repeat rows
+      dplyr::select(CalibrationIndicator, Location, Model, Calibration, `Forecast Date`, `Avg. Winkler Score`) %>% # Selecting needed variables 
+      dplyr::distinct(Location, Model, Calibration, CalibrationIndicator, `Forecast Date`, .keep_all = T) %>% # Removing un-needed rows 
+      na.omit() %>% # Removing NA rows
+      dplyr::rename("Winkler Score" = `Avg. Winkler Score`,  # Renaming the column containing Winkler Scores 
+                    "Type" = CalibrationIndicator) %>% # Renaming the type indicator 
+      dplyr::mutate(Type = ifelse(Type == 1, "Fit", "Forecast"))
     
   }
-    
+  
   ######################################
   # Returning the final Winkler Scores #
   ######################################

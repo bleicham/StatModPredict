@@ -1,6 +1,6 @@
 #------------------------------------------------------------------------------#
 #                                                                              #
-#          Calculating Winkler Scores - ARIMA/GLM/GAM/Prophet Toolbox          #
+#                         Calculating Winkler Scores                           #
 #                                                                              #
 #------------------------------------------------------------------------------#
 # About:                                                                       #
@@ -14,12 +14,13 @@
 #                         By: Amanda Bleichrodt                                #
 #------------------------------------------------------------------------------#
 winkler.scores.AGGP <- function(formattedForecasts,
-                                locations.input,
-                                models.input,
                                 filterIndicator.input,
                                 averageIndicator.input,
-                                metricPage.input) {
+                                metricPage.input, quantile.input,
+                                orginData.input,  date.type.input,
+                                horizon.input) {
 
+  
 #------------------------------------------------------------------------------#
 # Reading in inputs ------------------------------------------------------------
 #------------------------------------------------------------------------------#
@@ -31,16 +32,6 @@ winkler.scores.AGGP <- function(formattedForecasts,
   # Reading in the formatted forecasts #
   ######################################
   formatted.forecast.input <<- formattedForecasts
-  
-  ############################
-  # Reading in the locations #
-  ############################
-  locationsInput <<- locations.input
-  
-  #########################
-  # Reading in the models #
-  #########################
-  modelsInput <<- models.input
   
   #######################
   # Filtering indicator #
@@ -57,19 +48,54 @@ winkler.scores.AGGP <- function(formattedForecasts,
   ###################
   metricToShow <<- metricPage.input
   
+  ##################
+  # Quantile input #
+  ##################
+  quantileSelected <<- quantile.input
+  
+  ###################
+  # Comparison data #
+  ###################
+  compareData <<- orginData.input
+  
+  #############
+  # Date type #
+  #############
+  dateType <<- date.type.input
+  
+  ####################
+  # Forecast Horizon #
+  ####################
+  forecastHorzion <<- 4
+  
   ##########################################
   # Data frame to fill with winkler scores #
   ##########################################
   allWinklerScores <- data.frame()
 
+  
+#------------------------------------------------------------------------------#
+# Determining the alpha value --------------------------------------------------
+#------------------------------------------------------------------------------#
+# About: This section determines the alpha value that is used in the Winkler   #
+# score calculations based upon the prediction interval selected by the user.  #
+#------------------------------------------------------------------------------#
+  
+  #########################
+  # Calculating the alpha #
+  #########################
+  alphaToUse <-(100-as.numeric(quantileSelected))/100
+  
 
 #------------------------------------------------------------------------------#
-# Winkler scores function ------------------------------------------------------
+# Winkler scores Function ------------------------------------------------------
 #------------------------------------------------------------------------------#
 # About: This section creates the function to calculate Winkler scores for     #
-# each formatted forecast executed in the main dashboard.                      #
+# each formatted forecast created in the main dashboard. It takes in the UB    #
+# and LB, observed data, and alpha value that corresponds to the prediction    #
+# interval coverage. 
 #------------------------------------------------------------------------------#
-  winkler_score <- function(upper.bound, lower.bound, data){
+  winkler_score <- function(upper.bound, lower.bound, data, alpha){
     
     ##################################################
     # Runs if the observed data is lower than the LB #
@@ -77,11 +103,11 @@ winkler.scores.AGGP <- function(formattedForecasts,
     if(data < lower.bound){
       
       # Calculated Winkler Score
-      score <- (upper.bound - lower.bound) + (2/0.05)*(lower.bound-data)
+      score <- (upper.bound - lower.bound) + (2/alpha)*(lower.bound-data)
       
-      #################################################
-      # Runs if the observed data falls in the bounds #
-      #################################################
+    #################################################
+    # Runs if the observed data falls in the bounds #
+    #################################################
     }else if(data >= lower.bound & data <= upper.bound){
       
       # Calculated Winkler score
@@ -93,7 +119,7 @@ winkler.scores.AGGP <- function(formattedForecasts,
     }else{
       
       # Calculated Winkler score 
-      score <- (upper.bound - lower.bound) + (2/0.05)*(data - upper.bound)
+      score <- (upper.bound - lower.bound) + (2/alpha)*(data - upper.bound)
       
     }
     
@@ -105,11 +131,11 @@ winkler.scores.AGGP <- function(formattedForecasts,
   }
 
 #------------------------------------------------------------------------------#
-# Looping through forematted forecasts -----------------------------------------
+# Looping through formatted forecasts ------------------------------------------
 #------------------------------------------------------------------------------#
 # About: This section loops through the formatted forecasts to determine the   #
 # forecast period (i.e., split calibration and forecasts), and to calculate    #
-# the winkler scores, and saving the results for outputting.                   #
+# the Winkler scores, and saving the results for outputting.                   #
 #------------------------------------------------------------------------------#
 
   for(w in 1:length(formatted.forecast.input)){
@@ -117,7 +143,7 @@ winkler.scores.AGGP <- function(formattedForecasts,
     # Indexed forecast
     indexForecast <- formatted.forecast.input[[w]]
     
-    # Name indxed forecast
+    # Name indexed forecast
     nameForecast <- names(formatted.forecast.input[w])
     
     #########################################################
@@ -130,82 +156,164 @@ winkler.scores.AGGP <- function(formattedForecasts,
     # Location name
     location <- qdapRegex::ex_between(nameForecast, paste0(model, "-"), "-")[[1]][1]
     
-    # Adjusting for possible parenthesis in the name
-    if(grepl("\\)", location) | grepl("\\(", location)) {
+    # Calibration period length
+    calibrationLength <- as.numeric(qdapRegex::ex_between(nameForecast, "Calibration-", " (")[[1]][1])
+    
+    # Forecast period: Day or Week
+    if(dateType %in% c("week", "day")){
       
-      # Adding \\ before the first instance of parenthesis 
-      firstParenthesis <- gsub("\\(", "\\\\(", location)
-      
-      # Adding \\ before he last instance of parenthesis 
-      locationForDate <- gsub("\\)", "\\\\)", firstParenthesis)
-      
+      forecastDate <- anytime::anydate(paste0(str_split(nameForecast, pattern = "-")[[1]][3], "-", str_split(nameForecast, pattern = "-")[[1]][4], "-", str_split(nameForecast, pattern = "-")[[1]][5]))
+
+    # Forecast period: Year or Time Index
     }else{
       
-      locationForDate <- location
+      forecastDate <- as.numeric(paste0(str_split(nameForecast, pattern = "-")[[1]][3]))
       
     }
     
-    # Forecast period
-    forecastDate <- sub(paste0('.*-', locationForDate, '-'), '', nameForecast)
+#------------------------------------------------------------------------------#
+# Determining the observed data to use -----------------------------------------
+#------------------------------------------------------------------------------#
+# About: This section determines which observed data should be used in the     #
+# Winkler score calculations.                                                  #
+#------------------------------------------------------------------------------#
     
-    #######################################################
-    # Formatted the data frame prior to applying function #
-    #######################################################
+    #################################
+    # Determining the dates to pull #
+    #################################
+    datesToPull <- c(indexForecast$Date)
     
-    formattedPreWinkler <- indexForecast %>%
+    #################################################
+    # Pulling the data from the observed data frame #
+    #################################################
+    
+    # Renaming column one
+    colnames(compareData)[1] <- "Date"
+  
+    # Filtering the data 
+    observedData <- compareData %>%
+      dplyr::filter(Date %in% c(datesToPull)) %>%
+      dplyr::select(Date, location)
+    
+    # Renaming the last column
+    colnames(observedData)[2] <- "Obs."
+    
+    #########################################################
+    # Combining the original forecast with the compare data #
+    #########################################################
+    combinedData <- merge(indexForecast, observedData, by = "Date", all = T)
+    
+#------------------------------------------------------------------------------#
+# Preparing the final data -----------------------------------------------------
+#------------------------------------------------------------------------------#
+# About: This section prepares the final data prior to applying the Winkler    #
+# score function.                                                              #
+#------------------------------------------------------------------------------#
+    
+    ##############
+    # Final data #
+    ##############
+    formattedPreWinkler <- combinedData %>%       
       dplyr::mutate(Model = model, # Model type 
                     Location = location, # Location
+                    Calibration = calibrationLength, # Calibration length 
                     `Forecast Date` = forecastDate, # Forecast date
-                    `Winkler Score` = NA) # Empty column for later step 
+                    data = `Obs.`, # Replacing the observed data
+                    CalibrationIndicator = ifelse(Date <= `Forecast Date`, 1, 0), # Calibration indicator 
+                    `Winkler Score` = NA) %>% # Empty column for later step 
+      dplyr::select(CalibrationIndicator, Model, Location, Calibration, `Forecast Date`, Date, data, median, LB, UB, `Winkler Score`)
     
-    ########################################
-    # Applying the winkler scores function #
-    ########################################
     
-    # Looping through rows of data set
+#------------------------------------------------------------------------------#
+# Checking if the Winkler Scores can be calculated for the forecast ------------
+#------------------------------------------------------------------------------#
+# About: This section checks if all observed data is available for the         #
+# forecast period. If it is not, the forecast rows are removed from the data.  #
+#------------------------------------------------------------------------------#
+    
+    ############################
+    # Sub-setting the forecast #
+    ############################
+    forecast.temp <- formattedPreWinkler %>%
+      dplyr::filter(CalibrationIndicator == 0)
+    
+    ####################
+    # Checking for NAs #
+    ####################
+    if(any(is.na(forecast.temp$data))){
+      
+      formattedPreWinkler <- formattedPreWinkler %>%
+        dplyr::filter(CalibrationIndicator == 1)
+      
+    }else{
+      
+      formattedPreWinkler <- formattedPreWinkler 
+      
+    }
+    
+#------------------------------------------------------------------------------#
+# Applying the Winkler Score function ------------------------------------------
+#------------------------------------------------------------------------------#
+# About: This section applies the Winkler Score function to each row of the    #
+# formatted forecast. Later steps will calculate the average Winkler score for #
+# each forecast period, which is then exported in a later step.                #
+#------------------------------------------------------------------------------#
+
+    ####################################
+    # Looping through rows of data set #
+    ####################################
     for(r in 1:nrow(formattedPreWinkler)){
       
       # Handling NAs in the data - Skipping that row 
-      if(is.na(formattedPreWinkler[r,5]) | is.na(formattedPreWinkler[r,4]) | is.na(formattedPreWinkler[r,2])){
+      if(is.na(formattedPreWinkler[r,9]) | is.na(formattedPreWinkler[r,10])){
         
         next
         
       }
       
       # Indexed row 
-      winklerScore <- winkler_score(formattedPreWinkler[r,5], formattedPreWinkler[r,4], formattedPreWinkler[r,2])
+      winklerScore <- winkler_score(upper.bound = formattedPreWinkler[r,10], 
+                                    lower.bound = formattedPreWinkler[r,9], 
+                                    data = formattedPreWinkler[r,7], 
+                                    alpha = alphaToUse)
       
       # Adding the score to the data frame
-      formattedPreWinkler[r,9] <- winklerScore
+      formattedPreWinkler[r,11] <- winklerScore
       
     } # End of row loop
+    
+    
+#------------------------------------------------------------------------------#
+# Preparing the final Winkler score data frames --------------------------------
+#------------------------------------------------------------------------------#
+# About: This section prepares the final data frame with Winkler scores for    #
+# exporting to the main dashboard. It also calculates the average Winker score #
+# for each forecast period date, location, calibration combonation.            #
+#------------------------------------------------------------------------------#
     
     ####################################
     # Preparing the data for exporting #
     ####################################
     
     # If working with daily or weekly data
-    if(nchar(formattedPreWinkler[1,1]) > 4){
+    if(dateType %in% c("week", "day")){
       
-      # Final data set to export 
       winklerData <- formattedPreWinkler %>%
-        dplyr::mutate(`Forecast Date` = anytime::anydate(`Forecast Date`)) %>% # Formatted forecast date
-        dplyr::mutate(CalibrationIndicator = ifelse(Date <= `Forecast Date`, 1, 0)) %>% # Indicator for calibration period 
-        dplyr::select(Location, Model, Date, `Forecast Date`, `Winkler Score`, CalibrationIndicator) %>% # Selecting needed variables 
-        dplyr::group_by(CalibrationIndicator) %>% # Grouping by forecast period type 
-        dplyr::mutate(avgWinkler = round(mean(`Winkler Score`), 2)) # Average Winkler score across forecast or calibration periods 
-    
+        na.omit() %>%
+        dplyr::mutate(`Forecast Date` = anytime::anydate(`Forecast Date`)) %>%
+        dplyr::select(CalibrationIndicator, Model, Location, Calibration, Date, `Forecast Date`, `Winkler Score`) %>%
+        dplyr::group_by(CalibrationIndicator) %>%
+        dplyr::mutate(`Avg. Winkler Score` = round(mean(`Winkler Score`), 2))
+      
     # If working with yearly or time index data  
     }else{
       
-      # Final data set to export 
       winklerData <- formattedPreWinkler %>%
-        dplyr::mutate(`Forecast Date` = as.numeric(`Forecast Date`)) %>% # Formatted forecast date
-        dplyr::mutate(CalibrationIndicator = ifelse(Date <= `Forecast Date`, 1, 0)) %>% # Indicator for calibration period 
-        dplyr::select(Location, Model, Date, `Forecast Date`, `Winkler Score`, CalibrationIndicator) %>% # Selecting needed variables 
-        dplyr::group_by(CalibrationIndicator) %>% # Grouping by forecast period type 
-        dplyr::mutate(avgWinkler = round(mean(`Winkler Score`), 2)) # Average Winkler score across forecast or calibration periods
-      
+        na.omit() %>%
+        dplyr::mutate(`Forecast Date` = as.numeric(`Forecast Date`)) %>%
+        dplyr::select(CalibrationIndicator, Model, Location, Calibration, Date, `Forecast Date`, `Winkler Score`) %>%
+        dplyr::group_by(CalibrationIndicator) %>%
+        dplyr::mutate(`Avg. Winkler Score` = round(mean(`Winkler Score`), 2))
     }
     
     ####################################################
@@ -217,9 +325,11 @@ winkler.scores.AGGP <- function(formattedForecasts,
   
   
 #------------------------------------------------------------------------------#
-# Determining if average or crude metrics need to be calculated ----------------
+# Determining if the Winkler Scores should be averaged across forecast dates ---
 #------------------------------------------------------------------------------#
-# About: This section calculates the average metrics if indicated by the user. #
+# About: This section averages the Winkler scores across forecast period dates #
+# if indicated by the user. If it is not indicated, the scores remain for      #
+# each forecast period date.                                                   #
 #------------------------------------------------------------------------------#
   
   ###############################
@@ -228,11 +338,11 @@ winkler.scores.AGGP <- function(formattedForecasts,
   if(averageWinklerIndicator == 1){
     
     finalWinkler <- allWinklerScores %>%
-      dplyr::group_by(Location, Model, CalibrationIndicator) %>%
-      dplyr::mutate(`Avg. Winkler` = round(mean(avgWinkler, na.rm = T), 2)) %>% # Calculating the average Winkler Score
-      dplyr::distinct(Location, Model, CalibrationIndicator, .keep_all = T) %>% # Removing un-needed rows 
+      dplyr::group_by(Location, Model, Calibration, CalibrationIndicator) %>%
+      dplyr::mutate(`Avg. Winkler` = round(mean(`Avg. Winkler Score`, na.rm = T), 2)) %>% # Calculating the average Winkler Score
+      dplyr::distinct(Location, Model, Calibration, CalibrationIndicator, .keep_all = T) %>% # Removing un-needed rows 
       na.omit() %>% # Removing NA rows
-      dplyr::select(Location, Model, CalibrationIndicator, `Avg. Winkler`) # Selecting needed variables 
+      dplyr::select(Location, Model, Calibration, CalibrationIndicator, `Avg. Winkler`) # Selecting needed variables 
    
   #############################   
   # Keeping the crude metrics #
@@ -240,18 +350,19 @@ winkler.scores.AGGP <- function(formattedForecasts,
   }else{
     
     finalWinkler <- allWinklerScores %>%
-      dplyr::select(Location, Model, `Forecast Date`, CalibrationIndicator, avgWinkler) %>% # Selecting needed variables 
-      dplyr::distinct(Location, Model, CalibrationIndicator, `Forecast Date`, .keep_all = T) %>% # Removing un-needed rows 
+      dplyr::select(Location, Model, Calibration, `Forecast Date`, CalibrationIndicator, `Avg. Winkler Score`) %>% # Selecting needed variables 
+      dplyr::distinct(Location, Model, Calibration, CalibrationIndicator, `Forecast Date`, .keep_all = T) %>% # Removing un-needed rows 
       na.omit() %>% # Removing NA rows
-      dplyr::rename("Winkler Score" = avgWinkler) # Renaming the colum containing Winkler Scores 
-    
+      dplyr::rename("Winkler Score" = `Avg. Winkler Score`) # Renaming the column containing Winkler Scores 
+
   }
   
 #------------------------------------------------------------------------------#
-# Determining when to use the specified filtering ------------------------------
+# Filtering the Winkler Scores -------------------------------------------------
 #------------------------------------------------------------------------------#
-# About: Based upon the filtering indicator, this section determines if the    #
-# metrics should be filtered or not.                                           #
+# About: This section applies the necessary filtering selections to the data.  #
+# For example, if working with model fit statistics, it shows the Winkler      #
+# Score for the fit or forecast.                                               #
 #------------------------------------------------------------------------------#
   
   ###########################################################
@@ -262,37 +373,20 @@ winkler.scores.AGGP <- function(formattedForecasts,
     0
   )
   
-  #############################
-  # Not filtering the metrics #
-  #############################
-  if(filteringIndicator == 0){
-    
-    # Data with no filtering
-    filteredWinkler <- finalWinkler %>%
+  ######################################
+  # Preparing the final Winkler scores #
+  ######################################
+  filteredWinkler <- finalWinkler %>%
       dplyr::ungroup() %>% # Ungrouping 
       dplyr::filter(CalibrationIndicator == pageIndicator) %>% # Page specific metrics 
       dplyr::select(-CalibrationIndicator) # Removing the page-specific indicator 
     
-  #########################
-  # Filtering the metrics #
-  #########################
-  }else{
-    
-    # Data with no filtering
-    filteredWinkler <- finalWinkler %>%
-      dplyr::ungroup() %>% # Ungrouping 
-      dplyr::filter(CalibrationIndicator == pageIndicator, # Page specific metrics
-                    Location %in% c(locationsInput), # Filtering locations 
-                    Model %in% c(modelsInput)) %>% # Filtering Models 
-      dplyr::select(-CalibrationIndicator) # Removing the page-specific indicator 
-    
-    
-  }
+
+  ################################################
+  # Returning the data frame with winkler scores #
+  ################################################
+  return(filteredWinkler)
   
-    ################################################
-    # Returning the data frame with winkler scores #
-    ################################################
-    return(filteredWinkler)
   
   } # End of function
 

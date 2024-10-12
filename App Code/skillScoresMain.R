@@ -8,14 +8,23 @@
 # This function calculates the skill scores for the ARIMA, GLM, GAM, and       #
 # Prophet models. The skill scores can be calculated for the crude metrics or  #
 # average metrics as determined by the user. Additionally, skill scores can be #
-# calculated for the forecast or fit metrics. Finally, the user can only       #
-# select one benchmark model, but many comparison models.                      #
+# calculated for the forecast or fit metrics.                                  #
+#                                                                              #
+# Skill scores are a calculation that allows up to see how much one model      #
+# (i.e., comparison) improves over a baseline model. The equation is given     #
+# by:                                                                          #
+#                                                                              #
+#                  (Baseline - Comparison)/Baseline * 100                      #
+#                                                                              #
+#                                                                              #
+# Additional information can be found in:                                      #
+# https://otexts.com/fpp3/distaccuracy.html.                                   #
+#                                                                              #                                                                          
 #------------------------------------------------------------------------------#
 #                        Author: Amanda Bleichrodt                             #
 #------------------------------------------------------------------------------#
-skillScoresMain <- function(averageIndicator, locationsFilter, CrudeMetrics,
-                              benchModel, compModels, winkler.input,
-                            filterIndicator.input){
+skillScoresMain <- function(averageIndicator, CrudeMetrics, winkler.input,
+                            metricPage.input){
   
 #------------------------------------------------------------------------------#
 # Function Inputs --------------------------------------------------------------
@@ -27,316 +36,222 @@ skillScoresMain <- function(averageIndicator, locationsFilter, CrudeMetrics,
   #######################
   # Winkler scores data #
   #######################
-  winklerScores <- winkler.input 
+  winklerScores <<- winkler.input 
   
   #############################
   # Average Metrics Indicator #
   #############################
-  average.input <- averageIndicator 
+  average.input <<- averageIndicator 
   
-  #########################
-  # Location Input Filter #
-  #########################
-  location.input <- locationsFilter 
-
   ######################
   # Crude metrics data #
   ######################
-  metrics.input <- CrudeMetrics 
-  
-  ############################
-  # Benchmarking model input #
-  ############################
-  benchmark.input <- benchModel
-  
-  ##########################
-  # Comparison model input #
-  ##########################
-  comparison.input <- compModels
-  
-  ####################
-  # Filter Indicator #
-  ####################
-  filteringIndicator <- filterIndicator.input
+  metrics.input <<- CrudeMetrics 
+
+  ##################
+  # Metric to show #
+  ##################
+  metricToShow <<- metricPage.input
   
 #------------------------------------------------------------------------------#
-# Determining when to use the specified filtering ------------------------------
+# Combining the Winkler Scores and Metrics Data --------------------------------
 #------------------------------------------------------------------------------#
-# About: Based upon the filtering indicator, this section determines if the    #
-# metrics should be filtered or not.                                           #
+# About: This section compares the metrics data and the Winkler scores.        #
 #------------------------------------------------------------------------------#
   
-  ##########################
-  # Not filtering the data #
-  ##########################
-  if(filteringIndicator == 0){
+  ##################################
+  # Editing the Winkler Score Date #
+  ##################################
+  winklerScores <- winklerScores %>%
+    dplyr::rename("Date" = `Forecast Date`) %>%
+    dplyr::select(Location, Model, Date, Calibration, `Winkler Score`) 
+  
+  #########################################
+  # Fixing the dates in the metrics input #
+  #########################################
+  if(nchar(metrics.input$Date)[1] == 10){
     
-    # Baseline model(s) 
-    baseline <- c(unique(metrics.input$Model))
+    crudeDateFix <- metrics.input %>%
+      dplyr::mutate(Date = anytime::anydate(Date))
     
-    # Comparison model(s) 
-    comparison <- c(unique(metrics.input$Model))
-    
-    # Locations 
-    locationInput <- c(unique(metrics.input$Location))
-    
-  ######################
-  # Filtering the data #
-  ######################
   }else{
     
-    # Baseline model(s) 
-    baseline <- benchmark.input
+    crudeDateFix <- metrics.input %>%
+      dplyr::mutate(Date = as.numeric(Date))
     
-    # Comparison model(s) 
-    comparison <- comparison.input
+  }
+  
+  ###############################
+  # Merging the two data frames #
+  ###############################
+  crudeDataMerged <- merge(crudeDateFix, winklerScores, by = c("Location", "Model", "Date", "Calibration"), all = T)
+  
+  ########################
+  # Cleaning up the data #
+  ########################
+  
+  # Possible variable names
+  possibleNames <- c("Location", "Model", "Calibration", "Date", "MSE", "MAE", "WIS", "PI", "AICc", "AIC", "BIC", "Winkler Score")
+  
+  # Selecting the needed variables 
+  crudeDataFinal <- crudeDataMerged %>%
+    dplyr::select(one_of(possibleNames))
+
+#------------------------------------------------------------------------------#
+# Creating the Average metrics data --------------------------------------------
+#------------------------------------------------------------------------------#
+# About: Users also have the option to calculate skill scores based upon the   #
+# average metrics value. Therefore, this section calculates the average        #
+# metrics over the forecast dates.                                             #
+#------------------------------------------------------------------------------#
+  
+  # Data frame to fill
+  averageDataFinal <- data.frame(Location = crudeDataFinal$Location,
+                                 Model = crudeDataFinal$Model,
+                                 Calibration = crudeDataFinal$Calibration,
+                                 Date = crudeDataFinal$Date)
+
+  #########################################
+  # Loop to calculate the average metrics #
+  #########################################
+  for(i in 5:ncol(crudeDataFinal)){
     
-    # Locations 
-    locationInput <- location.input
+    # Creating a temp file with crude data 
+    tempData <- data.frame(Location = crudeDataFinal$Location,
+                           Model = crudeDataFinal$Model,
+                           Calibration = crudeDataFinal$Calibration,
+                           Date = crudeDataFinal$Date,
+                           tempCrude = crudeDataFinal[[i]])
+    
+    # Temp file with the average data 
+    avgData <- tempData %>%
+      dplyr::group_by(Location, Model, Calibration) %>%
+      dplyr::mutate(tempAvg = mean(tempCrude, na.rm = T)) 
+    
+    # Naming the average data column 
+    colnames(avgData)[6] <- paste0("Avg. ", colnames(crudeDataFinal[i]))
+    
+    # Adding the new column to the final data frame 
+    averageDataFinal[,i] <- avgData[6]
+    
+  }
+  
+
+#------------------------------------------------------------------------------#
+# Determining which metrics to use ---------------------------------------------
+#------------------------------------------------------------------------------#
+# About: This section determines if we should be using the crude metrics for   #
+# skill scores calculations or the average metrics. The user indicates this    #
+# in the dashboard.                                                            #
+#------------------------------------------------------------------------------#
+  
+  ########################
+  # Using the crude data #
+  ########################
+  if(average.input){
+    
+    finalData <- averageDataFinal
+    
+  }else{
+    
+    finalData <- crudeDataFinal
     
   }
 
+#------------------------------------------------------------------------------#
+# Calculating the Skill Scores -------------------------------------------------
+#------------------------------------------------------------------------------#
+# About: This section calculates the skill scores for every possible           #
+# combination of models. Skills scores are calculated as the                   #
+# baseline - comparison/baseline model * 100. The scores will be filtered at   #
+# a later step.                                                                #
+#------------------------------------------------------------------------------#
   
-#------------------------------------------------------------------------------#
-# Preparing the average metrics ------------------------------------------------
-#------------------------------------------------------------------------------#
-# About: This section prepares the average metrics data set for later          #
-# skill scores calculations.                                                   #
-#------------------------------------------------------------------------------#
+  # Possible model choices 
+  modelChoices <- unique(finalData$Model)
   
-  ################################
-  # Preparing the Winkler Scores #
-  ################################
-  avgWinklerScores <- winklerScores %>%
-    dplyr::group_by(Location, Model) %>% # Grouping to calculate average metrics 
-    dplyr::mutate(avgWinkler = mean(`Winkler Score`, na.rm = T)) %>% # Calculating the average Winkler Score
-    dplyr::select(Model, Location, avgWinkler) %>% # Reordering the variables
-    dplyr::distinct(Model, Location, .keep_all = T) # Removing repeat rows 
+  # Data to fill
+  winklerData <- data.frame(Location = NULL,
+                            Calibration = NULL,
+                            Date = NULL,
+                            Metric = NULL,
+                            `Baseline Model` = NULL, 
+                            `Comparison Model` = NULL, 
+                            `Skill Score`= NULL)
   
   #########################
-  # Preparing the metrics #
+  # Comparison model loop #
   #########################
-  averageMetrics <- metrics.input %>%
-    dplyr::group_by(Location, Model) %>% # Grouping variables
-    dplyr::mutate(`Avg. MSE` = mean(MSE, na.rm = T), # Average MAE
-                  `Avg. MAE` = mean(MAE, na.rm = T), # Average MSE
-                  `Avg. 95% PI` = mean(`95%PI`, na.rm = T), # Average 95% PI
-                  `Avg. WIS` = mean(WIS, na.rm = T)) %>%
-    dplyr::select(Location, Model, `Avg. MSE`, `Avg. MAE`, `Avg. 95% PI`, `Avg. WIS`) %>% # Needed variables
-    dplyr::distinct(Location, Model, .keep_all = T) # Removing repeat rows 
-  
-  #########################################################
-  # Combining the Winkler Scores with the average metrics #
-  #########################################################
-  averageMetricsALL <- merge(averageMetrics, avgWinklerScores)
-  
-#------------------------------------------------------------------------------#
-# Preparing the crude metrics --------------------------------------------------
-#------------------------------------------------------------------------------#
-# About: This section prepares the crude metrics data set for later            #
-# skill scores calculations.                                                   #
-#------------------------------------------------------------------------------#
-  
-  ################################
-  # Preparing the Winkler Scores #
-  ################################
-  crudeWinklerScores <- winklerScores %>%
-      dplyr::select(Location, Model, `Forecast Date`, `Winkler Score`) 
+  for(i in 1:length(modelChoices)){
     
-
-  #################################
-  # Cleaning up the crude metrics #
-  #################################
-  
-  # Daily or weekly data
-  if(nchar(metrics.input$Date[1]) > 4){
-    
-    crudeMetrics <- metrics.input %>%
-      dplyr::mutate(Date = anytime::anydate(Date)) %>% # Changing date to a date format
-      dplyr::rename("Forecast Date" = Date) # Renaming the date column 
-  
-  # Yearly or index data  
-  }else{
-    
-    crudeMetrics <- metrics.input %>%
-      dplyr::mutate(Date = as.numeric(Date)) %>% # Changing date to a date format
-      dplyr::rename("Forecast Date" = Date) # Renaming the date column 
-    
-  }
-    
-  #######################################################
-  # Combining the Winkler Scores with the crude metrics #
-  #######################################################
-  crudeMetricsALL <- merge(crudeMetrics, crudeWinklerScores)
-  
-  
-#------------------------------------------------------------------------------#
-# Determining which metric data set to use for the skill scores ----------------
-#------------------------------------------------------------------------------#
-# About: This section determines which metrics to use to calculate the skill   #
-# scores: average or crude.                                                    #
-#------------------------------------------------------------------------------#
-  
-  #############################
-  # Using the average metrics #
-  #############################
-  if(average.input){
-    
-    # Metrics to use 
-    finalMetrics <- averageMetricsALL
-    
-    # Wide-to-long data
-    longMetrics <- pivot_longer(finalMetrics, -c(Model, Location), names_to = "Metric", values_to = "Value")
-    
-  ###########################
-  # Using the crude metrics #
-  ###########################
-  }else{
-    
-    # Metrics to use 
-    finalMetrics <- crudeMetricsALL
-    
-    # Wide-to-long data
-    longMetrics <- pivot_longer(finalMetrics, -c(Model, Location, `Forecast Date`), names_to = "Metric", values_to = "Value")
-    
-  }
-    
-#------------------------------------------------------------------------------#
-# Calculating the skill scores -------------------------------------------------
-#------------------------------------------------------------------------------#
-# About: This section calculates the skill scores based upon the baseline and  #
-# comparison models selected by the user.                                      #
-#------------------------------------------------------------------------------#
-  
-  ##################################################
-  # Preparing the empty data sets for skill scores #
-  ##################################################
-  if(average.input){
-    
-    # Empty data frame that will be exported later 
-    skillScoresExport <- data.frame(Location = NULL,
-                                    Metric = NULL,
-                                    Baseline = NULL,
-                                    Comparison = NULL,
-                                    `Skill Scores` = NULL)
-  # For crude metrics   
-  }else{
-    
-    # Empty data frame that will be exported later 
-    skillScoresExport <- data.frame(Location = NULL,
-                                    Metric = NULL,
-                                    Baseline = NULL,
-                                    Comparison = NULL,
-                                    `Skill Scores` = NULL,
-                                    Date = NULL)
-    
-  }
-  
-  ###########################
-  # Loop for baseline model #
-  ###########################
-  for(i in 1:length(baseline)){
-    
-    # Indexed baseline model
-    indexBaseline <- baseline[i]
-    
-    # Baseline data
-    baselineData <- longMetrics %>%
-      dplyr::filter(Model == indexBaseline) %>% # Filtering for baseline data 
-      dplyr::rename("Baseline" = Model, # Relabeling the baseline model
-                    "baseValue" = Value) # Relabeling the value column 
-    
-    
-    #############################
-    # Loop for comparison model #
-    #############################
-    for(j in 1:length(comparison)){
+    #######################
+    # Baseline model loop #
+    #######################
+    for(g in 1:length(modelChoices)){
       
-      # Indexed comparsion model
-      indexCompare <- comparison[j]
-      
-      # Compare data
-      compareData <- longMetrics %>% 
-        dplyr::filter(Model == indexCompare) %>% # Filtering for comparison data 
-        dplyr::rename("Comparison" = Model, # Relabeling the comparison model
-                      "compareValue" = Value) # Relabeling the value column 
-      
-      ##############################################################
-      # Determining if baseline and comparison models are the same #
-      ##############################################################
-      if(indexBaseline == indexCompare){
+      #######################################
+      # Checking if the models are the same #
+      #######################################
+      if(modelChoices[i] == modelChoices[g]){
         
-        # Skipping to the next loop iteration 
+        # Skipping to next loop iteration 
         next
         
-      } # End of if statement checking if models match
+      } # End of 'if' for model checker
       
-      #############################
-      # Merging the two data sets #
-      #############################
-      merged <- merge(baselineData, compareData)
-      
-      #####################################################
-      # Removing repeat rows if working with average data #
-      #####################################################
-      if(average.input){
-        
-        # Keeping 'distinct' rows 
-        mergedFinal <- merged %>%
-          dplyr::distinct(Location, Metric, Baseline, Comparison, .keep_all = T)
-        
-      ###################################################
-      # Removing repeat rows if working with crude data #
-      ###################################################
-      }else{
-        
-        # Keeping 'distinct' rows 
-        mergedFinal <- merged %>%
-          dplyr::distinct(Location, `Forecast Date`, Metric, Baseline, Comparison, .keep_all = T)
-        
-      }
+      #######################################
+      # Preparing the data for calculations #
+      #######################################
+      tempFilter <- finalData %>%
+        dplyr::filter(Model %in% c(modelChoices[i], modelChoices[g])) %>%
+        tidyr::pivot_longer(cols = -c(Location, Calibration, Date, Model), names_to = "Metric", values_to = "Score") %>%
+        tidyr::pivot_wider(names_from = Model, values_from = Score) %>%
+        na.omit() 
       
       ################################
       # Calculating the skill scores #
       ################################
-      skillScoresTEMP <- mergedFinal %>%
-        dplyr::mutate(`Skill Scores` = round((baseValue - compareValue)/baseValue, 2)) %>% # Calculating Skill Scores
-        dplyr::filter(Metric != "95%PI") # Removing 95% PI 
+      skillScoresTemp <- tempFilter %>%
+        dplyr::mutate(`Skill Score` = round(((tempFilter[[5]] - tempFilter[[6]])/tempFilter[[5]])*100, 2),
+                      `Baseline Model` = modelChoices[g],
+                      `Comparison Model` = modelChoices[i]) %>%
+        dplyr::select(Location, Calibration, Date, Metric, `Baseline Model`, `Comparison Model`, `Skill Score`)
       
-      #######################
-      # Finalizing the data #
-      #######################
-      formatSkillScores <- skillScoresTEMP %>%
-        dplyr::select(-baseValue, -compareValue) %>% # Removing not needed columns 
-        dplyr::mutate(Metric = ifelse(Metric == "avgWinkler", "Avg. Winkler", Metric))
-      
-      ###############################
-      # Merging with the final data #
-      ###############################
-      skillScoresExport <- rbind(skillScoresExport, formatSkillScores)
+     
+      #################################################
+      # Creating the final data with all skill scores #
+      #################################################
+      winklerData <- rbind(skillScoresTemp, winklerData)
       
     }
   }
+  
+#------------------------------------------------------------------------------#
+# Preparing the final data for export ------------------------------------------
+#------------------------------------------------------------------------------#
+# About: This sections prepares the data set for final export. It determines   #
+# if the date column should be included.                                       #
+#------------------------------------------------------------------------------#
+  
+  ##############################################
+  # Determining if the date column should show #
+  ##############################################
+  if(average.input){
+    
+    toExport <- winklerData %>%
+      dplyr::select(-Date)
+    
+  }else{
+    
+    toExport <- winklerData 
+    
+  }
+  
 
-#------------------------------------------------------------------------------#
-# Filtering the skill scores ---------------------------------------------------
-#------------------------------------------------------------------------------#
-# About: This section filters the skill scores based on location.              #
-#------------------------------------------------------------------------------#
-  
-  #########################################
-  # Filtering and cleaning the final data #
-  #########################################
-  finalData <- skillScoresExport %>%
-    dplyr::filter(Location %in% c(locationInput)) 
-  
-  # Removing empty lines
-  finalData <- na.omit(finalData)
-  
   ############################
   # Returning the final data #
   ############################
-  return(finalData)  
+  return(toExport)  
   
 }                                         
 

@@ -6,14 +6,17 @@
 # About:                                                                       #
 #                                                                              #
 # This function filters the formatted forecast data used in the first panel of #
-# main dashboard page.                                                         #
+# main dashboard page. Possible filtering options include the model type,      #
+# location, and calibration period length. The results of this function are    #
+# outputted to the main dashboard.                                             #
 #------------------------------------------------------------------------------#
-# By: Amanda Bleichrodt                                                        #
+#                        Author: Amanda Bleichrodt                             #                                             
 #------------------------------------------------------------------------------#
 filteringFormattedForecasts <- function(formattedForecast.input, 
                                         modelFilterFF.input,
                                         locationFilterFF.input,
-                                        indicator.input){
+                                        calibrationFilterFF.input,
+                                        indicator.input) {
   
 #------------------------------------------------------------------------------#
 # Renaming the input variables -------------------------------------------------
@@ -37,6 +40,11 @@ filteringFormattedForecasts <- function(formattedForecast.input,
   ###################
   locationFilter <- locationFilterFF.input
   
+  ####################################
+  # Calibration period length filter #
+  ####################################
+  calibrationFilter <- calibrationFilterFF.input
+  
   ################################
   # Forecast to show - Indicator #
   ################################
@@ -52,15 +60,15 @@ filteringFormattedForecasts <- function(formattedForecast.input,
 #------------------------------------------------------------------------------#
 # About: This section determines if the data should be filtered or not. The    #
 # only time it will not be filtered is the initial time it is rendered, or if  #
-# truely no filters are specified.                                             #
+# truly no filters are specified.                                              #
 #------------------------------------------------------------------------------#
   
   ######################################
   # Checking if filtering should occur #
   ######################################
-  if(dataToShow == 0 || all(is.null(modelFilter), is.null(locationFilter))){
+  if(dataToShow == 0 || all(is.null(modelFilter), is.null(locationFilter), is.null(calibrationFilter))){
     
-    # Filtering the data
+    # Showing the un-filtered data
     finalData <- formattedForecast
     
 #------------------------------------------------------------------------------#
@@ -87,9 +95,9 @@ filteringFormattedForecasts <- function(formattedForecast.input,
       # Forecast file name
       forecastFileName <- names(formattedForecast)[i]
       
-      ###########################################################
-      # Pulling the location and model names from the file name #
-      ###########################################################
+      #######################################################################################
+      # Pulling the location, model names, and calibration period length from the file name #
+      #######################################################################################
       
       # Model 
       model <- qdapRegex::ex_between(forecastFileName, "", "-")[[1]][1]
@@ -97,12 +105,13 @@ filteringFormattedForecasts <- function(formattedForecast.input,
       # Location
       location <- qdapRegex::ex_between(forecastFileName, paste0(model,"-"), "-")[[1]][1]
       
-      #############################################################
-      # Determining if the data should be added to the final list #
-      #############################################################
+      # Calibration period length 
+      caliLength <- qdapRegex::ex_between(forecastFileName, "Calibration-", "(")[[1]][1]
       
-      # Adding to the list
-      if(all(model %in% c(modelFilter) & location %in% c(locationFilter))){
+      ##################################################################################
+      # Determining if the data should be added to the final list - Adding to the list #
+      ##################################################################################
+      if(all(model %in% c(modelFilter) & location %in% c(locationFilter) & caliLength %in% c(calibrationFilter))){
         
         # Adding the data
         finalData[[i]] <- forecastFile
@@ -110,7 +119,9 @@ filteringFormattedForecasts <- function(formattedForecast.input,
         # Adding the name
         names(finalData)[i] <- forecastFileName
        
-      # Not adding to the list 
+      ######################################################################################
+      # Determining if the data should be added to the final list - Not adding to the list #
+      ######################################################################################
       }else{
         
         # Adding an NA

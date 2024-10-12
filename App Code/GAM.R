@@ -26,7 +26,8 @@
 #------------------------------------------------------------------------------#
 
 GAM <- function(calibration.input, horizon.input, date.Type.input, 
-                smoothing.input, error.input, k.input, smoothingTerm.input){
+                smoothing.input, error.input, k.input, smoothingTerm.input,
+                uniqueCalibrations) {
   
   
 #------------------------------------------------------------------------------#
@@ -64,12 +65,17 @@ GAM <- function(calibration.input, horizon.input, date.Type.input,
   #############################
   # Number of basis functions #
   #############################
-  k.input.G <- as.numeric(k.input)
+  k.input.G <- k.input
   
   ##################
   # Smoothing term #
   ##################
   smoothing.term.G <- smoothingTerm.input
+  
+  #####################################
+  # Unique calibration period lengths #
+  #####################################
+  uniqueCalibrations.G <- uniqueCalibrations
   
   ########################################
   # Creating an empty list for quantiles #
@@ -81,22 +87,58 @@ GAM <- function(calibration.input, horizon.input, date.Type.input,
   #######################################################
   quantile.list.locations <- list()
   
-  ###########################################################
-  # Creating an empty list for the residuals with locations #
-  ###########################################################
-  residuals.list.locations <- list()
-  
-  ############################################
-  # Creating an empty list for the residuals #
-  ############################################
-  residuals.list <- list()
+  #######################################################
+  # Creating the empty data frame for model fit metrics #
+  #######################################################
+  modelFit <- data.frame("Location" = NA, 
+                         "Forecast Date" = NA,
+                         "Calibration Period Length" = NA, 
+                         "AIC" = NA,
+                         "AICc" = NA,
+                         "BIC" = NA)
   
 #------------------------------------------------------------------------------#
-# Setting up the GAM loop  -----------------------------------------------------
+# Creating the basis function vector -------------------------------------------
+#------------------------------------------------------------------------------#
+# About: This section takes the character string produced by the `k.input.G`   #
+# variable, and creates a vector of numbers to be used during the model        #
+# fitting process. It will return an error if the number of basis functions    #
+# specified does not equation the number of unique calibration periods. It     #
+# also determines the which basis function correlates with each calibration    #
+# period function.                                                             #
+#------------------------------------------------------------------------------#
+  
+  #########################################################
+  # Creating the vector with the selected basis functions #
+  #########################################################
+  k.vector <- as.numeric(trimws(unlist(strsplit(k.input.G, ","))))
+  
+  #####################################
+  # Checking the length of the vector #
+  #####################################
+  if(length(k.vector) != length(uniqueCalibrations.G)){
+    
+    return("KError")
+    
+  }
+  
+  #######################
+  # Flipping the vector #
+  #######################
+  k.vectorFinal <- sort(k.vector, decreasing = T)
+
+  ###############################
+  # Calibration period ordering #
+  ###############################
+  calibration.order <- sort(as.numeric(uniqueCalibrations.G), decreasing = T)
+  
+#------------------------------------------------------------------------------#
+# Setting up the GAM calibration loop  -----------------------------------------
 #------------------------------------------------------------------------------#
 # About: This section sets up the information needed for GAM forecasting,      #
 # including preparing the data and setting up the parameters needed for GAM    #
-# forecasting. It also sets up the loops going through calibration periods.    #
+# forecasting. It also sets up the loops going through calibration periods and #
+# basis functions.                                                             #
 #------------------------------------------------------------------------------#
   
   ########################################
@@ -109,19 +151,34 @@ GAM <- function(calibration.input, horizon.input, date.Type.input,
     ##############################
     index.calibration.period <- calibration.list.GAM[[c]]
     
-    ###########################################################
-    # Pulling information from the indexed calibration period # 
-    ###########################################################
+    # Length of calibration period indexed
+    lengthCalibration <- nrow(index.calibration.period)
     
-    # Location names
+    #################################
+    # Determining the correct basis #
+    #################################
+    
+    # Determining the calibration index
+    index.of.cali <- which(calibration.order == lengthCalibration)
+    
+    # Determining the indexed basis
+    basisIndex <- k.vectorFinal[index.of.cali]
+    
+    #########################
+    # Indexed location name #
+    #########################
     location.names <- names(index.calibration.period)[-1]
     
-    
-    # Determining the forecast period - Daily or Weekly
+    ##########################################################
+    # Determining the forecast period date - Daily or Weekly #
+    ##########################################################
     if(all(str_length(index.calibration.period[,1]) > 4)){
       
       forecast.period.date <- max(anytime::anydate(index.calibration.period[,1]))
-      
+   
+    ###############################################################
+    # Determining the forecast period date - Yearly or Time Index #
+    ###############################################################   
     }else{
       
       forecast.period.date <- max(as.numeric(index.calibration.period[,1]))
@@ -143,6 +200,15 @@ GAM <- function(calibration.input, horizon.input, date.Type.input,
     # Saving the desired alpha values in which to produce PIs #
     ###########################################################
     alphas <- c(0.02, 0.05, seq(0.1, 0.9, by=0.1))
+    
+    
+#------------------------------------------------------------------------------#
+# Setting up the GAM locations loop  -------------------------------------------
+#------------------------------------------------------------------------------#
+# About: This section sets up the needed information for the inner loop of     #
+# locations, and results in forecasts and model fit information (AIC, BIC      #
+# and AICc).                                                                   #
+#------------------------------------------------------------------------------#
     
     #############################
     # Looping through locations #
@@ -180,79 +246,135 @@ GAM <- function(calibration.input, horizon.input, date.Type.input,
         
         # Data to be used for the remainder of the code
         data.cur <- data.cur
-      
-        ######################################################################
-        # Runs if smoothing is indicated - Rounds if NB or Poisson is chosen #
-        ######################################################################
+        
+      ######################################################################
+      # Runs if smoothing is indicated - Rounds if NB or Poisson is chosen #
+      ######################################################################
+      }else{
+        
+        # Rounding the data if the distribution is not normal 
+        if(error.input.G %in% c("Negative Binomial (NB)", "Poisson")){
+          
+          # Rounding the smoothed data
+          data.cur <- round(rollmean(data.cur, smoothing.input.G), 0)
+          
         }else{
           
-          # Rounding the data if the distribution is not normal 
-          if(error.input.G %in% c("Negative Binomial (NB)", "Poisson")){
-            
-            # Rounding the smoothed data
-            data.cur <- round(rollmean(data.cur, smoothing.input.G), 0)
-            
-          }else{
-            
-            # No rounding with the smoothed data 
-            data.cur <- rollmean(data.cur, smoothing.input.G) 
-            
-          } # End of else for rounding smoothing 
+          # No rounding with the smoothed data 
+          data.cur <- rollmean(data.cur, smoothing.input.G) 
           
-          } # End of else for determining if should round or not   
+        } # End of else for rounding smoothing 
+        
+      } # End of else for determining if should round or not
       
-      #########################################################################
-      # Creating the `time` predictor, which is the length of the calibration #
-      #########################################################################
-      time <- seq(1:length(data.cur))
-    
-    
+   
 #------------------------------------------------------------------------------#
 # Fitting the GAM Model --------------------------------------------------------
 #------------------------------------------------------------------------------#
 # About: This section fits the GAM model to the time series data, using the    #
 # the 'gam' function and employing the 'k' value determined above. The user    #
-# can select the underlying distribution in the 'options.R' file.              #
+# can select the underlying distribution in the 'options.R' file. It also      #
+# calculates the AIC, AICc, and BIC based upon the model fit. If any error     #
+# occurs during the model fitting process, the issue is recorded and then      #
+# outputted with the forecasts that could be run.                              #
 #------------------------------------------------------------------------------#
-
+      
+      #########################################################################
+      # Creating the `time` predictor, which is the length of the calibration #
+      #########################################################################
+      time <- seq(1:length(data.cur))
+      
       #############################
       # Determining the model fit #
       #############################
       
       # Checking for the error
-      test <- try(
+      errorChecker <- try(
         
       gam.mod <- base::switch(error.input.G,
-                              "Normal" = mgcv::gam(data.cur~s(time,bs=smoothing.term.G,k=k.input.G)), # Normal distribution 
-                              "Poisson" = mgcv::gam(data.cur~s(time,bs=smoothing.term.G,k=k.input.G), family=poisson), # Poisson distribution
-                               mgcv::gam(data.cur~s(time,bs=smoothing.term.G,k=k.input.G), family=nb())) # Negative-binomial distribution 
+                              "Normal" = mgcv::gam(data.cur~s(time,bs=smoothing.term.G,k=basisIndex)), # Normal distribution 
+                              "Poisson" = mgcv::gam(data.cur~s(time,bs=smoothing.term.G,k=basisIndex), family=poisson), # Poisson distribution
+                               mgcv::gam(data.cur~s(time,bs=smoothing.term.G,k=basisIndex), family=nb())) # Negative-binomial distribution 
     
       )
       
-      #######################
-      # If the error occurs #
-      #######################
-      if (inherits(test, 'try-error')) {
+      ################################
+      # If an error occurs initially #
+      ################################
+      if (inherits(errorChecker, 'try-error')) {
         
         # Saving an NA in the list 
         quantile.list.locations[[g]] <- NA
         
         # Adding names to list data frames
-        names(quantile.list.locations)[g] <- paste0("GAM-", location.index, "-", forecast.period.date)
+        names(quantile.list.locations)[g] <- paste0("GAM-", location.index, "-", forecast.period.date, "-Calibration-", lengthCalibration)
         
         # Skipping to next loop 
         next
         
       }
-
+      
+      #########################################
+      # If the error occurs but model outputs #
+      #########################################
+      if(gam.mod[["aic"]] == "-Inf"){
+        
+        # Saving an NA in the list 
+        quantile.list.locations[[g]] <- NA
+        
+        # Adding names to list data frames
+        names(quantile.list.locations)[g] <- paste0("GAM-", location.index, "-", forecast.period.date, "-Calibration-", lengthCalibration)
+        
+        # Skipping to next loop 
+        next
+        
+      }
+      
+#------------------------------------------------------------------------------#
+# Calculating the model fit statistics -----------------------------------------
+#------------------------------------------------------------------------------#
+# About: This section calculates the AIC, AICc, and BIC for the GAM model fits.#
+#------------------------------------------------------------------------------#
+      
+      ##################################
+      # Calculating the log likelihood #
+      ##################################
+      LL <- as.numeric(logLik(gam.mod))
+      
+      ############################
+      # The number of parameters #
+      ############################
+      k <- attributes(logLik(gam.mod))$df
+      
+      ###########################
+      # Calibration period size #
+      ###########################
+      n <- nrow(index.calibration.period)
+      
+      ########################
+      # Creating the new row #
+      ########################
+      newRow <- data.frame("Location" = location.index, 
+                           "Forecast Date" = as.character(forecast.period.date),
+                           "Calibration Period Length" = n, 
+                           "AIC" = -2*LL + (2*k),
+                           "AICc" = -2*(LL) + 2*k + (2*k*(k+1)/(n-k-1)),
+                           "BIC" = -2 * LL + k * log(n))
+      
+      ##############################################
+      # Combining the row with the full data frame #
+      ##############################################
+      modelFit <- rbind(modelFit, newRow)
+      
 #------------------------------------------------------------------------------#
 # GAM Forecasting --------------------------------------------------------------
 #------------------------------------------------------------------------------#
-# About: This section takes the model fit from above, and forecasts out the    #
-# indexed horizon amount. Any produced negative quantiles are truncated at     #
-# zero, and produced quantiles are combined into a single data frame. The data #
-# frame is also re-ordered an re-labeled to be consistent with the other       #
-# models available within the toolbox.                                         #
+# About: This section takes the model fit from above, and produces forecasts   #
+# based on the user-selected indexed forecasting horizon. Any produced         #
+# negative quantiles are truncated at zero, and produced quantiles are         #
+# combined into a single data frame. The data frame is also re-ordered an      #
+# re-labeled to be consistent with the other models available within the       #
+# toolbox.                                                                     # 
 #------------------------------------------------------------------------------#    
     
     ############################################
@@ -264,9 +386,6 @@ GAM <- function(calibration.input, horizon.input, date.Type.input,
     
     # Creating a variable that includes the forecasted values/means 
     GAMForecast <- as.data.frame(as.numeric(fcst$fit))
-    
-    # Checking residuals of GAM model 
-    residuals <- capture.output(mgcv::gam.check(gam.mod))
     
     ##################################
     # Producing Prediction intervals #
@@ -282,12 +401,16 @@ GAM <- function(calibration.input, horizon.input, date.Type.input,
       # Combining the forecasted means, and upper and lower PIs into one
       GAMForecast <- base::cbind(GAMForecast,base::cbind(as.numeric(lower),as.numeric(upper)))
       
-      } # End of loop producing PI intervals
+    } # End of loop producing PI intervals
     
-    # Changing all negative values to 0 in the forecast data frame 
+    ################################################################
+    # Changing all negative values to 0 in the forecast data frame #
+    ################################################################
     GAMForecast[GAMForecast < 0] <- 0
     
-    # Inverse of link function if using NB or Poisson
+    ###################################################
+    # Inverse of link function if using NB or Poisson #
+    ###################################################
     if(error.input.G %in% c("Poisson", "Negative Binomial (NB)")){
       
       GAMForecast <- exp(GAMForecast)
@@ -301,8 +424,7 @@ GAM <- function(calibration.input, horizon.input, date.Type.input,
     # Assigning the names to the columns of the forecasted data frame 
     names(GAMForecast) <- c("fitted", paste(rep(c("l", "u"), length(alphas)),
                                             rep(alphas,each=2), sep=" "))
-    
-    
+
     # Re-ordering and re-naming data columns for producing metrics later
     GAMForecast <- GAMForecast %>%
       # Re-ordering the columns
@@ -333,16 +455,15 @@ GAM <- function(calibration.input, horizon.input, date.Type.input,
                     `upper.90%` = `u 0.1`,
                     `upper.95%` = `u 0.05`,
                     `upper.98%` = `u 0.02`) %>%
-      mutate_all(~ round(., 2))
+      mutate_all(~ round(., 2)) # Rounding all values to two digits
     
     ########################################
     # Handling when data smoothing is used #
     ########################################
     if(smoothing.input.G == 1 || is.null(smoothing.input.G)){
       
-      # Keeping orignal forecast
+      # Keeping original forecast
       GAMForecast <- GAMForecast
-      
       
     ################################
     # Runs if smoothing is applied #
@@ -358,8 +479,8 @@ GAM <- function(calibration.input, horizon.input, date.Type.input,
 # Creating a list of quantile frames -------------------------------------------
 #------------------------------------------------------------------------------#
 # About: This section creates a list of quantile forecasts to be later added   #
-# to a list with the residuals. Each forecast is labeled with its              #
-# location and forecast period.                                                #
+# to a list with the model fit metrics (AIC, AICc, and BIC) for each location, #
+# forecast period date, and calibration period length.                         #
 #------------------------------------------------------------------------------#
     
     ############################################
@@ -368,15 +489,7 @@ GAM <- function(calibration.input, horizon.input, date.Type.input,
     quantile.list.locations[[g]] <- GAMForecast
     
     # Adding names to list data frames
-    names(quantile.list.locations)[g] <- paste0("GAM-", location.index, "-", forecast.period.date)
-    
-    #########################################
-    # Adding residuals to the residual list #
-    #########################################
-    residuals.list.locations[[g]] <- residuals
-    
-    # Adding names to list data frames
-    names(residuals.list.locations)[g] <- paste0("GAM-", location.index, "-", forecast.period.date)
+    names(quantile.list.locations)[g] <- paste0("GAM-", location.index, "-", forecast.period.date, "-Calibration-", lengthCalibration)
     
     } # End of locations loop 
     
@@ -385,27 +498,22 @@ GAM <- function(calibration.input, horizon.input, date.Type.input,
     #########################################
     quantile.list <- c(quantile.list, quantile.list.locations)
     
-    #####################################
-    # Adding residuals to the main list #
-    #####################################
-    residuals.list <- c(residuals.list, residuals.list.locations)
-    
   } # End of calibration period loop 
   
 #------------------------------------------------------------------------------#
 # Combining lists to return ----------------------------------------------------
 #------------------------------------------------------------------------------#
-# About: This section combines the quantile forecasts and residual info        #
-# to be returned to the main shiny app.                                        #
+# About: This section combines the list of forecasts and model fits, with the  #
+# data frame that contains the model fit metrics for AIC, AICc, and BIC.       #
 #------------------------------------------------------------------------------#
   
   ###################
   # Making the list #
   ###################
-  final.list <- list(quantile.list, residuals.list)
+  final.list <- list(quantile.list,  modelFit)
   
   # Adding names
-  names(final.list) <- c("Forecasts", "Residuals")
+  names(final.list) <- c("Forecasts", "ModelFit")
   
   ######################
   # Returning the list #
