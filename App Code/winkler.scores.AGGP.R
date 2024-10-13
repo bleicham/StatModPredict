@@ -158,6 +158,10 @@ winkler.scores.AGGP <- function(formattedForecasts,
       
       forecastDate <- anytime::anydate(paste0(str_split(nameForecast, pattern = "-")[[1]][3], "-", str_split(nameForecast, pattern = "-")[[1]][4], "-", str_split(nameForecast, pattern = "-")[[1]][5]))
 
+      # Renaming the first column "Date" in comparison data
+      colnames(compareData)[[1]] <- "Date"
+      
+      # Fixing the format of the date column 
       compareData <- compareData %>%
         dplyr::mutate(Date = anytime::anydate(Date))
       
@@ -166,6 +170,10 @@ winkler.scores.AGGP <- function(formattedForecasts,
       
       forecastDate <- as.numeric(paste0(str_split(nameForecast, pattern = "-")[[1]][3]))
       
+      # Renaming the first column "Date" in comparison data
+      colnames(compareData)[[1]] <- "Date"
+      
+      # Fixing the format of the date column 
       compareData <- compareData %>%
         dplyr::mutate(Date = as.numeric(Date))
       

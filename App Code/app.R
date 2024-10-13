@@ -90,6 +90,7 @@
   source("average.compare.metrics.R")
   source("AverageMetricsPanel.other.R")
   source("Winkler.Scores.Model.Comparison.R")
+ 
 
 
 #------------------------------------------------------------------------------#
@@ -11198,26 +11199,31 @@ server <- function(input, output, session) {
 
     })
 
-    ####################################
-    # Recalculating the Winkler Scores #
-    ####################################
-    winklerScores <- winkler.scores.AGGP(formattedForecasts = foremattedForecasts$forecasts, # Forecast files
-                                         filterIndicator.input = 0, # Filtering indicator
-                                         averageIndicator.input = F, # Average indicator
-                                         metricPage.input = input$metricsToShow, # Metric filtering
-                                         quantile.input = input$quantileSelection, # Selected quantile
-                                         orginData.input = dataForEvaluation$data, # Data used for base
-                                         date.type.input = dateValues$dates) # Type of date data
-
+    
     ################################
     # Calculating the Skill Scores #
     ################################
-    if(!is.null(winklerScores) & nrow(modelMetricsCrude$metricsList) > 0){
+    if(!is.null(foremattedForecasts$forecasts) & nrow(modelMetricsCrude$metricsList) > 0){
+      
+      ####################################
+      # Recalculating the Winkler Scores #
+      ####################################
+      winklerScores1 <- winkler.scores.AGGP(formattedForecasts = foremattedForecasts$forecasts, # Forecast files
+                                            filterIndicator.input = 0, # Filtering indicator
+                                            averageIndicator.input = F, # Average indicator
+                                            metricPage.input = input$metricsToShow, # Metric filtering
+                                            quantile.input = input$quantileSelection, # Selected quantile
+                                            orginData.input = dataForEvaluation$data, # Data used for base
+                                            date.type.input = dateValues$dates) # Type of date data
+      
+      ############################
+      # Calculating skill scores #
+      ############################
+      skillScores <- skillScoresMain(averageIndicator = input$seeAvgSS, # Indicator to use average metrics
+                                     CrudeMetrics = modelMetricsCrude$metricsList, # Crude metrics
+                                     winkler.input = winklerScores1, # Winkler score
+                                     metricPage.input = input$metricsToShow) # Metric type filtering
 
-    skillScores <- skillScoresMain(averageIndicator = input$seeAvgSS, # Indicator to use average metrics
-                                   CrudeMetrics = modelMetricsCrude$metricsList, # Crude metrics
-                                   winkler.input = winklerScores, # Winkler score
-                                   metricPage.input = input$metricsToShow) # Metric type filtering
 
     ###########################################################
     # Determining if the scores should be filtered: Filtering #
@@ -11551,30 +11557,6 @@ server <- function(input, output, session) {
       
       # Clearing out the reactive value
       vettedData$data <- NULL
-      
-      # Clearing the reactive value
-      finalCrudeCombined$data <- NULL
-      
-      # Clearing the filtering indicator
-      indicatorForFilterMetrics(0)
-      
-      # Clearing the reactive value
-      CrudeMetricsOtherPlots$figures <- NULL
-      
-      # Clearing the arrow indicator 
-      current_index_crudeMetricPanel(1)
-      
-      # Clearing the reactive value
-      finalAvgCombined$metricsFULL <- NULL
-      
-      # Clearing the filtering indicator 
-      indicatorForFilterMetricsAvg(0)
-      
-      # Clearing the reactive value
-      AvgMetricsOtherPlots$figures <- NULL
-      
-      # Clearing the arrow indicator 
-      current_index_avgMetricPanel(1)
 
     ########################
     # Proceeding as normal #
@@ -12866,7 +12848,7 @@ server <- function(input, output, session) {
     #############################
     # Checking for metric files #
     #############################
-    if(is.null(foremattedForecasts$forecasts) & input$my_picker == "Model Comparison" & length(metricsOtherReactive$metricData) > 0){
+    if(all(is.null(foremattedForecasts$forecasts) & input$my_picker == "Model Comparison" & length(metricsOtherReactive$metricData) > 0)){
 
       ######################
       # Returning an error #
@@ -13011,9 +12993,6 @@ server <- function(input, output, session) {
   ############################################
   observe({
 
-    # Requiring the original metrics
-    req(modelMetricsCrude$metricsList)
-    
     # Requiring the new metrics
     req(vettedMetrics$data)
 
@@ -13091,7 +13070,7 @@ server <- function(input, output, session) {
     }else{
       
       # Not filtering the data 
-      dataToExport <- combinedMetrics 
+      dataToExport <<- combinedMetrics 
       
     }
 
@@ -15190,115 +15169,115 @@ server <- function(input, output, session) {
 # of models, and then filters the skill scores based on the selected models,   #
 # locations, and calibration period lengths.                                   #
 #------------------------------------------------------------------------------#
-# 
-#   ######################################
-#   # Creating the needed reactive value #
-#   ######################################
-#   
-#   # To store the filtered Skill Scores data
-#   finalSSCombinedOther <- reactiveValues()
-#   
-#   # Indicator for which metrics to show
-#   filterSSIndicatorOther <- reactiveVal(0)
-#   
-#   ########################################
-#   # Observing changes in reactive values #
-#   ########################################
-#   observe({
-#     
-#     # Requiring the crude metrics list
-#     req(modelMetricsCrude$metricsList)
-#     
-#     ###################################################
-#     # Determining the options for the baseline models #
-#     ###################################################
-#     
-#     # Data used for calculations
-#     crudeMetrics <- modelMetricsCrude$metricsList
-#     
-#     # Determining the possible model choices
-#     modelChoices <- c(unique(crudeMetrics$Model))
-#     
-#     # Requiring the calibration period
-#     req(input$calibrationPeriod)
-#     
-#     #######################
-#     # Creating the pop-up #
-#     #######################
-#     observeEvent(input$filterSSDataMain, ignoreInit = T,{
-#       
-#       # Setting the indicator
-#       isolate({filterSSIndicatorMAIN(1)})
-#       
-#       # Button
-#       showModal(modalDialog(
-#         title = "Filtering Options",
-#         pickerInput("baselineModelsMAIN", "Baseline Model(s):", c(modelChoices), selected = c(modelChoices), multiple = T), # Model filtering - Baseline
-#         pickerInput("compareModels2MAIN", "Comparison Model(s):", c(modelChoices), selected = c(modelChoices), multiple = T), # Model filtering - Comparison
-#         pickerInput("locationInputSelectMAIN", "Location:", c(input$locations), selected = c(input$locations), multiple = T), # Location
-#         pickerInput("calibrationSSMain", "Calibration period length:", c(input$calibrationPeriod), selected = c(input$calibrationPeriod), multiple = T) # Calibration input
-#         
-#       ))
-#       
-#     })
-#     
-#     ####################################
-#     # Recalculating the Winkler Scores #
-#     ####################################
-#     winklerScores <- winkler.scores.AGGP(formattedForecasts = foremattedForecasts$forecasts, # Forecast files
-#                                          filterIndicator.input = 0, # Filtering indicator
-#                                          averageIndicator.input = F, # Average indicator
-#                                          metricPage.input = input$metricsToShow, # Metric filtering
-#                                          quantile.input = input$quantileSelection, # Selected quantile
-#                                          orginData.input = dataForEvaluation$data, # Data used for base
-#                                          date.type.input = dateValues$dates) # Type of date data
-#     
-#     ################################
-#     # Calculating the Skill Scores #
-#     ################################
-#     if(!is.null(winklerScores) & nrow(modelMetricsCrude$metricsList) > 0){
-#       
-#       skillScores <- skillScoresMain(averageIndicator = input$seeAvgSS, # Indicator to use average metrics
-#                                      CrudeMetrics = modelMetricsCrude$metricsList, # Crude metrics
-#                                      winkler.input = winklerScores, # Winkler score
-#                                      metricPage.input = input$metricsToShow) # Metric type filtering
-#       
-#       ###########################################################
-#       # Determining if the scores should be filtered: Filtering #
-#       ###########################################################
-#       if(filterSSIndicatorMAIN() == 1){
-#         
-#         filterd <- skillScores %>%
-#           dplyr::filter(Location %in% c(input$locationInputSelectMAIN),
-#                         `Baseline Model` %in% c(input$baselineModelsMAIN),
-#                         `Comparison Model` %in% c(input$compareModels2MAIN),
-#                         Calibration %in% c(input$calibrationPeriod))
-#         
-#       ##############################################################
-#       # Determining if the scores should be filtered: No Filtering #
-#       ##############################################################
-#       }else{
-#         
-#         filterd <- skillScores
-#         
-#       }
-#       
-#       #########################################
-#       # Saving the output to a reactive value #
-#       #########################################
-#       finalSSCombinedMAIN$scores <-  filterd
-#       
-#       ##################
-#       # Returning NULL #
-#       ##################
-#     }else{
-#       
-#       finalSSCombinedMAIN$scores <-  NULL
-#       
-#     }
-#     
-#   })
-# 
+
+  # ######################################
+  # # Creating the needed reactive value #
+  # ######################################
+  # 
+  # # To store the filtered Skill Scores data
+  # finalSSCombinedOther <- reactiveValues()
+  # 
+  # # Indicator for which metrics to show
+  # filterSSIndicatorOther <- reactiveVal(0)
+  # 
+  # ########################################
+  # # Observing changes in reactive values #
+  # ########################################
+  # observe({
+  # 
+  #   # Requiring the crude metrics list
+  #   req(modelMetricsCrude$metricsList)
+  # 
+  #   ###################################################
+  #   # Determining the options for the baseline models #
+  #   ###################################################
+  # 
+  #   # Data used for calculations
+  #   crudeMetrics <- modelMetricsCrude$metricsList
+  # 
+  #   # Determining the possible model choices
+  #   modelChoices <- c(unique(crudeMetrics$Model))
+  # 
+  #   # Requiring the calibration period
+  #   req(input$calibrationPeriod)
+  # 
+  #   #######################
+  #   # Creating the pop-up #
+  #   #######################
+  #   observeEvent(input$filterSSDataMain, ignoreInit = T,{
+  # 
+  #     # Setting the indicator
+  #     isolate({filterSSIndicatorMAIN(1)})
+  # 
+  #     # Button
+  #     showModal(modalDialog(
+  #       title = "Filtering Options",
+  #       pickerInput("baselineModelsMAIN", "Baseline Model(s):", c(modelChoices), selected = c(modelChoices), multiple = T), # Model filtering - Baseline
+  #       pickerInput("compareModels2MAIN", "Comparison Model(s):", c(modelChoices), selected = c(modelChoices), multiple = T), # Model filtering - Comparison
+  #       pickerInput("locationInputSelectMAIN", "Location:", c(input$locations), selected = c(input$locations), multiple = T), # Location
+  #       pickerInput("calibrationSSMain", "Calibration period length:", c(input$calibrationPeriod), selected = c(input$calibrationPeriod), multiple = T) # Calibration input
+  # 
+  #     ))
+  # 
+  #   })
+  # 
+  #   ####################################
+  #   # Recalculating the Winkler Scores #
+  #   ####################################
+  #   winklerScores <- Winkler.Scores.Model.Comparison(formatted.forecast.Other = vettedData$data, # Formatted forecast inputted
+  #                                                    formatted.forecast.DASHBOARD = foremattedForecasts$forecasts, # Formatted forecast dashboard
+  #                                                    date.type.input = dateValues$dates, # Date type
+  #                                                    avgWinler.input = F, # Average Winkler Score
+  #                                                    quantile.input = input$quantileSelection) # Selected quantile 
+  # 
+  #   ################################
+  #   # Calculating the Skill Scores #
+  #   ################################
+  #   if(!is.null(winklerScores) & nrow(modelMetricsCrude$metricsList) > 0){
+  # 
+  #     skillScores <- skillScoresMain.other(averageIndicator = input$seeAvgSSOther, # Indicator to use average metrics
+  #                                          CrudeMetrics = finalCrudeUnfiltered$metrics, # Crude metrics
+  #                                          winkler.input = winklerScores) # Winkler score
+  #     
+  #   }
+  #                                    
+
+    #   ###########################################################
+    #   # Determining if the scores should be filtered: Filtering #
+    #   ###########################################################
+    #   if(filterSSIndicatorMAIN() == 1){
+    # 
+    #     filterd <- skillScores %>%
+    #       dplyr::filter(Location %in% c(input$locationInputSelectMAIN),
+    #                     `Baseline Model` %in% c(input$baselineModelsMAIN),
+    #                     `Comparison Model` %in% c(input$compareModels2MAIN),
+    #                     Calibration %in% c(input$calibrationPeriod))
+    # 
+    #   ##############################################################
+    #   # Determining if the scores should be filtered: No Filtering #
+    #   ##############################################################
+    #   }else{
+    # 
+    #     filterd <- skillScores
+    # 
+    #   }
+    # 
+    #   #########################################
+    #   # Saving the output to a reactive value #
+    #   #########################################
+    #   finalSSCombinedMAIN$scores <-  filterd
+    # 
+    #   ##################
+    #   # Returning NULL #
+    #   ##################
+    # }else{
+    # 
+    #   finalSSCombinedMAIN$scores <-  NULL
+    # 
+    # }
+
+ # })
+
 # #------------------------------------------------------------------------------#
 # # Clearing the Skill Scores Data -----------------------------------------------
 # #------------------------------------------------------------------------------#
