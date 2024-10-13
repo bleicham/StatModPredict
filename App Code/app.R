@@ -12181,29 +12181,29 @@ server <- function(input, output, session) {
       isolate({
 
         individual <- forecast.figures.other(formatted.forecast.input = vettedData$data, # Formatted figures list
-                                       data.type.input = dateValues$dates, # Date input
-                                       smoothing.input = input$smoothingInput, # Smoothing input
-                                       scaleYAxis.input = scaleYOPanel$logScale, # Scale y-axis
-                                       yAxisLabel.input = yAxisLabOPanel$lab, # Y-axis label
-                                       dateBreaks.input = dateBreaksReactiveOPanel$breaksDate, # Date breaks
-                                       startYPoint.input = startYReactiveOPanel$check, # Y-axis start point
-                                       dotSize.input = dotSizeReactiveOPanel$sizeVal, # Dot size
-                                       linetype.input = lineTypeOPanel$type, # Median line type
-                                       lineColor.input = lineColorOPanel$color, # Median line color
-                                       lineWidth.input = lineWidthOPanel$width, # Median line width
-                                       dotColor.input = dotColorReactiveOPanel$color, # Dot color
-                                       boundtype.input = lineTypeBoundsOPanel$type, # Bounds line type
-                                       boundWidth.input = lineWidthBoundsOPanel$width, # Bound width
-                                       boundColor.input = lineColorBoundsOPanel$color, # Bound color
-                                       ribbonColor.input = ribbonColorOPanel$color, # Ribbon color
-                                       yLabelSize.input = yAxisLabSizeOPanel$size, # Y-axis label size
-                                       yLabelFace.input = yAxisLabFaceOPanel$face, # Y-Axis label face
-                                       yTickSize.input = yAxisTickLabelSizeOPanel$size, # Y-Axis tick size
-                                       yTickBreaks.input = yAxisBreaksOPanel$value, # Y-Axis breaks
-                                       xAxisLabel.input = xAxisLabelOPanel$title, # X-Axis Label
-                                       xAxisLabelSize.input = xAxisLabelSizeOPanel$size, # X-Axis label size
-                                       xAxisLabelFace.input = xAxisLabFaceOPanel$face, # X-axis label face
-                                       xAxisTickSize.input = xAxisTickSizeO$size) # X-Axis tick size
+                                             data.type.input = dateValues$dates, # Date input
+                                             smoothing.input = input$smoothingInput, # Smoothing input
+                                             scaleYAxis.input = scaleYOPanel$logScale, # Scale y-axis
+                                             yAxisLabel.input = yAxisLabOPanel$lab, # Y-axis label
+                                             dateBreaks.input = dateBreaksReactiveOPanel$breaksDate, # Date breaks
+                                             startYPoint.input = startYReactiveOPanel$check, # Y-axis start point
+                                             dotSize.input = dotSizeReactiveOPanel$sizeVal, # Dot size
+                                             linetype.input = lineTypeOPanel$type, # Median line type
+                                             lineColor.input = lineColorOPanel$color, # Median line color
+                                             lineWidth.input = lineWidthOPanel$width, # Median line width
+                                             dotColor.input = dotColorReactiveOPanel$color, # Dot color
+                                             boundtype.input = lineTypeBoundsOPanel$type, # Bounds line type
+                                             boundWidth.input = lineWidthBoundsOPanel$width, # Bound width
+                                             boundColor.input = lineColorBoundsOPanel$color, # Bound color
+                                             ribbonColor.input = ribbonColorOPanel$color, # Ribbon color
+                                             yLabelSize.input = yAxisLabSizeOPanel$size, # Y-axis label size
+                                             yLabelFace.input = yAxisLabFaceOPanel$face, # Y-Axis label face
+                                             yTickSize.input = yAxisTickLabelSizeOPanel$size, # Y-Axis tick size
+                                             yTickBreaks.input = yAxisBreaksOPanel$value, # Y-Axis breaks
+                                             xAxisLabel.input = xAxisLabelOPanel$title, # X-Axis Label
+                                             xAxisLabelSize.input = xAxisLabelSizeOPanel$size, # X-Axis label size
+                                             xAxisLabelFace.input = xAxisLabFaceOPanel$face, # X-axis label face
+                                             xAxisTickSize.input = xAxisTickSizeO$size) # X-Axis tick size
 
       })
 
@@ -13001,6 +13001,11 @@ server <- function(input, output, session) {
   ###################################################
   finalCrudeCombined <- reactiveValues()
   
+  #####################################################
+  # Reactive value to store the unfiltered crude data #
+  #####################################################
+  finalCrudeUnfiltered <- reactiveValues()
+  
   ############################################
   # Observing changes in the reactive values #
   ############################################
@@ -13018,6 +13023,9 @@ server <- function(input, output, session) {
       combinedMetrics <- combining.metrics(original.fit.input = modelFitMetricsList$fitMetrics,
                                            orignal.forecast.input = forecastMetricsListCrude$forecastMetrics,
                                            new.input = vettedMetrics$data)
+      
+      # Adding it to the unfiltered reactive value
+      finalCrudeUnfiltered$metrics <- combinedMetrics
       
     }
     
@@ -13112,6 +13120,9 @@ server <- function(input, output, session) {
     # Clearing the reactive value
     finalCrudeCombined$data <- NULL
     
+    # Clearing the reactive value
+    finalCrudeUnfiltered$metrics <- NULL
+    
     # Clearing the filtering indicator
     indicatorForFilterMetrics(0)
     
@@ -13128,8 +13139,14 @@ server <- function(input, output, session) {
     # Clearing the reactive value
     finalCrudeCombined$data <- NULL
     
+    # Clearing the reactive value
+    finalCrudeUnfiltered$metrics <- NULL
+    
     # Clearing the filtering indicator
     indicatorForFilterMetrics(0)
+    
+    # Clearing out the reactive value
+    vettedMetrics$data <- NULL
     
   })
   
@@ -14028,12 +14045,12 @@ server <- function(input, output, session) {
   observe({
     
     # Requiring the original metrics
-    req(finalCrudeCombined$data)
+    req(finalCrudeUnfiltered$metrics)
     
     # Ensuring the read-in metrics is not NULL
-    if(!is.null(finalCrudeCombined$data)){
+    if(!is.null(finalCrudeUnfiltered$metrics)){
       
-      averageMetrics <- average.compare.metrics(metrics.input = finalCrudeCombined$data)
+      averageMetrics <- average.compare.metrics(metrics.input = finalCrudeUnfiltered$metrics)
       
     }
 
@@ -15164,5 +15181,210 @@ server <- function(input, output, session) {
   }) # End of 'observe'
   
 }
+
+
+#------------------------------------------------------------------------------#
+# Calculating and Filtering the Skill Scores -----------------------------------
+#------------------------------------------------------------------------------#
+# About: This section calculates the skill scores for all possible combos      #
+# of models, and then filters the skill scores based on the selected models,   #
+# locations, and calibration period lengths.                                   #
+#------------------------------------------------------------------------------#
+# 
+#   ######################################
+#   # Creating the needed reactive value #
+#   ######################################
+#   
+#   # To store the filtered Skill Scores data
+#   finalSSCombinedOther <- reactiveValues()
+#   
+#   # Indicator for which metrics to show
+#   filterSSIndicatorOther <- reactiveVal(0)
+#   
+#   ########################################
+#   # Observing changes in reactive values #
+#   ########################################
+#   observe({
+#     
+#     # Requiring the crude metrics list
+#     req(modelMetricsCrude$metricsList)
+#     
+#     ###################################################
+#     # Determining the options for the baseline models #
+#     ###################################################
+#     
+#     # Data used for calculations
+#     crudeMetrics <- modelMetricsCrude$metricsList
+#     
+#     # Determining the possible model choices
+#     modelChoices <- c(unique(crudeMetrics$Model))
+#     
+#     # Requiring the calibration period
+#     req(input$calibrationPeriod)
+#     
+#     #######################
+#     # Creating the pop-up #
+#     #######################
+#     observeEvent(input$filterSSDataMain, ignoreInit = T,{
+#       
+#       # Setting the indicator
+#       isolate({filterSSIndicatorMAIN(1)})
+#       
+#       # Button
+#       showModal(modalDialog(
+#         title = "Filtering Options",
+#         pickerInput("baselineModelsMAIN", "Baseline Model(s):", c(modelChoices), selected = c(modelChoices), multiple = T), # Model filtering - Baseline
+#         pickerInput("compareModels2MAIN", "Comparison Model(s):", c(modelChoices), selected = c(modelChoices), multiple = T), # Model filtering - Comparison
+#         pickerInput("locationInputSelectMAIN", "Location:", c(input$locations), selected = c(input$locations), multiple = T), # Location
+#         pickerInput("calibrationSSMain", "Calibration period length:", c(input$calibrationPeriod), selected = c(input$calibrationPeriod), multiple = T) # Calibration input
+#         
+#       ))
+#       
+#     })
+#     
+#     ####################################
+#     # Recalculating the Winkler Scores #
+#     ####################################
+#     winklerScores <- winkler.scores.AGGP(formattedForecasts = foremattedForecasts$forecasts, # Forecast files
+#                                          filterIndicator.input = 0, # Filtering indicator
+#                                          averageIndicator.input = F, # Average indicator
+#                                          metricPage.input = input$metricsToShow, # Metric filtering
+#                                          quantile.input = input$quantileSelection, # Selected quantile
+#                                          orginData.input = dataForEvaluation$data, # Data used for base
+#                                          date.type.input = dateValues$dates) # Type of date data
+#     
+#     ################################
+#     # Calculating the Skill Scores #
+#     ################################
+#     if(!is.null(winklerScores) & nrow(modelMetricsCrude$metricsList) > 0){
+#       
+#       skillScores <- skillScoresMain(averageIndicator = input$seeAvgSS, # Indicator to use average metrics
+#                                      CrudeMetrics = modelMetricsCrude$metricsList, # Crude metrics
+#                                      winkler.input = winklerScores, # Winkler score
+#                                      metricPage.input = input$metricsToShow) # Metric type filtering
+#       
+#       ###########################################################
+#       # Determining if the scores should be filtered: Filtering #
+#       ###########################################################
+#       if(filterSSIndicatorMAIN() == 1){
+#         
+#         filterd <- skillScores %>%
+#           dplyr::filter(Location %in% c(input$locationInputSelectMAIN),
+#                         `Baseline Model` %in% c(input$baselineModelsMAIN),
+#                         `Comparison Model` %in% c(input$compareModels2MAIN),
+#                         Calibration %in% c(input$calibrationPeriod))
+#         
+#       ##############################################################
+#       # Determining if the scores should be filtered: No Filtering #
+#       ##############################################################
+#       }else{
+#         
+#         filterd <- skillScores
+#         
+#       }
+#       
+#       #########################################
+#       # Saving the output to a reactive value #
+#       #########################################
+#       finalSSCombinedMAIN$scores <-  filterd
+#       
+#       ##################
+#       # Returning NULL #
+#       ##################
+#     }else{
+#       
+#       finalSSCombinedMAIN$scores <-  NULL
+#       
+#     }
+#     
+#   })
+# 
+# #------------------------------------------------------------------------------#
+# # Clearing the Skill Scores Data -----------------------------------------------
+# #------------------------------------------------------------------------------#
+# # About: This section clears the Skill Scores data and resets the filtering    #
+# # indicator when a new data set is read into the dashboard, the clear button   #
+# # is clicked, or the evaluation data is changed.                               #
+# #------------------------------------------------------------------------------#
+# 
+# #########################################################
+# # Observing event of file changing or button is cleared #
+# #########################################################
+# observeEvent(clearingOut(),{
+#   
+#   # Clearing the list of skill scores
+#   finalSSCombinedMAIN$scores <- NULL
+#   
+#   # Resetting the filtering indicator
+#   filterSSIndicatorMAIN(0)
+#   
+# })
+# 
+# ############################################
+# # Observing changes in the evaluation data #
+# ############################################
+# observe({
+#   
+#   # Running if the evaluation data is NULL
+#   if(is.null(dataForEvaluation$data)){
+#     
+#     # Clearing the list of skill scores
+#     finalSSCombinedMAIN$scores <- NULL
+#     
+#     # Resetting the filtering indicator
+#     filterSSIndicatorMAIN(0)
+#     
+#   } # End of 'if'
+#   
+# }) # End of 'observe'
+# 
+# 
+# 
+# 
+# #------------------------------------------------------------------------------#
+# # Rendering the skill scores data ----------------------------------------------
+# #------------------------------------------------------------------------------#
+# # About: This section renders the skill scores the main dashboard.             #
+# #------------------------------------------------------------------------------#
+# 
+# ############################
+# # Rendering the data frame #
+# ############################
+# output$skillScoresAGGPData <- renderDataTable({finalSSCombinedMAIN$scores})
+# 
+# 
+# #------------------------------------------------------------------------------#
+# # Downloading the skill scores as a '.csv' -------------------------------------
+# #------------------------------------------------------------------------------#
+# # About: This section provides interactivity to download button. Therefore, it #
+# # allows users to download the skill scores data as a '.csv' file to the       #
+# # directory of their choosing.                                                 #
+# #------------------------------------------------------------------------------#
+# 
+# output$downloadSSMetrics <- downloadHandler(
+#   
+#   ####################################
+#   # Function to create the file-name #
+#   ####################################
+#   filename = function() {
+#     
+#     # File name
+#     paste("skill-scores-", input$dataset, sep = "")
+#     
+#   },
+#   
+#   #############################
+#   # Function to save the file #
+#   #############################
+#   content = function(file) {
+#     
+#     # Saving the file
+#     write.csv(finalSSCombinedMAIN$scores, file, row.names = FALSE)
+#     
+#   }
+#   
+# ) # End of download button
+
+
 
 shinyApp(ui = ui, server = server)

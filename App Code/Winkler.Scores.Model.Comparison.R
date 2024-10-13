@@ -333,7 +333,8 @@ Winkler.Scores.Model.Comparison <- function(formatted.forecast.DASHBOARD,
     if(dateType %in% c("week", "day")){
       
       winklerData <- formattedPreWinkler %>%
-        dplyr::mutate(`Forecast Date` = anytime::anydate(`Forecast Date`)) %>%
+        dplyr::mutate(`Forecast Date` = anytime::anydate(`Forecast Date`), 
+                      Date = anytime::anydate(Date)) %>%
         dplyr::select(CalibrationIndicator, Model, Location, Calibration, Date, `Forecast Date`, `Winkler Score`) %>%
         dplyr::group_by(CalibrationIndicator) %>%
         dplyr::mutate(`Avg. Winkler Score` = round(mean(`Winkler Score`), 2))
@@ -342,7 +343,8 @@ Winkler.Scores.Model.Comparison <- function(formatted.forecast.DASHBOARD,
     }else{
       
       winklerData <- formattedPreWinkler %>%
-        dplyr::mutate(`Forecast Date` = as.numeric(`Forecast Date`)) %>%
+        dplyr::mutate(`Forecast Date` = as.numeric(`Forecast Date`),
+                      Date = as.numeric(Date)) %>%
         dplyr::select(CalibrationIndicator, Model, Location, Calibration, Date, `Forecast Date`, `Winkler Score`) %>%
         dplyr::group_by(CalibrationIndicator) %>%
         dplyr::mutate(`Avg. Winkler Score` = round(mean(`Winkler Score`), 2))

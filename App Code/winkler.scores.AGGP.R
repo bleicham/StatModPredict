@@ -17,8 +17,7 @@ winkler.scores.AGGP <- function(formattedForecasts,
                                 filterIndicator.input,
                                 averageIndicator.input,
                                 metricPage.input, quantile.input,
-                                orginData.input,  date.type.input,
-                                horizon.input) {
+                                orginData.input,  date.type.input) {
 
   
 #------------------------------------------------------------------------------#
@@ -62,11 +61,6 @@ winkler.scores.AGGP <- function(formattedForecasts,
   # Date type #
   #############
   dateType <- date.type.input
-  
-  ####################
-  # Forecast Horizon #
-  ####################
-  forecastHorzion <- 4
   
   ##########################################
   # Data frame to fill with winkler scores #
@@ -164,10 +158,16 @@ winkler.scores.AGGP <- function(formattedForecasts,
       
       forecastDate <- anytime::anydate(paste0(str_split(nameForecast, pattern = "-")[[1]][3], "-", str_split(nameForecast, pattern = "-")[[1]][4], "-", str_split(nameForecast, pattern = "-")[[1]][5]))
 
+      compareData <- compareData %>%
+        dplyr::mutate(Date = anytime::anydate(Date))
+      
     # Forecast period: Year or Time Index
     }else{
       
       forecastDate <- as.numeric(paste0(str_split(nameForecast, pattern = "-")[[1]][3]))
+      
+      compareData <- compareData %>%
+        dplyr::mutate(Date = as.numeric(Date))
       
     }
     
