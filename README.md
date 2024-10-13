@@ -6,8 +6,8 @@
 There is a video tutorial available on YouTube which employs the data included within the "Tutorial" folder above. The tutorial can be found at: https://www.youtube.com/watch?v=zgZOvqhvqw8
 
 # Software Requirments 
-- **Language:** R (>=4.3)
-- **Integrated development environment:** RStudio(>=2024.04.1 Build 748)
+- **Language:** R (\>=4.3)
+- **Integrated development environment:** RStudio(\>=2024.04.1 Build 748)
 - **Packages:** pacman & Shiny
 
 # Preparing the data
