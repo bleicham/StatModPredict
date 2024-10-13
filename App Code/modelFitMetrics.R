@@ -23,7 +23,7 @@
 #     (477):359-378. https://doi.org/10.1198/016214506000001437.               #
 # (2) Kuhn M, Johnson K. Applied predictive modeling. Vol 26. Springer; 2013.  #
 # (3) University of Nicosia. M4Competition Competitor’s Guide: Prizes and      # 
-#     Rules. 2018. Accessed June 28, 2023. http://www.unic.ac.cy/test/wp-      #
+#     Rules. 2018. Accessed June 28, 2023. http://www.unic.ac.cy/errorTypeGLM /wp-      #
 #     content/uploads/sites/2/2018/09/M4-Competitors-Guide.pdf.                #
 # (4) Bracher J, Ray EL, Gneiting T, Reich NG. Evaluating epidemic forecasts   #
 #     in an interval format. PLoS computational biology. 2021;17(2):e1008618.  #
@@ -49,7 +49,8 @@
 
 modelFitMetrics <- function(crude.data.input, date.Type.input,
                             quantile.list.input, ARIMAFit,
-                            GAMFit, GLMFit, selectedQuantile){
+                            GAMFit, GLMFit, selectedQuantile, errorTypeGLM,
+                            errorTypeGAM){
 
 
 #------------------------------------------------------------------------------#
@@ -62,38 +63,39 @@ modelFitMetrics <- function(crude.data.input, date.Type.input,
   ###################################################
   # Reading in the crude data (original or updated) #
   ###################################################
-  data.input.MF <- crude.data.input
+  data.input.MF <<- crude.data.input
   
   #############
   # Date type #
   #############
-  date.Type.input.MF <- date.Type.input
+  date.Type.input.MF <<- date.Type.input
   
   ##############################
   # List of quantile forecasts #
   ##############################
-  quantile.forecast.input.MF <- quantile.list.input 
+  quantile.forecast.input.MF <<- quantile.list.input 
   
   ########################
   # ARIMA fit statistics #
   ########################
-  ARIMAFitInput <- ARIMAFit
+  ARIMAFitInput <<- ARIMAFit
   
   ######################
   # GAM fit statistics #
   ######################
-  GAMFitInput <- GAMFit
+  GAMFitInput <<- GAMFit
   
   ######################
   # GLM fit statistics #
   ######################
-  GLMFitInput <- GLMFit
+  GLMFitInput <<- GLMFit
   
   #####################
   # Selected quantile #
   #####################
-  quantileCalculation <- selectedQuantile
+  quantileCalculation <<- selectedQuantile
   
+
 #------------------------------------------------------------------------------#
 # Preparing the needed data frames and lists -----------------------------------
 #------------------------------------------------------------------------------#
@@ -270,6 +272,12 @@ modelFitMetrics <- function(crude.data.input, date.Type.input,
 # period.                                                                      #
 #------------------------------------------------------------------------------#
     
+    if((errorTypeGLM  != "Normal" || errorTypeGAM != "Normal") &&  modelName %in% c("GLM", "GAM")){
+      
+      WISF <- NULL
+      
+    }else{
+    
     ##################################################
     # Preparing for the loop going through quantiles #
     ##################################################
@@ -351,6 +359,8 @@ modelFitMetrics <- function(crude.data.input, date.Type.input,
       
     } # End of loop through observed values
     
+    }
+    
 #------------------------------------------------------------------------------#
 # Creating the data frame with the calculated metrics --------------------------
 #------------------------------------------------------------------------------#
@@ -362,6 +372,8 @@ modelFitMetrics <- function(crude.data.input, date.Type.input,
     #########################
     # Combining all metrics #
     #########################
+    if(all(nrow(WISF) > 0 & !is.null(WISF))){
+      
     allMetrics <- PI_MSE_MAE %>%
       dplyr::mutate(meanWIS = mean(WISF[,1]),
                     Model = modelName,
@@ -384,6 +396,33 @@ modelFitMetrics <- function(crude.data.input, date.Type.input,
       dplyr::select(Location, Model, Date, Calibration, MSE, MAE, PI, 
                     WIS, AICc, AIC, BIC, ModelSpec.Non.Seasonal,
                     ModelSpec.Seasonal, Intercept, Q, df, PValue)
+    
+    }else{
+      
+      allMetrics <- PI_MSE_MAE %>%
+        dplyr::mutate(meanWIS = NA,
+                      Model = modelName,
+                      Location = location,
+                      Date = forecastPeriod,
+                      Calibration = calibrationLength,
+                      MSE = meanMSE, 
+                      MAE = meanMAE,
+                      PI = mean95PI,
+                      WIS = meanWIS,
+                      AICc = NA,
+                      AIC = NA,
+                      BIC = NA, 
+                      ModelSpec.Non.Seasonal = NA,
+                      ModelSpec.Seasonal = NA, 
+                      Intercept = NA,
+                      Q = NA,
+                      df = NA,
+                      PValue = NA) %>%
+        dplyr::select(Location, Model, Date, Calibration, MSE, MAE, PI, 
+                      WIS, AICc, AIC, BIC, ModelSpec.Non.Seasonal,
+                      ModelSpec.Seasonal, Intercept, Q, df, PValue)
+      
+    }
     
       
     ##############################################
