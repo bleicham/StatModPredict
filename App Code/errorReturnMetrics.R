@@ -110,6 +110,26 @@ errorReturnMetrics <- function(orignaldata.input, otherMetrics.input,
     }
     
 #------------------------------------------------------------------------------#
+# Checking locations against data ----------------------------------------------
+#------------------------------------------------------------------------------#
+# About: This section compares the locations included in the metrics file      #
+# against the original data. If the locations in the metrics file does not     #
+# match any location in the original data, and error is returned.              #
+#------------------------------------------------------------------------------#
+    
+    #######################
+    # Checking for `Date` #
+    #######################
+    if(unique(indexedFile$Location) %!in% colnames(orignalData)) {
+      
+      return("ERROR4")
+      break
+      
+    }
+    
+  } # End of metrics loop 
+  
+#------------------------------------------------------------------------------#
 # Checking the horizon against that of the other metrics -----------------------
 #------------------------------------------------------------------------------#
 # About: This section checks the horizon specified in the file names against   #
@@ -165,26 +185,7 @@ errorReturnMetrics <- function(orignaldata.input, otherMetrics.input,
       break
       
     }
-    
-#------------------------------------------------------------------------------#
-# Checking locations against data ----------------------------------------------
-#------------------------------------------------------------------------------#
-# About: This section compares the locations included in the metrics file      #
-# against the original data. If the locations in the metrics file does not     #
-# match any location in the original data, and error is returned.              #
-#------------------------------------------------------------------------------#
-    
-    #######################
-    # Checking for `Date` #
-    #######################
-    if(unique(indexedFile$Location) %!in% colnames(orignalData)) {
-      
-      return("ERROR4")
-      break
-      
-    }
-    
-  } # End of metrics loop 
+  
 
   #############################################
   # Returning if all went well with the files #

@@ -9551,10 +9551,11 @@ server <- function(input, output, session) {
       if(all(metricPanelCrude == "ERROR" &  input$my_picker == "Model Metrics")){
         
         # Error
-        shinyalert(title = "Warning", text = "The crude metrics figure could not be created and the Winkler scores and Skill Scores were not calculated for the ARIMA model fit statistics (MSE, MAE, WIS, PI).", type = "warning")
+        shinyalert(title = "Warning", text = "Some features of the model fit page are unavailable for the ARIMA model.", type = "warning")
         
         # Returning a NULL
         modelCrudePlot$figures <- NULL
+        
       }
 
       ############################################
@@ -11531,48 +11532,7 @@ server <- function(input, output, session) {
 
    })
 
-#------------------------------------------------------------------------------#
-# Checking for the original file data and results ------------------------------
-#------------------------------------------------------------------------------#
-# About: This section checks to see if the original data has been read in, and #
-# the dashboard has been run prior to executing the remainder of the code.     #
-#------------------------------------------------------------------------------#
-
-  ########################################
-  # Observing changes in reactive values #
-  ########################################
-  observe({
-
-    ##########################
-    # Checking for forecasts #
-    ##########################
-    if(is.null(foremattedForecasts$forecasts) & input$my_picker == "Model Comparison" & length(listOtherForecasts$forecastData) > 0){
-
-      ######################
-      # Returning an error #
-      ######################
-      shinyalert(title = "Warning",
-                 "Please run the main dashboard prior to loading forecast
-                 files from outside models.", type = "warning")
-
-      # Clearing out the outside file reactive value
-      listOtherForecasts$forecastData <- NULL
-      
-      # Clearing out the reactive value
-      vettedData$data <- NULL
-
-    ########################
-    # Proceeding as normal #
-    ########################
-    }else{
-
-      listOtherForecasts$forecastData <- listOtherForecasts$forecastData
-
-    }
-
-  }) # End of 'observe'
-
-
+  
 #------------------------------------------------------------------------------#
 # Checking the forecast files against the original data and for name -----------
 #------------------------------------------------------------------------------#
@@ -11585,6 +11545,11 @@ server <- function(input, output, session) {
   # Reactive value to save results #
   ##################################
   vettedData <- reactiveValues()
+  
+  ############################
+  # Reactive value for error #
+  ############################
+  errorHolder <- reactiveValues()
 
   ############################################
   # Observing changes in the reactive values #
@@ -11604,78 +11569,113 @@ server <- function(input, output, session) {
                                             otherForecast.input = listOtherForecasts$forecastData,
                                             dateType.input = dateValues$dates,
                                             horizon.input = input$forecastHorizon)
-
-    #########################################
-    # Producing errors if on the right page #
-    #########################################
-    if(input$my_picker == "Model Comparison"){
-
-      ########################################
-      # Producing Error Code 1: Naming Issue #
-      ########################################
-      if(errorReturnOtherForecast == "ERROR1"){
-
-        # Returning the error
-        shinyalert(title = "Error", type = "error", text = "Please check the naming scheme of your data.")
-
-        # Clearing out the reactive value
-        vettedData$data <- NULL
-        
-      #####################################
-      # Producing Error Code 2: Locations #
-      #####################################
-      }else if(errorReturnOtherForecast == "ERROR2"){
-
-        # Returning the error
-        shinyalert(title = "Error", type = "error", text = "Please check your file names. The location listed does not match any location loaded with the orignal data.")
-
-        # Clearing out the reactive value
-        vettedData$data <- NULL
     
-      #################################
-      # Producing Error Code 3: Dates #
-      #################################
-      }else if(errorReturnOtherForecast == "ERROR3"){
+    # Saving the response
+    errorHolder$error <- errorReturnOtherForecast
+    
+#------------------------------------------------------------------------------#
+# Checking for the original file data and results ------------------------------
+#------------------------------------------------------------------------------#
+# About: This section checks to see if the original data has been read in, and #
+# the dashboard has been run prior to executing the remainder of the code.     #
+#------------------------------------------------------------------------------#
 
-        # Returning the error
-        shinyalert(title = "Error", type = "error", text = "The temporal sequence (daily, weekly, yearly, index) included in the forecast files does not match the orignal data. Please check your data and file name.")
+    ##########################
+    # Checking for forecasts #
+    ##########################
+    if(is.null(foremattedForecasts$forecasts) & input$my_picker == "Model Comparison" & length(listOtherForecasts$forecastData) > 0){
+      
+      ######################
+      # Returning an error #
+      ######################
+      shinyalert(title = "Warning",
+                 "Please run the main dashboard prior to loading forecast
+                 files from outside models.", type = "warning")
+      
+      # Clearing out the outside file reactive value
+      listOtherForecasts$forecastData <- NULL
+      
+      # Clearing out the reactive value
+      vettedData$data <- NULL
+      
+      # Resetting the error indicator 
+      errorHolder$error <- NULL
+      
+    }else{
 
-        # Clearing out the reactive value
-        vettedData$data <- NULL
+      #########################################
+      # Producing errors if on the right page #
+      #########################################
+      if(input$my_picker == "Model Comparison"){
+  
+        ########################################
+        # Producing Error Code 1: Naming Issue #
+        ########################################
+        if(errorHolder$error == "ERROR1"){
+  
+          # Returning the error
+          shinyalert(title = "Error", type = "error", text = "Please check the naming scheme of your data.")
+  
+          # Clearing out the reactive value
+          vettedData$data <- NULL
+          
+        #####################################
+        # Producing Error Code 2: Locations #
+        #####################################
+        }else if(errorHolder$error == "ERROR2"){
+  
+          # Returning the error
+          shinyalert(title = "Error", type = "error", text = "Please check your file names. The location listed does not match any location loaded with the orignal data.")
+  
+          # Clearing out the reactive value
+          vettedData$data <- NULL
+      
+        #################################
+        # Producing Error Code 3: Dates #
+        #################################
+        }else if(errorHolder$error == "ERROR3"){
+  
+          # Returning the error
+          shinyalert(title = "Error", type = "error", text = "The temporal sequence (daily, weekly, yearly, index) included in the forecast files does not match the orignal data. Please check your data and file name.")
+  
+          # Clearing out the reactive value
+          vettedData$data <- NULL
+          
+        ###################################
+        # Producing Error Code 4: Columns #
+        ###################################
+        }else if(errorHolder$error == "ERROR4"){
+  
+          # Returning the error
+          shinyalert(title = "Error", type = "error", text = "Please check the names of the columns within loaded data. The should be in the following order: Date, data, median, LB, UB")
+  
+          # Clearing out the reactive value
+          vettedData$data <- NULL
+          
+        ####################################
+        # Producing Error Code 5: Horizons #
+        ####################################
+        }else if(errorHolder$error == "ERROR5"){
+  
+          # Returning the error
+          shinyalert(title = "Error", type = "error", text = "Please check the forecasting horizon specified in the loaded data. It should match that indicated in the main dashboard side-bar.")
+  
+          # Clearing out the reactive value
+          vettedData$data <- NULL
+  
+        #####################################
+        # Returning NULL if no error occurs #
+        #####################################
+        }else if(errorReturnOtherForecast == "WORKED"){
+  
+          vettedData$data <- listOtherForecasts$forecastData
+  
+        }
         
-      ###################################
-      # Producing Error Code 4: Columns #
-      ###################################
-      }else if(errorReturnOtherForecast == "ERROR4"){
-
-        # Returning the error
-        shinyalert(title = "Error", type = "error", text = "Please check the names of the columns within loaded data. The should be in the following order: Date, data, median, LB, UB")
-
-        # Clearing out the reactive value
-        vettedData$data <- NULL
-        
-      ####################################
-      # Producing Error Code 5: Horizons #
-      ####################################
-      }else if(errorReturnOtherForecast == "ERROR5"){
-
-        # Returning the error
-        shinyalert(title = "Error", type = "error", text = "Please check the forecasting horizon specified in the loaded data. It should match that indicated in the main dashboard side-bar.")
-
-        # Clearing out the reactive value
-        vettedData$data <- NULL
-
-      #####################################
-      # Returning NULL if no error occurs #
-      #####################################
-      }else if(errorReturnOtherForecast == "WORKED"){
-
-        vettedData$data <- listOtherForecasts$forecastData
-
       }
-
-    }
-
+      
+    } # End of other errors
+    
 
   }) # End of 'observe'
 
@@ -12837,45 +12837,6 @@ server <- function(input, output, session) {
 
 
 #------------------------------------------------------------------------------#
-# Checking for the original file data and results ------------------------------
-#------------------------------------------------------------------------------#
-# About: This section checks to see if the original data has been read in, and #
-# the dashboard has been run prior to executing the remainder of the code.     #
-#------------------------------------------------------------------------------#
-
-  ########################################
-  # Observing changes in reactive values #
-  ########################################
-  observe({
-
-    #############################
-    # Checking for metric files #
-    #############################
-    if(all(is.null(foremattedForecasts$forecasts) & input$my_picker == "Model Comparison" & length(metricsOtherReactive$metricData) > 0)){
-
-      ######################
-      # Returning an error #
-      ######################
-      shinyalert(title = "Warning",
-                 "Please run the main dashboard prior to loading metrics
-                 files from outside models.", type = "warning")
-
-      # Clearing out the outside file reactive value
-      metricsOtherReactive$metricData <- NULL
-
-    ########################
-    # Proceeding as normal #
-    ########################
-    }else{
-
-      metricsOtherReactive$metricData <- metricsOtherReactive$metricData
-
-    }
-
-  }) # End of 'observe'
-
-
-#------------------------------------------------------------------------------#
 # Checking the format and name of the other performance metrics ----------------
 #------------------------------------------------------------------------------#
 # About: This section checks the format of the performance metrics files read  #
@@ -12887,6 +12848,11 @@ server <- function(input, output, session) {
   # Reactive value to save results #
   ##################################
   vettedMetrics <- reactiveValues()
+  
+  ##################################
+  # Reactive values to save errors #
+  ##################################
+  errorMetricSave <- reactiveValues()
 
   ############################################
   # Observing changes in the reactive values #
@@ -12905,66 +12871,91 @@ server <- function(input, output, session) {
     errorReturnOtherMetrics <- errorReturnMetrics(orignaldata.input = file(),
                                                   otherMetrics.input = metricsOtherReactive$metricData,
                                                   horizon.input = input$forecastHorizon)
+    
+    # Saving the result
+    errorMetricSave$error <- errorReturnOtherMetrics
 
     #########################################
     # Producing errors if on the right page #
     #########################################
     if(input$my_picker == "Model Comparison"){
-
-      ########################################
-      # Producing Error Code 1: Naming Issue #
-      ########################################
-      if(errorReturnOtherMetrics == "ERROR1"){
-
-        # Returning the error
-        shinyalert(title = "Error", type = "error", text = "Please check the naming scheme of your metrics data.")
-
-        # Clearing out the reactive value
-        vettedMetrics$data <- NULL
-
-      ###################################
-      # Producing Error Code 2: Horizon #
-      ###################################
-      }else if(errorReturnOtherMetrics == "ERROR2"){
-
-        # Returning the error
-        shinyalert(title = "Error", type = "error", text = "Please check the forecasting horizon specified in the loaded metrics data. It should match that indicated in the main dashboard side-bar.")
-
-        # Clearing out the reactive value
-        vettedMetrics$data <- NULL
-
-      ###################################
-      # Producing Error Code 3: Columns #
-      ###################################
-      }else if(errorReturnOtherMetrics == "ERROR3"){
-
-        # Returning the error
-        shinyalert(title = "Error", type = "error", text = "Please check the names of the columns within loaded metrics data. The should be in the following order: Location, Model, Date, and then the forecast metrics.")
-
-        # Clearing out the reactive value
-        vettedMetrics$data <- NULL
-
-      #####################################
-      # Producing Error Code 4: Locations #
-      #####################################
-      }else if(errorReturnOtherMetrics == "ERROR4"){
-
-        # Returning the error
-        shinyalert(title = "Error", type = "error", text = "Please check your metric file locations. The location listed does not match any location loaded with the orignal data.")
-
-        # Clearing out the reactive value
-        vettedMetrics$data <- NULL
-
-      #####################################
-      # Returning NULL if no error occurs #
-      #####################################
-      }else if(errorReturnOtherMetrics == "WORKED"){
-
-        vettedMetrics$data <- metricsOtherReactive$metricData
-
+      
+      #############################
+      # Checking for metric files #
+      #############################
+      if(all(is.null(foremattedForecasts$forecasts) & input$my_picker == "Model Comparison" & length(metricsOtherReactive$metricData) > 0)){
+        
+          ######################
+          # Returning an error #
+          ######################
+          shinyalert(title = "Warning",
+                     "Please run the main dashboard prior to loading metrics
+                   files from outside models.", type = "warning")
+          
+          # Clearing out the outside file reactive value
+          metricsOtherReactive$metricData <- NULL
+          
+          # Clearing the errors
+          errorMetricSave$error <- NULL
+          
+        }else{
+  
+        ########################################
+        # Producing Error Code 1: Naming Issue #
+        ########################################
+        if(errorMetricSave$error == "ERROR1"){
+  
+          # Returning the error
+          shinyalert(title = "Error", type = "error", text = "Please check the naming scheme of your metrics data.")
+  
+          # Clearing out the reactive value
+          vettedMetrics$data <- NULL
+  
+        ###################################
+        # Producing Error Code 2: Horizon #
+        ###################################
+        }else if(errorMetricSave$error == "ERROR2"){
+  
+          # Returning the error
+          shinyalert(title = "Error", type = "error", text = "Please check the forecasting horizon specified in the loaded metrics data. It should match that indicated in the main dashboard side-bar.")
+  
+          # Clearing out the reactive value
+          vettedMetrics$data <- NULL
+  
+        ###################################
+        # Producing Error Code 3: Columns #
+        ###################################
+        }else if(errorMetricSave$error == "ERROR3"){
+  
+          # Returning the error
+          shinyalert(title = "Error", type = "error", text = "Please check the names of the columns within loaded metrics data. The should be in the following order: Location, Model, Date, and then the forecast metrics.")
+  
+          # Clearing out the reactive value
+          vettedMetrics$data <- NULL
+  
+        #####################################
+        # Producing Error Code 4: Locations #
+        #####################################
+        }else if(errorMetricSave$error == "ERROR4"){
+  
+          # Returning the error
+          shinyalert(title = "Error", type = "error", text = "Please check your metric file locations. The location listed does not match any location loaded with the orignal data.")
+  
+          # Clearing out the reactive value
+          vettedMetrics$data <- NULL
+  
+        #####################################
+        # Returning NULL if no error occurs #
+        #####################################
+        }else if(errorMetricSave$error == "WORKED"){
+  
+          vettedMetrics$data <- metricsOtherReactive$metricData
+  
+        }
+          
       }
-
-    }
+      
+    } # End of other errors 
 
   }) # End of 'observe'
 
@@ -15188,6 +15179,8 @@ server <- function(input, output, session) {
   observe({
 
     req(finalCrudeUnfiltered$metrics)
+    
+    req(vettedMetrics$data)
 
     ###################################################
     # Determining the options for the baseline models #
@@ -15316,7 +15309,7 @@ server <- function(input, output, session) {
   ###################################################
   # Clearing the Skill Scores metrics - File change #
   ###################################################
-  observeEvent(input$dataset2,{
+  observeEvent(input$metricsOther,{
     
     # Clearing the reactive value
     finalSSCombinedOther$scores <- NULL

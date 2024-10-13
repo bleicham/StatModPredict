@@ -101,28 +101,16 @@ errorReturn <- function(orignalData.input, otherForecast.input, dateType.input,
       break 
       
     }
-
-#------------------------------------------------------------------------------#
-# Checking the forecast horizon ------------------------------------------------
-#------------------------------------------------------------------------------#
-# About: This section checks the forecasting horizon specified in the read-in  #
-# files against that specified for the main dashboard.                         #
-#------------------------------------------------------------------------------#
     
-    ###################################################
-    # Pulling the forecast horizon from the file name #
-    ###################################################
-    nameHorizon <- fileSplit[[1]][4]
-    
-    #######################################################
-    # Comparing the file horizon to the dashboard horizon #
-    #######################################################
-    if(as.numeric(nameHorizon) != as.numeric( orignalHorizon)){
+    # Check for the word "Performance"
+    # Checking for the word calibration
+    if(fileSplit[[1]][1] == "Performance"){
       
-      return("ERROR5")
-      break
+      return("ERROR1")
+      break 
       
     }
+
     
 #------------------------------------------------------------------------------#
 # Checking the locations against the original data -----------------------------
@@ -148,21 +136,27 @@ errorReturn <- function(orignalData.input, otherForecast.input, dateType.input,
     }
     
 #------------------------------------------------------------------------------#
-# Checking column names --------------------------------------------------------
+# Checking the forecast horizon ------------------------------------------------
 #------------------------------------------------------------------------------#
-# About: This section checks the names of the columns in the forecast files.   #
-# If they do not match the correct order or spelling, and error returns.       #
+# About: This section checks the forecasting horizon specified in the read-in  #
+# files against that specified for the main dashboard.                         #
 #------------------------------------------------------------------------------#
     
-    ############################
-    # Pulling the column names #
-    ############################
-    if(any(colnames(indexedForecast) != c("Date", "data", "median", "LB", "UB"))){
+    ###################################################
+    # Pulling the forecast horizon from the file name #
+    ###################################################
+    nameHorizon <- fileSplit[[1]][4]
+    
+    #######################################################
+    # Comparing the file horizon to the dashboard horizon #
+    #######################################################
+    if(as.numeric(nameHorizon) != as.numeric( orignalHorizon)){
       
-      return("ERROR4")
+      return("ERROR5")
       break
       
     }
+    
     
 #------------------------------------------------------------------------------#
 # Checking the date type against the original data -----------------------------
@@ -188,9 +182,9 @@ errorReturn <- function(orignalData.input, otherForecast.input, dateType.input,
       # Difference between the first and second dates 
       dateDifference <- as.numeric(indexedForecastDate[2,1] - indexedForecastDate[1,1])
       
-    ####################################################
-    # Formatting the date column: Yearly or Time Index #
-    ####################################################
+      ####################################################
+      # Formatting the date column: Yearly or Time Index #
+      ####################################################
     }else{
       
       # Changing to date format
@@ -209,23 +203,23 @@ errorReturn <- function(orignalData.input, otherForecast.input, dateType.input,
       
       dateForecast <- "week"
       
-    ##################################
-    # Determining the date type: Day #
-    ##################################
+      ##################################
+      # Determining the date type: Day #
+      ##################################
     }else if(dateDifference == 1 & nchar(indexedForecast[1,1]) > 4){
       
       dateForecast <- "day"
       
-    ##################################
-    # Determining the date type: Year #
-    ##################################
+      ##################################
+      # Determining the date type: Year #
+      ##################################
     }else if(dateDifference == 1 & nchar(indexedForecast[1,1]) == 4){
       
       dateForecast <- "year"
       
-    ####################################
-    # Determining the date type: Index #
-    ####################################
+      ####################################
+      # Determining the date type: Index #
+      ####################################
     }else{
       
       dateForecast <- "index"
@@ -241,6 +235,24 @@ errorReturn <- function(orignalData.input, otherForecast.input, dateType.input,
       break
       
     }
+    
+#------------------------------------------------------------------------------#
+# Checking column names --------------------------------------------------------
+#------------------------------------------------------------------------------#
+# About: This section checks the names of the columns in the forecast files.   #
+# If they do not match the correct order or spelling, and error returns.       #
+#------------------------------------------------------------------------------#
+    
+    ############################
+    # Pulling the column names #
+    ############################
+    if(any(colnames(indexedForecast) != c("Date", "data", "median", "LB", "UB"))){
+      
+      return("ERROR4")
+      break
+      
+    }
+
     
     
   } # End of loop going through forecasts
