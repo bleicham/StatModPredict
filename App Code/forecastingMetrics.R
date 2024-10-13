@@ -27,8 +27,7 @@
 
 forecastingMetrics <- function(crude.data.input, horizon.input, 
                                date.Type.input, quantile.list.input,
-                               selectedQuantile, errorTypeGLM,
-                               errorTypeGAM){
+                               selectedQuantile){
   
   
 #------------------------------------------------------------------------------#
@@ -215,13 +214,6 @@ forecastingMetrics <- function(crude.data.input, horizon.input,
 # across the entire forecast period.                                           #
 #------------------------------------------------------------------------------#
     
-    if((errorTypeGLM  != "Normal" || errorTypeGAM != "Normal") &&  modelName %in% c("GLM", "GAM")){
-      
-      WISF <- NULL
-      
-    }else{
-      
-    
     ##################################################
     # Preparing for the loop going through quantiles #
     ##################################################
@@ -303,7 +295,6 @@ forecastingMetrics <- function(crude.data.input, horizon.input,
       
     } # End of loop through observed values
     
-    }
     
 #------------------------------------------------------------------------------#
 # Creating the data frame with the calculated metrics --------------------------
@@ -315,7 +306,6 @@ forecastingMetrics <- function(crude.data.input, horizon.input,
     #########################
     # Combining all metrics #
     #########################
-    if(all(nrow(WISF) > 0 & !is.null(WISF))){
     
     ##################################
     # Cleaning and preparing one row #
@@ -331,23 +321,6 @@ forecastingMetrics <- function(crude.data.input, horizon.input,
                     MAE = round(meanMAE, 2)) %>%
       dplyr::select(Location, Model, Date, Calibration, MSE, MAE, PI, WIS)
     
-    }else{
-      
-      ##################################
-      # Cleaning and preparing one row #
-      ##################################
-      allMetrics <- PI_MSE_MAE %>%
-        dplyr::mutate(WIS = NA, 
-                      Model = modelName,
-                      PI = round(mean95PI, 2),  
-                      Location = location,
-                      Date = forecastPeriod,
-                      Calibration = calibrationLength,
-                      MSE = round(meanMSE, 2), 
-                      MAE = round(meanMAE, 2)) %>%
-        dplyr::select(Location, Model, Date, Calibration, MSE, MAE, PI, WIS)
-      
-    }
     
     ##################################
     # Adding the metrics to the list #
