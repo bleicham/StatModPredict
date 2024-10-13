@@ -43,27 +43,27 @@ Winkler.Scores.Model.Comparison <- function(formatted.forecast.DASHBOARD,
   #####################################################################
   # Reading in the formatted forecasts - ARIMA, GLM, GAM, and Prophet #
   #####################################################################
-  formatted.forecast.input <<- formatted.forecast.DASHBOARD
+  formatted.forecast.input <- formatted.forecast.DASHBOARD
   
   ##############################################
   # Reading in the formatted forecasts - Other #
   ##############################################
-  formatted.forecast.other.input <<- formatted.forecast.Other 
+  formatted.forecast.other.input <- formatted.forecast.Other 
   
   ############################
   # Reading in the date type #
   ############################
-  dateType <<- date.type.input
+  dateType <- date.type.input
   
   ##########################
   # Average Winkler Scores #
   ##########################
-  averageWinklerIndicator <<- avgWinler.input
+  averageWinklerIndicator <- avgWinler.input
   
   #####################
   # Selected quantile #
   #####################
-  quantileSelected <<- quantile.input
+  quantileSelected <- quantile.input
   
   ##########################################
   # Data frame to fill with winkler scores #

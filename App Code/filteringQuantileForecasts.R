@@ -26,27 +26,27 @@ filteringQuantileForecasts <- function(QuantileForecast.input,
   ###########################
   # Quantile forecast input #
   ###########################
-  quantileForecast <<- QuantileForecast.input
+  quantileForecast <- QuantileForecast.input
   
   ################
   # Model filter #
   ################
-  modelFilter <<- modelFilterQ.input
+  modelFilter <- modelFilterQ.input
   
   ###################
   # Location Filter #
   ###################
-  locationFilter <<- locationFilterQ.input
+  locationFilter <- locationFilterQ.input
   
   ################################
   # Forecast to show - Indicator #
   ################################
-  dataToShow <<- indicator.input
+  dataToShow <- indicator.input
   
   #############################
   # Calibration period filter #
   #############################
-  calibrationFilter <<- calibrationQ.input
+  calibrationFilter <- calibrationQ.input
   
   ################################
   # Empty list to file with data #

@@ -9962,7 +9962,7 @@ server <- function(input, output, session) {
      #####################################################
      # Running the function to calculate average metrics #
      #####################################################
-     averageMetrics <<- metrics %>%
+     averageMetrics <- metrics %>%
        dplyr::select(any_of(metricsList))  # Selecting the needed variables
 
      # Running if using model fit metrics
@@ -11548,6 +11548,33 @@ server <- function(input, output, session) {
 
       # Clearing out the outside file reactive value
       listOtherForecasts$forecastData <- NULL
+      
+      # Clearing out the reactive value
+      vettedData$data <- NULL
+      
+      # Clearing the reactive value
+      finalCrudeCombined$data <- NULL
+      
+      # Clearing the filtering indicator
+      indicatorForFilterMetrics(0)
+      
+      # Clearing the reactive value
+      CrudeMetricsOtherPlots$figures <- NULL
+      
+      # Clearing the arrow indicator 
+      current_index_crudeMetricPanel(1)
+      
+      # Clearing the reactive value
+      finalAvgCombined$metricsFULL <- NULL
+      
+      # Clearing the filtering indicator 
+      indicatorForFilterMetricsAvg(0)
+      
+      # Clearing the reactive value
+      AvgMetricsOtherPlots$figures <- NULL
+      
+      # Clearing the arrow indicator 
+      current_index_avgMetricPanel(1)
 
     ########################
     # Proceeding as normal #
@@ -11608,7 +11635,7 @@ server <- function(input, output, session) {
 
         # Clearing out the reactive value
         vettedData$data <- NULL
-
+        
       #####################################
       # Producing Error Code 2: Locations #
       #####################################
@@ -11619,7 +11646,7 @@ server <- function(input, output, session) {
 
         # Clearing out the reactive value
         vettedData$data <- NULL
-
+    
       #################################
       # Producing Error Code 3: Dates #
       #################################
@@ -11630,7 +11657,7 @@ server <- function(input, output, session) {
 
         # Clearing out the reactive value
         vettedData$data <- NULL
-
+        
       ###################################
       # Producing Error Code 4: Columns #
       ###################################
@@ -11641,7 +11668,7 @@ server <- function(input, output, session) {
 
         # Clearing out the reactive value
         vettedData$data <- NULL
-
+        
       ####################################
       # Producing Error Code 5: Horizons #
       ####################################
@@ -14666,7 +14693,7 @@ server <- function(input, output, session) {
     vettedMetrics$data <- NULL
     
   }) # End of 'observe'
-
+  
 
 #------------------------------------------------------------------------------#
 # Setting up the forward and backwards arrows for average figures --------------
@@ -15115,8 +15142,27 @@ server <- function(input, output, session) {
     }
 
   ) # End of download button
+  
+#------------------------------------------------------------------------------#
+# Clearing out the "vetted" data when new models are run -----------------------
+#------------------------------------------------------------------------------#
+# About: This section clears out the vetted data when new models are run in    #
+# the main dashboard.                                                          #
+#------------------------------------------------------------------------------#
 
-   
+  ##############################################
+  # Clearing the average metrics - File change #
+  ##############################################
+  observeEvent(input$run,{
+    
+    # Clearing the reactive value
+    vettedData$data <- NULL
+    
+    # Clearing out the reactive value
+    vettedMetrics$data <- NULL
+    
+  }) # End of 'observe'
+  
 }
 
 shinyApp(ui = ui, server = server)

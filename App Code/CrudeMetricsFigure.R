@@ -32,7 +32,7 @@ CrudeMetricsFigure <- function(crudeMetrics, dateType, scaleY.input,
   ########################################
   # Reading in the list of crude metrics #
   ########################################
-  crude.metric.input.TP <<- crudeMetrics
+  crude.metric.input.TP <- crudeMetrics
   
   ####################################
   # Reading in the type of date data #

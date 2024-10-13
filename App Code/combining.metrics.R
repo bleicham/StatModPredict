@@ -24,17 +24,17 @@ combining.metrics <- function(original.fit.input,orignal.forecast.input, new.inp
   #####################
   # Model fit metrics #
   #####################
-  orignalMetricsFit <<- original.fit.input
+  orignalMetricsFit <- original.fit.input
   
   ##########################
   # Model forecast metrics #
   ##########################
-  orignalMetricsForecast <<- orignal.forecast.input
+  orignalMetricsForecast <- orignal.forecast.input
   
   #########################
   # Outside model metrics #
   #########################
-  newMetrics <<- new.input
+  newMetrics <- new.input
   
 #------------------------------------------------------------------------------#
 # Cleaning up the original model fit metrics -----------------------------------

@@ -36,22 +36,22 @@ skillScoresMain <- function(averageIndicator, CrudeMetrics, winkler.input,
   #######################
   # Winkler scores data #
   #######################
-  winklerScores <<- winkler.input 
+  winklerScores <- winkler.input 
   
   #############################
   # Average Metrics Indicator #
   #############################
-  average.input <<- averageIndicator 
+  average.input <- averageIndicator 
   
   ######################
   # Crude metrics data #
   ######################
-  metrics.input <<- CrudeMetrics 
+  metrics.input <- CrudeMetrics 
 
   ##################
   # Metric to show #
   ##################
-  metricToShow <<- metricPage.input
+  metricToShow <- metricPage.input
   
 #------------------------------------------------------------------------------#
 # Combining the Winkler Scores and Metrics Data --------------------------------

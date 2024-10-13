@@ -31,42 +31,42 @@ winkler.scores.AGGP <- function(formattedForecasts,
   ######################################
   # Reading in the formatted forecasts #
   ######################################
-  formatted.forecast.input <<- formattedForecasts
+  formatted.forecast.input <- formattedForecasts
   
   #######################
   # Filtering indicator #
   #######################
-  filteringIndicator <<- filterIndicator.input
+  filteringIndicator <- filterIndicator.input
   
   ####################################
   # Average Winkler Scores Indicator #
   ####################################
-  averageWinklerIndicator <<- averageIndicator.input
+  averageWinklerIndicator <- averageIndicator.input
   
   ###################
   # Metrics to show #
   ###################
-  metricToShow <<- metricPage.input
+  metricToShow <- metricPage.input
   
   ##################
   # Quantile input #
   ##################
-  quantileSelected <<- quantile.input
+  quantileSelected <- quantile.input
   
   ###################
   # Comparison data #
   ###################
-  compareData <<- orginData.input
+  compareData <- orginData.input
   
   #############
   # Date type #
   #############
-  dateType <<- date.type.input
+  dateType <- date.type.input
   
   ####################
   # Forecast Horizon #
   ####################
-  forecastHorzion <<- 4
+  forecastHorzion <- 4
   
   ##########################################
   # Data frame to fill with winkler scores #

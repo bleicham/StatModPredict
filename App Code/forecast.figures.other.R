@@ -318,7 +318,7 @@ forecast.figures.other <- function(formatted.forecast.input, data.type.input,
     }else{
       
       # Determining the forecast period date from the name
-      forecastPeriod <- strsplit(nameIndex, "[-]")[[1]][8]
+      forecastPeriod <- strsplit(strsplit(nameIndex, "[-]")[[1]][8], "[.]")[[1]][1]
       
     }
     
