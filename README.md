@@ -11,8 +11,12 @@ There is a video tutorial available on YouTube which employs the data included w
 - **Packages:** pacman & Shiny
 
 # Preparing the data
+
 ## Primary data
-The primary data refers to the data set used to fit all models, produce forecasts, and to evaluate the model fit and forecasts. 
+The primary data refers to the data set used to fit all models, produce forecasts, and to evaluate the model fit and forecasts. The dashboard allows users to utilize any incident data, provided it follows the correct formatting guidelines and is a *.csv file. Users must structure their data in a "wide" format, where the first column corresponds to the time series dates (i.e., daily, weekly, yearly, or time index), and the remaining columns include the counts of the event of interest for each location or group at each time point. All columns must have headers without dashes in their name. However, there is no restriction on the file's name. 
+
+When working with daily or weekly data, years must be formatted with four digits (YYYY); any conventional format can be used for the month and day. However, if working with yearly data, only a four-digit year can be used (YYYY); for time indexes, the first row of data corresponds to a time index of 1. Thus, records over time should go from the top to the bottom of the dataset. Examples of the input data structure can be found in the 'Example Data' folder above.
+
 ## "Outside Forecasts"
 ## "Outside Metrics"
 
