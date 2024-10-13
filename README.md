@@ -5,6 +5,17 @@
 # Video Tutorial 
 There is a video tutorial available on YouTube which employs the data included within the "Tutorial" folder above. The tutorial can be found at: https://www.youtube.com/watch?v=zgZOvqhvqw8
 
+# Software Requirments 
+- **Language:** R (>=4.3)
+- **Integrated development environment:** RStudio(>=2024.04.1 Build 748)
+- **Packages:** pacman & Shiny
+
+# Preparing the data
+## Primary data
+The primary data refers to the data set used to fit all models, produce forecasts, and to evaluate the model fit and forecasts. 
+## "Outside Forecasts"
+## "Outside Metrics"
+
 # References 
 [1] Hyndman RJ. auto.arima: Fit best ARIMA model to univariate time series. 8.22.0 ed. forecast: RDocumentation. https://www.rdocumentation.org/packages/forecast/versions/8.23.0/topics/auto.arima. 
 
