@@ -90,6 +90,7 @@
   source("average.compare.metrics.R")
   source("AverageMetricsPanel.other.R")
   source("Winkler.Scores.Model.Comparison.R")
+  source("skillScoresOther.R")
  
 
 
@@ -4348,7 +4349,8 @@ server <- function(input, output, session) {
 #------------------------------------------------------------------------------#
   
   clearingOut <- reactive({return(list(file(), input$clearResults, input$locations,
-                                       input$modelType, input$forecastHorizon))})
+                                       input$modelType, input$forecastHorizon,
+                                       input$forecast.period))})
   
 #------------------------------------------------------------------------------#
 # Resetting some side-bar values -----------------------------------------------
@@ -8771,6 +8773,7 @@ server <- function(input, output, session) {
                                               date.Type.input = dateValues$dates, # Date type
                                               quantile.list.input = quantileList, # Quantile list
                                               selectedQuantile = input$quantileSelection) # Selected quantile
+                                        
 
     # Adding it to the reactive value
     forecastMetricsListCrude$forecastMetrics <- forecastMetricsList
@@ -11234,7 +11237,7 @@ server <- function(input, output, session) {
         dplyr::filter(Location %in% c(input$locationInputSelectMAIN),
                       `Baseline Model` %in% c(input$baselineModelsMAIN),
                       `Comparison Model` %in% c(input$compareModels2MAIN),
-                      Calibration %in% c(input$calibrationPeriod))
+                      Calibration %in% c(input$calibrationSSMain))
 
     ##############################################################
     # Determining if the scores should be filtered: No Filtering #
@@ -13070,7 +13073,7 @@ server <- function(input, output, session) {
     }else{
       
       # Not filtering the data 
-      dataToExport <<- combinedMetrics 
+      dataToExport <- combinedMetrics 
       
     }
 
@@ -13780,6 +13783,7 @@ server <- function(input, output, session) {
     
     # Clearing out the reactive value
     vettedMetrics$data <- NULL
+    
     
   })
   
@@ -15159,8 +15163,6 @@ server <- function(input, output, session) {
     
   }) # End of 'observe'
   
-}
-
 
 #------------------------------------------------------------------------------#
 # Calculating and Filtering the Skill Scores -----------------------------------
@@ -15170,200 +15172,210 @@ server <- function(input, output, session) {
 # locations, and calibration period lengths.                                   #
 #------------------------------------------------------------------------------#
 
-  # ######################################
-  # # Creating the needed reactive value #
-  # ######################################
-  # 
-  # # To store the filtered Skill Scores data
-  # finalSSCombinedOther <- reactiveValues()
-  # 
-  # # Indicator for which metrics to show
-  # filterSSIndicatorOther <- reactiveVal(0)
-  # 
-  # ########################################
-  # # Observing changes in reactive values #
-  # ########################################
-  # observe({
-  # 
-  #   # Requiring the crude metrics list
-  #   req(modelMetricsCrude$metricsList)
-  # 
-  #   ###################################################
-  #   # Determining the options for the baseline models #
-  #   ###################################################
-  # 
-  #   # Data used for calculations
-  #   crudeMetrics <- modelMetricsCrude$metricsList
-  # 
-  #   # Determining the possible model choices
-  #   modelChoices <- c(unique(crudeMetrics$Model))
-  # 
-  #   # Requiring the calibration period
-  #   req(input$calibrationPeriod)
-  # 
-  #   #######################
-  #   # Creating the pop-up #
-  #   #######################
-  #   observeEvent(input$filterSSDataMain, ignoreInit = T,{
-  # 
-  #     # Setting the indicator
-  #     isolate({filterSSIndicatorMAIN(1)})
-  # 
-  #     # Button
-  #     showModal(modalDialog(
-  #       title = "Filtering Options",
-  #       pickerInput("baselineModelsMAIN", "Baseline Model(s):", c(modelChoices), selected = c(modelChoices), multiple = T), # Model filtering - Baseline
-  #       pickerInput("compareModels2MAIN", "Comparison Model(s):", c(modelChoices), selected = c(modelChoices), multiple = T), # Model filtering - Comparison
-  #       pickerInput("locationInputSelectMAIN", "Location:", c(input$locations), selected = c(input$locations), multiple = T), # Location
-  #       pickerInput("calibrationSSMain", "Calibration period length:", c(input$calibrationPeriod), selected = c(input$calibrationPeriod), multiple = T) # Calibration input
-  # 
-  #     ))
-  # 
-  #   })
-  # 
-  #   ####################################
-  #   # Recalculating the Winkler Scores #
-  #   ####################################
-  #   winklerScores <- Winkler.Scores.Model.Comparison(formatted.forecast.Other = vettedData$data, # Formatted forecast inputted
-  #                                                    formatted.forecast.DASHBOARD = foremattedForecasts$forecasts, # Formatted forecast dashboard
-  #                                                    date.type.input = dateValues$dates, # Date type
-  #                                                    avgWinler.input = F, # Average Winkler Score
-  #                                                    quantile.input = input$quantileSelection) # Selected quantile 
-  # 
-  #   ################################
-  #   # Calculating the Skill Scores #
-  #   ################################
-  #   if(!is.null(winklerScores) & nrow(modelMetricsCrude$metricsList) > 0){
-  # 
-  #     skillScores <- skillScoresMain.other(averageIndicator = input$seeAvgSSOther, # Indicator to use average metrics
-  #                                          CrudeMetrics = finalCrudeUnfiltered$metrics, # Crude metrics
-  #                                          winkler.input = winklerScores) # Winkler score
-  #     
-  #   }
-  #                                    
+  ######################################
+  # Creating the needed reactive value #
+  ######################################
 
-    #   ###########################################################
-    #   # Determining if the scores should be filtered: Filtering #
-    #   ###########################################################
-    #   if(filterSSIndicatorMAIN() == 1){
-    # 
-    #     filterd <- skillScores %>%
-    #       dplyr::filter(Location %in% c(input$locationInputSelectMAIN),
-    #                     `Baseline Model` %in% c(input$baselineModelsMAIN),
-    #                     `Comparison Model` %in% c(input$compareModels2MAIN),
-    #                     Calibration %in% c(input$calibrationPeriod))
-    # 
-    #   ##############################################################
-    #   # Determining if the scores should be filtered: No Filtering #
-    #   ##############################################################
-    #   }else{
-    # 
-    #     filterd <- skillScores
-    # 
-    #   }
-    # 
-    #   #########################################
-    #   # Saving the output to a reactive value #
-    #   #########################################
-    #   finalSSCombinedMAIN$scores <-  filterd
-    # 
-    #   ##################
-    #   # Returning NULL #
-    #   ##################
-    # }else{
-    # 
-    #   finalSSCombinedMAIN$scores <-  NULL
-    # 
-    # }
+  # To store the filtered Skill Scores data
+  finalSSCombinedOther <- reactiveValues()
 
- # })
+  # Indicator for which metrics to show
+  filterSSIndicatorOther <- reactiveVal(0)
 
-# #------------------------------------------------------------------------------#
-# # Clearing the Skill Scores Data -----------------------------------------------
-# #------------------------------------------------------------------------------#
-# # About: This section clears the Skill Scores data and resets the filtering    #
-# # indicator when a new data set is read into the dashboard, the clear button   #
-# # is clicked, or the evaluation data is changed.                               #
-# #------------------------------------------------------------------------------#
-# 
-# #########################################################
-# # Observing event of file changing or button is cleared #
-# #########################################################
-# observeEvent(clearingOut(),{
-#   
-#   # Clearing the list of skill scores
-#   finalSSCombinedMAIN$scores <- NULL
-#   
-#   # Resetting the filtering indicator
-#   filterSSIndicatorMAIN(0)
-#   
-# })
-# 
-# ############################################
-# # Observing changes in the evaluation data #
-# ############################################
-# observe({
-#   
-#   # Running if the evaluation data is NULL
-#   if(is.null(dataForEvaluation$data)){
-#     
-#     # Clearing the list of skill scores
-#     finalSSCombinedMAIN$scores <- NULL
-#     
-#     # Resetting the filtering indicator
-#     filterSSIndicatorMAIN(0)
-#     
-#   } # End of 'if'
-#   
-# }) # End of 'observe'
-# 
-# 
-# 
-# 
-# #------------------------------------------------------------------------------#
-# # Rendering the skill scores data ----------------------------------------------
-# #------------------------------------------------------------------------------#
-# # About: This section renders the skill scores the main dashboard.             #
-# #------------------------------------------------------------------------------#
-# 
-# ############################
-# # Rendering the data frame #
-# ############################
-# output$skillScoresAGGPData <- renderDataTable({finalSSCombinedMAIN$scores})
-# 
-# 
-# #------------------------------------------------------------------------------#
-# # Downloading the skill scores as a '.csv' -------------------------------------
-# #------------------------------------------------------------------------------#
-# # About: This section provides interactivity to download button. Therefore, it #
-# # allows users to download the skill scores data as a '.csv' file to the       #
-# # directory of their choosing.                                                 #
-# #------------------------------------------------------------------------------#
-# 
-# output$downloadSSMetrics <- downloadHandler(
-#   
-#   ####################################
-#   # Function to create the file-name #
-#   ####################################
-#   filename = function() {
-#     
-#     # File name
-#     paste("skill-scores-", input$dataset, sep = "")
-#     
-#   },
-#   
-#   #############################
-#   # Function to save the file #
-#   #############################
-#   content = function(file) {
-#     
-#     # Saving the file
-#     write.csv(finalSSCombinedMAIN$scores, file, row.names = FALSE)
-#     
-#   }
-#   
-# ) # End of download button
+  ########################################
+  # Observing changes in reactive values #
+  ########################################
+  observe({
+
+    req(finalCrudeUnfiltered$metrics)
+
+    ###################################################
+    # Determining the options for the baseline models #
+    ###################################################
+    
+    # Data used for calculations
+    crudeMetrics <- finalCrudeUnfiltered$metrics
+    
+    # Determining the possible model choices
+    modelChoices <- c(unique(crudeMetrics$Model))
+    
+    #########################################
+    # Determining the options for locations #
+    #########################################
+    
+    # Determining the possible location choices
+    locationChoices <- c(unique(crudeMetrics$Location))
+    
+    ###################################################
+    # Determining the options for calibration periods #
+    ###################################################
+    
+    # Determining the possible calibration period lengths 
+    calibrationChoices <- c(unique(crudeMetrics$Calibration))
+
+    #######################
+    # Creating the pop-up #
+    #######################
+    observeEvent(input$filterSkillScoresOtherMetrics, ignoreInit = T,{
+
+      # Setting the indicator
+      isolate({filterSSIndicatorOther(1)})
+
+      # Button
+      showModal(modalDialog(
+        title = "Filtering Options",
+        pickerInput("baselineModelsOther", "Baseline Model(s):", c(modelChoices), selected = c(modelChoices), multiple = T), # Model filtering - Baseline
+        pickerInput("compareModels2Other", "Comparison Model(s):", c(modelChoices), selected = c(modelChoices), multiple = T), # Model filtering - Comparison
+        pickerInput("locationInputSelectOther", "Location:", c(locationChoices), selected = c(locationChoices), multiple = T), # Location
+        pickerInput("calibrationSSOther", "Calibration period length:", c(calibrationChoices), selected = c(calibrationChoices), multiple = T), # Calibration input
+        pickerInput("metricTypeSSOther", "Type: ", c("Fit", "Forecast"), selected = c("Fit", "Forecast"), multiple = T) # Metric Type 
+
+      ))
+
+    })
+
+    ####################################
+    # Recalculating the Winkler Scores #
+    ####################################
+    winklerScores <- Winkler.Scores.Model.Comparison(formatted.forecast.Other = vettedData$data, # Formatted forecast inputted
+                                                     formatted.forecast.DASHBOARD = foremattedForecasts$forecasts, # Formatted forecast dashboard
+                                                     date.type.input = dateValues$dates, # Date type
+                                                     avgWinler.input = F, # Average Winkler Score
+                                                     quantile.input = input$quantileSelection) # Selected quantile
+
+    ################################
+    # Calculating the Skill Scores #
+    ################################
+    if(nrow(finalCrudeUnfiltered$metrics) > 0){
+
+       skillScores <- skillScoresOther(averageIndicator = input$seeAvgSSOther, # Indicator to use average metrics
+                                       CrudeMetrics = finalCrudeUnfiltered$metrics, # Crude metrics
+                                       winkler.input = winklerScores) # Winkler score
+
+    ###########################################################
+    # Determining if the scores should be filtered: Filtering #
+    ###########################################################
+    if(filterSSIndicatorOther() == 1){
+
+        filterd <- skillScores %>%
+          dplyr::filter(Location %in% c(input$locationInputSelectOther),
+                        `Baseline Model` %in% c(input$baselineModelsOther),
+                        `Comparison Model` %in% c(input$compareModels2Other),
+                        Calibration %in% c(input$calibrationSSOther),
+                        Type %in% c(input$metricTypeSSOther))
+
+    ##############################################################
+    # Determining if the scores should be filtered: No Filtering #
+    ##############################################################
+    }else{
+
+        filterd <- skillScores
+
+     }
+
+    #########################################
+    # Saving the output to a reactive value #
+    #########################################
+    finalSSCombinedOther$scores <-  filterd
+
+    ##################
+    # Returning NULL #
+    ##################
+    }else{
+
+      finalSSCombinedOther$scores <-  NULL
+
+    }
+
+  })
+
+#------------------------------------------------------------------------------#
+# Clearing the Skill Scores Data -----------------------------------------------
+#------------------------------------------------------------------------------#
+# About: This section clears the Skill Scores data and resets the filtering    #
+# indicator when a new data set is read into the dashboard, the clear button   #
+# is clicked, or the evaluation data is changed.                               #
+#------------------------------------------------------------------------------#
+
+  #####################################################
+  # Clearing the Skill Scores metrics - `ClearingOut` #
+  #####################################################
+  observeEvent(clearingOut(),{
+    
+    # Clearing the reactive value
+    finalSSCombinedOther$scores <- NULL
+    
+    # Clearing the filtering indicator 
+    filterSSIndicatorOther(0)
+    
+    # Clearing out the reactive value
+    vettedMetrics$data <- NULL
+    
+  })
+  
+  ###################################################
+  # Clearing the Skill Scores metrics - File change #
+  ###################################################
+  observeEvent(input$dataset2,{
+    
+    # Clearing the reactive value
+    finalSSCombinedOther$scores <- NULL
+    
+    # Clearing the filtering indicator 
+    filterSSIndicatorOther(0)
+    
+    # Clearing out the reactive value
+    vettedMetrics$data <- NULL
+    
+  }) # End of 'observe'
+  
+
+#------------------------------------------------------------------------------#
+# Rendering the skill scores data ----------------------------------------------
+#------------------------------------------------------------------------------#
+# About: This section renders the skill scores the main dashboard.             #
+#------------------------------------------------------------------------------#
+
+  ############################
+  # Rendering the data frame #
+  ############################
+  output$skillScoresOtherOUTPUT <- renderDataTable({finalSSCombinedOther$scores})
 
 
+#------------------------------------------------------------------------------#
+# Downloading the skill scores as a '.csv' -------------------------------------
+#------------------------------------------------------------------------------#
+# About: This section provides interactivity to download button. Therefore, it #
+# allows users to download the skill scores data as a '.csv' file to the       #
+# directory of their choosing.                                                 #
+#------------------------------------------------------------------------------#
 
+  output$downloadSSMetricsOther <- downloadHandler(
+  
+    ####################################
+    # Function to create the file-name #
+    ####################################
+    filename = function() {
+  
+      # File name
+      paste("skill-scores-", input$dataset, sep = "")
+  
+    },
+  
+    #############################
+    # Function to save the file #
+    #############################
+    content = function(file) {
+  
+      # Saving the file
+      write.csv(finalSSCombinedOther$scores, file, row.names = FALSE)
+  
+    }
+  
+  ) # End of download button
+
+
+
+    
+  }
 shinyApp(ui = ui, server = server)
