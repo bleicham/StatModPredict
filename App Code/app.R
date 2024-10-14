@@ -6572,7 +6572,7 @@ server <- function(input, output, session) {
                                                        calibrationQ.input = input$calibrationQuantile) # Calibration filter
        
        # Saving the results to the reactive value
-       finalQuantileCombined$data <- filteredForecasts
+       finalQuantileCombined$data <- rev(filteredForecasts)
     
      ########################################
      # Returning nothing if an error occurs #
@@ -7217,7 +7217,7 @@ server <- function(input, output, session) {
                                                         indicator.input = formattedForecastMAINIndicator()) # Indicator to filter
 
       # Saving the results to the reactive value
-      finalForecastCombined$data <- filteredForecasts
+      finalForecastCombined$data <- rev(filteredForecasts)
 
     } # End of 'else'
 
@@ -8199,7 +8199,7 @@ server <- function(input, output, session) {
     #################################
     }else{
 
-      finalFiguresDashboard$data <- finalForecastFigureCombined$data
+      finalFiguresDashboard$data <- rev(finalForecastFigureCombined$data)
 
     }
 
