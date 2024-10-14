@@ -2042,6 +2042,9 @@ fluidRow(
                                 "Mean Absolute Error (MAE)" = "re_mae", 
                                 "Prediction Interval Coverage (PI coverage)" = "re_PI",
                                 "Weighted Interval Scores (WIS)" = "re_WIS",
+                                "Akaike information criterion (AIC)" = "re_AIC",
+                                "Corrected Akaike information criterion (AICc)" = "re_AICc",
+                                "Bayesian information criterion (BIC)" = "re_BIC", 
                                 "Skill Scores" = "re_SS",
                                 "Winkler Scores" = "re_winkler"),
                     multiple = FALSE)
@@ -2467,6 +2470,316 @@ fluidRow(
         ) # End of fluidRow 
         
       ), # End of "conditionalPanel" for WIS
+    
+    ###################
+    # AIC Information #
+    ###################
+    conditionalPanel(
+      
+      # Condition to show the panel
+      condition = "input.re_metric == 're_AIC'",
+      
+      # Fluid Row
+      fluidRow(
+        
+        #######################
+        # Box for information #
+        #######################
+        box(
+          
+          # Width of box
+          width = 12,
+          
+          # Box color
+          style = "background-color: #f8f8f8;", 
+          
+          # Page containing information
+          fluidPage(
+            
+            # Font size 
+            tags$div(style = "font-size: 17.5px; background-color: #f8f8f8;",
+                     
+                     # Allowing math equations to be shown in the panel 
+                     withMathJax(), 
+                     
+                     # Page width 
+                     width = 12, 
+                     
+                     ################
+                     # Text to show #
+                     ################
+                     "The Alkaike Information Criterion (AIC) is frequently used 
+                     to select, evaluate, and compare model fits [1-2]. It is as follows [1]:",
+                     
+                     tags$br(),
+                     tags$br(),
+                     
+                     "\\[
+                      AIC = -2*LL + (2*k) \\tag{1}
+                      \\]",
+                     
+                     tags$br(),
+
+                     "where", tags$em("LL"), " is the log-likelihood,", tags$em("k"),
+                     " represents the number of parameters included in the model 
+                     and the calibration period length is given by", tags$em("n"), ".", 
+                     "The AIC for the model fit is directly available as part of
+                     the", tags$em("auto.arima()"), " function [3]. However, for the 
+                     GLM and GAM models, the AIC must be manually calculated 
+                     using (1). The dashboard obtains the log-likelihood
+                     directly from the GLM and GAM fits, utilizing the", tags$em("logLik()"), 
+                     "function [4]. The AIC only applies to frequent 
+                     methods, so the dashboard will not supply the value for 
+                     the Prophet model, a Bayesian framework.", 
+                     
+                     tags$br(),
+                     tags$br(),
+                     
+                     tags$b("References"), 
+                     
+                     tags$br(),
+                     tags$br(),
+                     
+                     tags$ol(
+                       
+                       tags$li("Spiess AN, Neumeyer N. An evaluation of R2 as an inadequate measure for nonlinear models in pharmacological and biochemical research: a Monte Carlo approach. BMC Pharmacol. 2010 Jun 7;10:6. doi: 10.1186/1471-2210-10-6. PMID: 20529254; PMCID: PMC2892436."),
+                       tags$li("Akaike H. Information theory and an extension of the maximum likelihood principle. InSelected papers of hirotugu akaike 1998 (pp. 199-213). New York, NY: Springer New York."),
+                       tags$li("Hyndman RJ. auto.arima: Fit best ARIMA model to univariate time series (Version 8.22.0). RDocumentation 2024. https://www.rdocumentation.org/packages/forecast/versions/8.22.0."),
+                       tags$li("R-Core. logLik: Extract Log-Likelihood (Version 3.6.2). RDocumentation 2024. https://www.rdocumentation.org/packages/stats/versions/3.6.2/topics/logLik"),
+                       
+                     ),
+                     
+                     tags$br(),
+                     
+                     ##################
+                     # Link for paper #
+                     ##################
+                     div(style = "text-align: center; width: 100%; margin: 0 auto;",
+                         
+                         a("For further information, click here to learn more.",
+                           href = "https://papers.ssrn.com/sol3/papers.cfm?abstract_id=4849702",
+                           style = "color: black; font-weight: 600;",
+                           class = "button")
+                         
+                     ) # End of row for button link
+                     
+            ) # End of style for fluid page
+            
+          ) # Page containing information
+          
+        ) # Box containing information
+        
+      ) # End of fluidRow
+      
+    ), # End of "conditionalPanel" for AIC
+    
+    ####################
+    # AICc Information #
+    ####################
+    conditionalPanel(
+      
+      # Condition to show the panel
+      condition = "input.re_metric == 're_AICc'",
+      
+      # Fluid Row
+      fluidRow(
+        
+        #######################
+        # Box for information #
+        #######################
+        box(
+          
+          # Width of box
+          width = 12,
+          
+          # Box color
+          style = "background-color: #f8f8f8;", 
+          
+          # Page containing information
+          fluidPage(
+            
+            # Font size 
+            tags$div(style = "font-size: 17.5px; background-color: #f8f8f8;",
+                     
+                     # Allowing math equations to be shown in the panel 
+                     withMathJax(), 
+                     
+                     # Page width 
+                     width = 12, 
+                     
+                     ################
+                     # Text to show #
+                     ################
+                     "The bias-corrected Alkaike Information Criterion (AICc) 
+                     is a variation of the Alkaike Information Criterion (AIC) 
+                     that adjusts for small sample sizes [1]. It is as follows:", 
+                     
+                     tags$br(),
+                     tags$br(),
+                     
+                     "\\[
+                      AICc = -2*LL + (2*k) + \\frac{2*k*(k+1)}{n-k-1} \\tag{1}
+                      \\]",
+                     
+                     tags$br(),
+                     
+                     "where", tags$em("LL"), " is the log-likelihood,", tags$em("k"),
+                     " represents the number of parameters included in the model 
+                     and the calibration period length is given by", tags$em("n"), ".", 
+                     "The AICc for the model fit is directly available as part of
+                     the", tags$em("auto.arima()"), " function [2]. However, for the 
+                     GLM and GAM models, the AICc must be manually calculated 
+                     using (1). The dashboard obtains the log-likelihood
+                     directly from the GLM and GAM fits, utilizing the", tags$em("logLik()"), 
+                     "function [3]. The AICc only applies to frequent 
+                     methods, so the dashboard will not supply the value for 
+                     the Prophet model, a Bayesian framework.", 
+                     
+                     tags$br(),
+                     tags$br(),
+                     
+                     tags$b("References"), 
+                     
+                     tags$br(),
+                     tags$br(),
+                     
+                     tags$ol(
+                       
+                       tags$li("Spiess AN, Neumeyer N. An evaluation of R2 as an inadequate measure for nonlinear models in pharmacological and biochemical research: a Monte Carlo approach. BMC Pharmacol. 2010 Jun 7;10:6. doi: 10.1186/1471-2210-10-6. PMID: 20529254; PMCID: PMC2892436."),
+                       tags$li("Hyndman RJ. auto.arima: Fit best ARIMA model to univariate time series (Version 8.22.0). RDocumentation 2024. https://www.rdocumentation.org/packages/forecast/versions/8.22.0."),
+                       tags$li("R-Core. logLik: Extract Log-Likelihood (Version 3.6.2). RDocumentation 2024. https://www.rdocumentation.org/packages/stats/versions/3.6.2/topics/logLik"),
+                       
+                     ),
+                     
+                     tags$br(),
+                     
+                     ##################
+                     # Link for paper #
+                     ##################
+                     div(style = "text-align: center; width: 100%; margin: 0 auto;",
+                         
+                         a("For further information, click here to learn more.",
+                           href = "https://papers.ssrn.com/sol3/papers.cfm?abstract_id=4849702",
+                           style = "color: black; font-weight: 600;",
+                           class = "button")
+                         
+                     ) # End of row for button link
+                     
+            ) # End of style for fluid page
+            
+          ) # Page containing information
+          
+        ) # Box containing information
+        
+      ) # End of fluidRow
+      
+    ), # End of "conditionalPanel" for AICc
+    
+    ###################
+    # BIC Information #
+    ###################
+    conditionalPanel(
+      
+      # Condition to show the panel
+      condition = "input.re_metric == 're_BIC'",
+      
+      # Fluid Row
+      fluidRow(
+        
+        #######################
+        # Box for information #
+        #######################
+        box(
+          
+          # Width of box
+          width = 12,
+          
+          # Box color
+          style = "background-color: #f8f8f8;", 
+          
+          # Page containing information
+          fluidPage(
+            
+            # Font size 
+            tags$div(style = "font-size: 17.5px; background-color: #f8f8f8;",
+                     
+                     # Allowing math equations to be shown in the panel 
+                     withMathJax(), 
+                     
+                     # Page width 
+                     width = 12, 
+                     
+                     ################
+                     # Text to show #
+                     ################
+                     "The Bayesian information criterion (BIC), also known as 
+                     Schwarz's Bayesian criterion (SBC), is frequently applied 
+                     in the model selection process [1]. As with the Alkakie
+                     Information Criterion (AIC), the BIC is available for any
+                     model where the log-likelihood can be calculated [1]. It is 
+                     given by the following [2]:",  
+
+                     tags$br(),
+                     tags$br(),
+                     
+                     "\\[
+                      BIC = -2*LL + k*log(n) \\tag{1}
+                      \\]",
+                     
+                     tags$br(),
+                     
+                     "where", tags$em("LL"), " is the log-likelihood,", tags$em("k"),
+                     " represents the number of parameters included in the model 
+                     and the calibration period length is given by", tags$em("n"), ".", 
+                     "The BIC for the model fit is directly available as part of
+                     the", tags$em("auto.arima()"), " function [3]. However, for the 
+                     GLM and GAM models, the BIC must be manually calculated 
+                     using (1). The dashboard obtains the log-likelihood
+                     directly from the GLM and GAM fits, utilizing the", tags$em("logLik()"), 
+                     "function [4]. The BIC only applies to frequent 
+                     methods, so the dashboard will not supply the value for 
+                     the Prophet model, a Bayesian framework.", 
+                     
+                     tags$br(),
+                     tags$br(),
+                     
+                     tags$b("References"), 
+                     
+                     tags$br(),
+                     tags$br(),
+                     
+                     tags$ol(
+                       
+                       tags$li("Doug. BIC: Bayesian Information Criterion (Version 0.999375-37). RDocumentation 2024. https://www.rdocumentation.org/packages/lme4/versions/0.999375-37/topics/BIC"),
+                       tags$li("Spiess AN, Neumeyer N. An evaluation of R2 as an inadequate measure for nonlinear models in pharmacological and biochemical research: a Monte Carlo approach. BMC Pharmacol. 2010 Jun 7;10:6. doi: 10.1186/1471-2210-10-6. PMID: 20529254; PMCID: PMC2892436."),
+                       tags$li("Hyndman RJ. auto.arima: Fit best ARIMA model to univariate time series (Version 8.22.0). RDocumentation 2024. https://www.rdocumentation.org/packages/forecast/versions/8.22.0."),
+                       tags$li("R-Core. logLik: Extract Log-Likelihood (Version 3.6.2). RDocumentation 2024. https://www.rdocumentation.org/packages/stats/versions/3.6.2/topics/logLik"),
+                       
+                     ),
+                     
+                     tags$br(),
+                     
+                     ##################
+                     # Link for paper #
+                     ##################
+                     div(style = "text-align: center; width: 100%; margin: 0 auto;",
+                         
+                         a("For further information, click here to learn more.",
+                           href = "https://papers.ssrn.com/sol3/papers.cfm?abstract_id=4849702",
+                           style = "color: black; font-weight: 600;",
+                           class = "button")
+                         
+                     ) # End of row for button link
+                     
+            ) # End of style for fluid page
+            
+          ) # Page containing information
+          
+        ) # Box containing information
+        
+      ) # End of fluidRow
+      
+    ), # End of "conditionalPanel" for BIC
     
     ############################
     # Skill Scores Information #
@@ -4376,6 +4689,7 @@ conditionalPanel(
 #------------------------------------------------------------------------------#
 server <- function(input, output, session) {
   
+
 #------------------------------------------------------------------------------#
 # Creating the start up message ------------------------------------------------
 #------------------------------------------------------------------------------#
@@ -5339,7 +5653,7 @@ server <- function(input, output, session) {
 #------------------------------------------------------------------------------#
 # About: This section renders the time series figure to the main dashboard.    #
 #------------------------------------------------------------------------------#
-
+  
   output$timeseriesPlot <- renderPlotly({
 
     ##################
@@ -5353,7 +5667,7 @@ server <- function(input, output, session) {
     return(timeFig)
 
     })
-
+  
 #------------------------------------------------------------------------------#
 # Downloading the time series figure -------------------------------------------
 #------------------------------------------------------------------------------#
@@ -8356,6 +8670,7 @@ server <- function(input, output, session) {
     )
 
   }) # End of 'renderPlotly'
+  
 
 #------------------------------------------------------------------------------#
 # Downloading the figures pop-up -----------------------------------------------
