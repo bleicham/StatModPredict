@@ -670,38 +670,8 @@ dashboardSidebar(
     ###########################
     add_busy_spinner(spin = "fading-circle"),
              
-    ##################################           
-    # Adjusting the dashboard length #
-    ##################################
-    tags$head(tags$style(HTML('
-      /* Ensure the entire wrapper scrolls */
-      ".wrapper" {
-        height: 100vh;         /* Full height of the viewport */
-        overflow-y: auto;      /* Single scroll for the whole layout */
-      }
-      
-      /* Ensure the sidebar is part of the same scrollable area */
-      ".main-sidebar" {
-        height: 100%;          /* Full height, but no independent scroll */
-        overflow-y: hidden;    /* Disable sidebar\'s independent scrolling */
-      }
-      
-      /* Allow the content to take up full height */
-      ".content-wrapper" {
-        height: 100%;          /* Content takes up the full viewport */
-        overflow-y: auto;      /* Allow content to scroll */
-        margin-left: 230px;    /* Align with sidebar width */
-      }
-      
-      /* Remove scroll from the body and html elements */
-      "body, html" {
-        height: 100%;
-        overflow: hidden;      /* No extra scroll bars on the body */
-      }
-    '))),
-    
+
           
-    
 #------------------------------------------------------------------------------#
 # Creating Page 1: About -------------------------------------------------------
 #------------------------------------------------------------------------------#
@@ -718,7 +688,7 @@ dashboardSidebar(
 #------------------------------------------------------------------------------#
 # Creating Page 1A: Suggestion Citation ----------------------------------------
 #------------------------------------------------------------------------------#
-# About: This section includes the suggested ciation for the toolbox and the   #
+# About: This section includes the suggested citation for the toolbox and the  #
 # link to the associated GITHUB page.                                          #
 #------------------------------------------------------------------------------#
 fluidRow(
@@ -983,9 +953,9 @@ fluidRow(
             tags$br(),
             tags$br(),
            
-           "The file must include a '.csv' extension and use the following naming
+           "The file must include a .csv extension and use the following naming
             scheme: Performance-<Type>-horizon-<Horizon Number>-calibration-
-            <Calibration Size>-<Location>-<Forecast Date>. Each \"<>\" entry 
+            <Calibration Size>-<Location>. Each \"<>\" entry 
             indicates file name elements specific to the location, horizon, 
             and calibration length of interest. <Type> refers to the type of
             performance metrics shown in the file; either \"Fit\" for model fit 
@@ -994,23 +964,23 @@ fluidRow(
             <Calibration Size> refers to the length of the data used to calibrate the model. 
             Regarding <Location>, it must match one of the locations, including 
             capitalization and any additional symbols used in the data employed 
-            throughout the rest of the dashboard. Finally, <Forecast Date> is the 
-            last data date used to calibrate the model. If working with yearly
-            data, <Forecast Date> needs to be a four-digit year (\"YYYY\"). If 
-            working with weekly or daily data, <Forecast Date> needs to be in 
-            \"MM-DD-YYYY\" format.",  
+            throughout the rest of the dashboard.",
            
             tags$br(),
             tags$br(),
            
-           "Regarding the data format, the first column of the data file must be
-            labeled \"Model,\" with each row corresponding to the metrics for the 
-            given model. Each of the remaining columns should include the
-            performance metrics of interest. The cell should be left blank if 
-            some metrics are unavailable for a given model. Finally, if one of 
-            the columns includes metrics related to the 95% PI coverage, it must 
-            be labeled \"Coverage.95.PI\"; there are no other restrictions on the
-            names of metrics.", 
+           "Regarding the data format, the first three columns of the data must
+            be labeled: \"Location\", \"Model\", and \"Date\", with each row 
+            corresponding to the metrics for the given model. \"Date\" refers to 
+            the associated forecast period date. When working with daily or 
+            weekly data, years must be formatted with four digits (YYYY); any conventional format can be 
+            used for the month and day. However, if working with yearly data, 
+            only a four-digit year can be used (YYYY); for time indexes, the 
+            first row of data corresponds to a time index of 1. Thus, records
+            over time should go from the top to the bottom of the dataset.
+            Each of the remaining columns should include the performance metrics 
+            of interest. The cell should be left blank if some metrics are 
+            unavailable for a given model." ,
            
            tags$br(),
            tags$br(),
@@ -1215,6 +1185,11 @@ fluidRow(
       # Condition to show the panel
       condition = "input.re_model == 're_arima'",
       
+      ###############
+      # Row for Box #
+      ###############
+      fluidRow(
+      
       #######################
       # Box for information #
       #######################
@@ -1414,6 +1389,8 @@ fluidRow(
         ) # Page containing information
   
        ) # Box containing information
+      
+      ) # End of Row containing the box 
   
      ), # end of "conditionalPanel" for ARIMA Model
   
@@ -1424,6 +1401,9 @@ fluidRow(
       
       # Condition to run
       condition = "input.re_model == 're_glm'",
+      
+      # Fluid Row
+      fluidRow(
       
       #######################
       # Box for information #
@@ -1600,6 +1580,8 @@ fluidRow(
          ) # Page containing information
          
        ) # Box containing information
+      
+      ) # End of fluid row 
        
      ), # End of conditional panel 
   
@@ -1610,6 +1592,9 @@ fluidRow(
       
       # Condition to show the panel
       condition = "input.re_model == 're_gam'",
+      
+      # Fluid row
+      fluidRow(
       
       #######################
       # Box for information #
@@ -1759,6 +1744,8 @@ fluidRow(
         
       ) # Box containing information
       
+     ) # End of fluidRow
+      
     ), # end of "conditionalPanel" for GAM Model
   
     ######################################
@@ -1768,6 +1755,9 @@ fluidRow(
       
       # Condition to show the panel
       condition = "input.re_model == 're_prophet'",
+      
+      # Fluid Row 
+      fluidRow(
       
       #######################
       # Box for information #
@@ -2003,11 +1993,13 @@ fluidRow(
                        
                    ) # End of row for button link
                    
-          ) # End of box style 
+            ) # End of box style 
           
-        ) # Page containing information
+          ) # Page containing information
         
-      ) # Box containing information
+        ) # Box containing information
+      
+      ) # End of fluidRow 
       
     ) # End of "conditionalPanel" for Prophet Model
     
@@ -2048,7 +2040,7 @@ fluidRow(
         pickerInput("re_metric",
                     choices = c("Mean Squared Error (MSE)" = "re_mse", 
                                 "Mean Absolute Error (MAE)" = "re_mae", 
-                                "95% Prediction Interval Coverage (95% PI coverage)" = "re_PI",
+                                "Prediction Interval Coverage (PI coverage)" = "re_PI",
                                 "Weighted Interval Scores (WIS)" = "re_WIS",
                                 "Skill Scores" = "re_SS",
                                 "Winkler Scores" = "re_winkler"),
@@ -2065,6 +2057,9 @@ fluidRow(
       
       # Condition to show the panel
       condition = "input.re_metric == 're_mse'",
+      
+      # Fluid row 
+      fluidRow(
       
       #######################
       # Box for information #
@@ -2145,6 +2140,8 @@ fluidRow(
           ) # Page containing information
           
         ) # Box containing information
+      
+       ) # End of fluidRow
         
       ), # End of "conditionalPanel" for MSE
     
@@ -2155,6 +2152,9 @@ fluidRow(
         
         # Condition to show the panel
         condition = "input.re_metric == 're_mae'",
+        
+        # Fluid Row
+        fluidRow(
         
         #######################
         # Box for information #
@@ -2236,15 +2236,20 @@ fluidRow(
           
         ) # Box containing information
         
+       ) # End of fluidRow 
+        
       ), # End of "conditionalPanel" for MAE
     
-      ###############################
-      # 95% PI Coverage Information #
-      ###############################
+      ###########################
+      # PI Coverage Information #
+      ###########################
       conditionalPanel(
         
         # Condition to show the panel
         condition = "input.re_metric == 're_PI'",
+        
+        # Fluid Row
+        fluidRow(
         
         #######################
         # Box for information #
@@ -2273,9 +2278,9 @@ fluidRow(
                      # Text to show #
                      ################
                      
-                     "The dashboard provides 95% as measure of model fit and 
-                     forecast uncertainty. 95% PI coverage represents the
-                     proportion of observed data within the 95% PI, as 
+                     "The dashboard provides the prediction interval coverage as measure of model fit and 
+                     forecast uncertainty. Thus, the PI coverage represents the
+                     proportion of observed data the falls within the selected PI level, as 
                      indicated below:",
                      
                      tags$br(),
@@ -2287,7 +2292,7 @@ fluidRow(
                      
                      tags$br(),
                      
-                     "where \\(\\alpha\\) is the given significance level for a 95% PI.",
+                     "where \\(\\alpha\\) is the select significance level.",
                      
                      tags$br(),
                      tags$br(),
@@ -2304,11 +2309,13 @@ fluidRow(
                          
                      ) # End of row for button link
                      
-            ) # End of style for fluid page
+           ) # End of style for fluid page
             
           ) # Page containing information
           
-        ) # Box containing information
+         ) # Box containing information
+        
+        ) # End of fluidRow
         
       ), # End of "conditionalPanel" for 95% PI Coverage
     
@@ -2319,6 +2326,9 @@ fluidRow(
         
         # Condition to show the panel
         condition = "input.re_metric == 're_WIS'",
+        
+        # Fluid row
+        fluidRow(
         
         #######################
         # Box for information #
@@ -2398,10 +2408,9 @@ fluidRow(
                      "As indicated in the ", tags$em("Quantile Forecast"), 
                      " box on the Forecasting page, the dashboard provides 
                      multiple central PIs at different levels: \\((1 - \\alpha_1)
-                     < (1 - \\alpha_2) < \\cdots < (1 - \\alpha_k)\\). Additionally, 
-                     the predictive median,", tags$em("m"), "is given by the first column in 
-                     the ", tags$em("Quantile Forecast"), " box and is a central 
-                     prediction interval at level \\(1 - \\alpha_0 \\to 0\\). From 
+                     < (1 - \\alpha_2) < \\cdots < (1 - \\alpha_k)\\). Additionally,", tags$em("m"),  
+                     ", the central prediction interval at level \\(1 - \\alpha_0 \\to 0\\), 
+                     is given by the first column in the ", tags$em("Quantile Forecast"), " box. From 
                      this, the ", tags$em("WIS"), " is calculated by [1, 3-4]:",
                      
                      tags$br(),
@@ -2453,7 +2462,9 @@ fluidRow(
             
           ) # Page containing information
           
-        ) # Box containing information
+         ) # Box containing information
+        
+        ) # End of fluidRow 
         
       ), # End of "conditionalPanel" for WIS
     
@@ -2464,6 +2475,9 @@ fluidRow(
       
       # Condition to show the panel
       condition = "input.re_metric == 're_SS'",
+      
+      # Fluid Row
+      fluidRow(
       
       #######################
       # Box for information #
@@ -2544,7 +2558,9 @@ fluidRow(
           
         ) # Page containing information
         
-      ) # Box containing information
+       ) # Box containing information
+      
+      ) # End of Fluid Row 
       
     ), # End of "conditionalPanel" for Skill Scores
     
@@ -2555,6 +2571,9 @@ fluidRow(
       
       # Condition to show the panel
       condition = "input.re_metric == 're_winkler'",
+      
+      # Fluid Row
+      fluidRow(
       
       #######################
       # Box for information #
@@ -2635,11 +2654,13 @@ fluidRow(
                        
                    ) # End of row for button link
                    
-          ) # End of style for fluid page
+            ) # End of style for fluid page
           
-        ) # Page containing information
+          ) # Page containing information
         
-      ) # Box containing information
+        ) # Box containing information
+      
+      ) # End of fluidRow
       
     ) # End of "conditionalPanel" for Winkler Scores 
     
