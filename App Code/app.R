@@ -4107,6 +4107,9 @@ conditionalPanel(
 # navigate through images.                                                     #
 #------------------------------------------------------------------------------#
 
+    # Fluid Row to host box
+    fluidRow(
+
     ###############################################
     # Creating the box-shell for forecast figures #
     ###############################################
@@ -4193,7 +4196,9 @@ conditionalPanel(
           
         ) # End of Row 2 - User Options
         
-      ), # End of box for forecast figures 
+      ) # End of box for forecast figures 
+    
+    ), # End of Row
 
 
 #------------------------------------------------------------------------------#
@@ -4207,6 +4212,9 @@ conditionalPanel(
 # options available to the user, such as download options, filtering data,     #
 # and editing figures.                                                         #
 #------------------------------------------------------------------------------#
+
+    # Row
+    fluidRow(
   
     #################################
     # Creating the tabbed box shell #
@@ -4357,7 +4365,9 @@ conditionalPanel(
                  
       ), # End of 'tabPanel' for the average metrics figure 
       
-    ), # End of 'tabbox' for the average metrics 
+    ) # End of 'tabbox' for the average metrics 
+    
+  ), # End of fluidRow 
     
 
 #------------------------------------------------------------------------------#
@@ -4371,6 +4381,9 @@ conditionalPanel(
 # options available to the user, such as download options, filtering data,     #
 # and editing figures.                                                         #
 #------------------------------------------------------------------------------#
+
+  # Fluid Row
+  fluidRow(
 
   ###################################################
   # Creating the tabbed-box shell for crude metrics #
@@ -4519,9 +4532,11 @@ conditionalPanel(
                  
                ) # End of row with figure options 
                
-      ), # End of 'tabPanel' for the crude metrics figure 
+      ) # End of 'tabPanel' for the crude metrics figure 
                
-  ), # End of 'tabbox' for the crude metrics 
+    ) # End of 'tabbox' for the crude metrics 
+  
+  ), # End of fluidRow
   
 
 #------------------------------------------------------------------------------#
@@ -4533,6 +4548,9 @@ conditionalPanel(
 # both metrics, filter the data, calculate the average metrics, and download   #
 # the data as `.csv` files.                                                    #
 #------------------------------------------------------------------------------#
+
+  # Fluid row
+  fluidRow(
 
   #########################################################
   # Creating the table shell for winkler and skill scores #
@@ -4671,12 +4689,14 @@ conditionalPanel(
           ) # End of 'tabPanel' for the skill scores data 
           
         ) # End of 'tabbox' for the skill scores
-                       
-      ) # End of other page 
-        
-    ) # End of dashboard body
   
-  ) # End of user interface 
+      ) # End of fluidRow 
+                       
+    ) # End of other page 
+        
+  ) # End of dashboard body
+  
+) # End of user interface 
 
 #------------------------------------------------------------------------------#
 # SERVER -----------------------------------------------------------------------
