@@ -250,6 +250,7 @@ Winkler.Scores.Model.Comparison <- function(formatted.forecast.DASHBOARD,
     ##############
     formattedPreWinkler <- indexForecast %>%
       dplyr::mutate(Model = model, # Model type 
+                    Date = anytime::anydate(Date), # Date format
                     Location = location, # Location
                     Calibration = calibrationLength, # Calibration length 
                     `Forecast Date` = forecastDate, # Forecast date
