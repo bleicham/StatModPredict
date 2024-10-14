@@ -115,11 +115,11 @@
 # the structure of the dashboard. For this particular dashboard, there are     #
 # multiple pages.                                                              #
 #------------------------------------------------------------------------------#
+  
 
 ui <- dashboardPage(
   
                
-           
 #------------------------------------------------------------------------------#      
 # Dashboard Header -------------------------------------------------------------
 #------------------------------------------------------------------------------#
@@ -627,7 +627,6 @@ dashboardSidebar(
   ), # End of sidebar menu 
 
 
-      
 #------------------------------------------------------------------------------#                    
 # UI Body ----------------------------------------------------------------------
 #------------------------------------------------------------------------------#
@@ -657,13 +656,14 @@ dashboardSidebar(
                  )
       ),
   
-    #################
-    # Hiding errors #
-    #################
+    #####################
+    # Hiding all errors #
+    #####################
     tags$style(type="text/css",
                ".shiny-output-error { visibility: hidden; }",
-               ".shiny-output-error:before { visibility: hidden; }"
-    ), 
+               ".shiny-output-error:before { visibility: hidden; }",
+               ".shiny-output-error-message { display: none; }"  # Optional: hides error messages too
+    ),
     
     ###########################
     # Adding a loading circle #
@@ -673,8 +673,35 @@ dashboardSidebar(
     ##################################           
     # Adjusting the dashboard length #
     ##################################
-    tags$head(tags$style(HTML('.content-wrapper { overflow: auto; }'))), 
-  
+    tags$head(tags$style(HTML('
+      /* Ensure the entire wrapper scrolls */
+      ".wrapper" {
+        height: 100vh;         /* Full height of the viewport */
+        overflow-y: auto;      /* Single scroll for the whole layout */
+      }
+      
+      /* Ensure the sidebar is part of the same scrollable area */
+      ".main-sidebar" {
+        height: 100%;          /* Full height, but no independent scroll */
+        overflow-y: hidden;    /* Disable sidebar\'s independent scrolling */
+      }
+      
+      /* Allow the content to take up full height */
+      ".content-wrapper" {
+        height: 100%;          /* Content takes up the full viewport */
+        overflow-y: auto;      /* Allow content to scroll */
+        margin-left: 230px;    /* Align with sidebar width */
+      }
+      
+      /* Remove scroll from the body and html elements */
+      "body, html" {
+        height: 100%;
+        overflow: hidden;      /* No extra scroll bars on the body */
+      }
+    '))),
+    
+          
+    
 #------------------------------------------------------------------------------#
 # Creating Page 1: About -------------------------------------------------------
 #------------------------------------------------------------------------------#
@@ -3106,46 +3133,56 @@ conditionalPanel(
       
 ), # End of conditional panel creating page 1: "Forecasting"
 
-## LEFT OFF HERE FOR FORMATTING - 9/14/24
+
 #------------------------------------------------------------------------------#
-# Creating Page 3: Forecasting and Model Fit Metrics ------------------------------------
+# Creating Page 3: Forecasting and Model Fit Metrics ---------------------------
 #------------------------------------------------------------------------------#
-# About: This section shows the model fit and forecasting metrics (MSE, MAE,   #
-# WIS, 95% PI, Skill Scores and X.                                             #
+# About: This section creates the user-interface for the third page of the     #
+# dashboard. This includes all of the performance metrics related to the model #
+# fits and subsequent forecasts. The top portion of the page contains the      #
+# metrics averaged across the forecast periods, the middle contains the crude  #
+# metrics (i.e., for each forecast date), and the last box contains the        #
+# Winkler and Skill Scores.                                                    #
 #------------------------------------------------------------------------------#
 
-#####################################
-# Only runs if page two is selected #
-#####################################
 conditionalPanel(
   
-  # Condition 
-  condition = "input.my_picker == 'Model Metrics'", 
+    # Condition 
+    condition = "input.my_picker == 'Model Metrics'", 
+    
+    ######################################################
+    # Setting a standard column width for the whole page #
+    ######################################################
+    column(
+      
+      # Column width 
+      width = 12,
+      
+#------------------------------------------------------------------------------#
+# Row 3A: The average metrics --------------------------------------------------
+#------------------------------------------------------------------------------#
+# About: This section creates the box and all options associated with the      #
+# top-box, which contains the average performance metrics for the selected     #
+# models. It housing the data, figures, and all options and buttons (arrows)   #
+# to navigate through figures when necessary.                                  #
+#------------------------------------------------------------------------------#
   
-  ######################################################
-  # Setting a standard column width for the whole page #
-  ######################################################
-  column(
-    
-    # Column width 
-    width = 12,
-    
-    ###########################################
-    # First Row of the page - Average Metrics #
-    ###########################################
+    ####################################
+    # Creating the top-row of the page #
+    ####################################
     fluidRow(
-
-      #################################################
-      # Creating a box for avgerage model fit metrics #
-      #################################################
+      
+      ##################################################
+      # Creating the box-shell for the average metrics #
+      ##################################################
       box(
-
+        
         # Setting the box width
         width = 12,
         
         # Title
         title = "Average Metrics",
-    
+        
         ############################################
         # First row of the box - Showing the Title #
         ############################################
@@ -3161,7 +3198,7 @@ conditionalPanel(
             
             # Width
             width = 12, 
-          
+            
             ##################################################
             # Conditional Panel: Show title for Average Data #
             ##################################################
@@ -3253,9 +3290,9 @@ conditionalPanel(
             ########################
             div(style = "display:flex; vertical-aline: top",
                 
-                ####################################
-                # Conditional Panel: Download data #
-                ####################################
+                ########################################################
+                # Conditional Panel: Download data & Filtering Options #
+                ########################################################
                 conditionalPanel(
                   
                   # Condition
@@ -3263,21 +3300,21 @@ conditionalPanel(
                   
                   # Row style 
                   div(style = "display:flex; vertical-aline: top",
-                  
-                    # Creating the download button 
-                    div(style = "margin-right: 10px",
-                        downloadButton("download_AvgMetrics", "Download Average Metrics")),
-                    
-                    # Filtering data 
-                    div(style = "margin-right: 10px;", actionButton("filterAvgMetrics", "Filtering Options"))
-                    
-                  )
+                      
+                      # Creating the download button 
+                      div(style = "margin-right: 10px",
+                          downloadButton("download_AvgMetrics", "Download Average Metrics")),
+                      
+                      # Filtering data 
+                      div(style = "margin-right: 10px;", actionButton("filterAvgMetrics", "Filtering Options"))
+                      
+                  ) # End of style for conditional panel 
                   
                 ), # End of condition
                 
-                ######################################
-                # Conditional Panel: Download Figure #
-                ######################################
+                ###########################################################
+                # Conditional Panel: Download Figure & Figure edit button #
+                ###########################################################
                 conditionalPanel(
                   
                   # Condition
@@ -3285,57 +3322,65 @@ conditionalPanel(
                   
                   # Aligning buttons
                   div(style = "display:flex; vertical-aline: top",
+                      
+                      #Download Button
+                      div(style = "margin-right: 10px",
+                          actionButton("download_AvgmetricsFig", "Download Average Metrics Figure", icon = icon("download"))),
+                      
+                      # Edit figures button
+                      div(style = "margin-right: 10px", actionButton("editAvgMetrics", "Figure Options")))
                   
-                    #Download Button
-                    div(style = "margin-right: 10px",
-                        actionButton("download_AvgmetricsFig", "Download Average Metrics Figure", icon = icon("download"))),
-                    
-                    # Edit figures button
-                    div(style = "margin-right: 10px", actionButton("editAvgMetrics", "Figure Options")))
-                  
-                  ),
+                ),
                 
                 #########################
                 # Show figure check-box #
                 #########################
                 div(checkboxInput("AvgFigure", "Show Figure"))
                 
-            ), # End of Main style 
+            ), # End of main style of the contents of the box 
             
-          ), # End of column for left-hand button
-                
-                ##########################################
-                # Condition Panel: Figure Metrics Arrows #
-                ##########################################
-                conditionalPanel(
-                  
-                  # Condition
-                  condition = "input.AvgFigure",
-                  
-                  # Left and right arrows
-                  column(2,
-                         div(style = "display: flex; justify-content: flex-end; align-items: center;",
-                             actionButton(inputId = "PreviousAMetricFigure", label = icon("arrow-left")),
-                             actionButton(inputId = "NextAMetricFigure", label = icon("arrow-right"))))
-                  
-              ) # End of conditional panel
-
+          ), # End of column for left-hand buttons
+          
+          ##########################################
+          # Condition Panel: Figure Metrics Arrows #
+          ##########################################
+          conditionalPanel(
+            
+            # Condition
+            condition = "input.AvgFigure",
+            
+            # Left and right arrows
+            column(2,
+                   div(style = "display: flex; justify-content: flex-end; align-items: center;",
+                       actionButton(inputId = "PreviousAMetricFigure", label = icon("arrow-left")),
+                       actionButton(inputId = "NextAMetricFigure", label = icon("arrow-right"))))
+            
+          ) # End of conditional panel
           
         ) # End of 'fluidRow' for buttons 
         
       ) # End of 'column' for average metrics box 
       
     ), # End of fluid row for first row of page
-
-#------------------------------------------------------------------------------#    
-# Crude Metrics Box ------------------------------------------------------------
+  
+  
 #------------------------------------------------------------------------------#
-
+# Row 3B: The crude metrics ----------------------------------------------------
+#------------------------------------------------------------------------------#
+# About: This section creates the box and all options associated with the      #
+# middle-box, which contains the crude performance metrics for the selected    #
+# models. It housing the data, figures, and all options and buttons (arrows)   #
+# to navigate through figures when necessary.                                  #
+#------------------------------------------------------------------------------#
+  
+    #################################################
+    # Creating the top-row of the crude metrics box #
+    #################################################
     fluidRow(
       
-      ##############################################
-      # Creating a box for crude model fit metrics #
-      ##############################################
+      ####################################################
+      # Creating a box-shell for crude model fit metrics #
+      ####################################################
       box(
         
         # Title
@@ -3388,7 +3433,7 @@ conditionalPanel(
             
           ) # End of alignment column 
           
-          ), # End of 'fluidRow' for title 
+        ), # End of 'fluidRow' for title 
         
         ########################################
         # Second Row of the box - Plot or Data #
@@ -3452,31 +3497,31 @@ conditionalPanel(
             ########################
             div(style = "display:flex; vertical-aline: top",
                 
-                ############################################
-                # Condition: Show Download Button for Data #
-                ############################################
+                #############################################################
+                # Condition: Show Download Button for Data & Filter Options #
+                #############################################################
                 conditionalPanel(
                   
                   # Condition
                   condition = "!input.crudeFigure",
                   
-                  # Row column
+                  # Style 
                   div(style = "display:flex; vertical-aline: top",
                       
-                    # Download Button
-                    div(style = "margin-right: 10px",
-                        downloadButton("download_metrics", "Download Crude Metrics")),
-                        
-                    # Filtering data 
-                    div(style = "margin-right: 10px;", actionButton("filterCrudeMetrics", "Filtering Options"))    
-                    
+                      # Download Button
+                      div(style = "margin-right: 10px",
+                          downloadButton("download_metrics", "Download Crude Metrics")),
+                      
+                      # Filtering data 
+                      div(style = "margin-right: 10px;", actionButton("filterCrudeMetrics", "Filtering Options"))    
+                      
                   )
                   
                 ), # End of condition
                 
-                ##############################################
-                # Condition: Show Download Button for Figure #
-                ##############################################
+                ###############################################################
+                # Condition: Show Download Button for Figure & Figure Options #
+                ###############################################################
                 conditionalPanel(
                   
                   # Condition
@@ -3484,14 +3529,14 @@ conditionalPanel(
                   
                   # Aligning buttons
                   div(style = "display:flex; vertical-aline: top",
-                  
-                    # Download Button
-                    div(style = "margin-right: 10px",
-                        actionButton("download_metricsFig", "Download Crude Metrics Figure", icon = icon("download"))),
-                    
-                    # Edit figures button
-                    div(style = "margin-right: 10px", actionButton("figOptCRUDEMetrics", "Figure Options"))
-                    
+                      
+                      # Download Button
+                      div(style = "margin-right: 10px",
+                          actionButton("download_metricsFig", "Download Crude Metrics Figure", icon = icon("download"))),
+                      
+                      # Edit figures button
+                      div(style = "margin-right: 10px", actionButton("figOptCRUDEMetrics", "Figure Options"))
+                      
                   )
                   
                 ), # End of condition
@@ -3526,317 +3571,656 @@ conditionalPanel(
       ) # End of 'column' for crude box
       
     ), # End of crude metrics box
-    
-#------------------------------------------------------------------------------#
-# Box 3: Winkler Scores Box ----------------------------------------------------
-#------------------------------------------------------------------------------#
-# About: This section creates the box to host the Winkler Scores data, along   #
-# with the associated figure and user options.                                 #
-#------------------------------------------------------------------------------#
-
-
-#------------------------------------------------------------------------------#
-# Box 4: Skill Scores Box ------------------------------------------------------
-#------------------------------------------------------------------------------#
-# About: This section creates the box to host the Skill Scores data, along     #
-# with the associated figure and user options.                                 #
-#------------------------------------------------------------------------------#
-
-##########################################
-# Row 3 (Page) : Overall row of the page #
-##########################################
-fluidRow(
+      
   
-  #########################################
-  # Creating the box for Skill Score Data #
-  #########################################
-  tabBox(
-    
-    # Box title 
-    title = "", 
-    
-    # ID of the box 
-    id = "SkillScoresMeasures",
-    
-    # Width of the box 
-    width = 12,
-    
-    #####################################
-    # Rendering the Winkler Scores Data #
-    #####################################
-    tabPanel(id = "winklerScoresData",
-             
-             # Title of box 
-             title = "Winkler Scores", 
-             
-             ############################################
-             # Row 1: Rendering the Winkler Scores Data #
-             ############################################
-             fluidRow(
-               
-               ####################
-               # Alignment column #
-               ####################
-               column(
-                 
-                 # Width of column 
-                 width = 12, 
-                 
-                 # Rendering the data frame
-                 dataTableOutput("winklerDataTableAGGP")
-                 
-               ) # End of alignment column 
-               
-             ), # End of first row of data tab 
-             
-             ####################################
-             # Row 2: Creating the user options #
-             ####################################
-             fluidRow(
-               
-               ####################
-               # Alignment column #
-               ####################
-               column( 
-                 
-                 # Column width 
-                 width = 12, 
-                 
-                 # Overall style for row 
-                 div(style = "display:flex; vertical-aline: top",
-                     
-                     #######################################
-                     # Creating the download button - Data #
-                     #######################################
-                     div(downloadButton("downloadWinkerData", "Download Scores", style = "margin-right: 10px")),
-                     
-                     ###################################
-                     # Creating the data filter option #
-                     ###################################
-                     div(style = "margin-right: 10px", actionButton("filterWinklerDataMain", "Filtering Options")), 
-                     
-                     #########################################################
-                     # Creating the check-mark to see average Winkler Scores #
-                     #########################################################
-                     div(checkboxInput("seeAverageWinklerMain", "Use Average Metrics"))
-                     
-                 ), # End of style for row 
-                 
-               ) # End of alignment column
-               
-             ) # End of Row 2
-             
-    ), # End of Winkler data tab 
-    
-    ###################################
-    # Rendering the Skill Scores Data #
-    ###################################
-    tabPanel(id = "winklerScoresData",
-             
-             # Title of box 
-             title = "Skill Scores", 
-             
-             ##########################################
-             # Row 1: Rendering the Skill Scores Data #
-             ##########################################
-             fluidRow(
-               
-               ####################
-               # Alignment column #
-               ####################
-               column(
-                 
-                 # Width of column 
-                 width = 12, 
-                 
-                 # Rendering the data frame
-                 dataTableOutput("skillScoresAGGPData")
-                 
-               ) # End of alignment column 
-               
-             ), # End of first row of data tab 
-             
-             ####################################
-             # Row 2: Creating the user options #
-             ####################################
-             fluidRow(
-               
-               ####################
-               # Alignment column #
-               ####################
-               column( 
-                 
-                 # Column width 
-                 width = 12, 
-                 
-                 # Overall style for row 
-                 div(style = "display:flex; vertical-aline: top",
-                     
-                     #######################################
-                     # Creating the download button - Data #
-                     #######################################
-                     div(style = "margin-right: 10px", downloadButton("downloadSSMetrics", "Download Skill Scores")),
-                     
-                     ###################################
-                     # Creating the data filter option #
-                     ###################################
-                     div(style = "margin-right: 10px", actionButton("filterSSDataMain", "Filtering Options")), 
-                     
-                     ##################################################################
-                     # Creating the check-mark to use average metrics in skill Scores #
-                     ##################################################################
-                     div(checkboxInput("seeAvgSS", "Use Average Metrics"))
-                     
-                 ), # End of style for row 
-                 
-               ) # End of alignment column
-               
-             ) # End of Row 2
-             
-    ), # End of Skill Scores data tab 
-    
-
-    
-  ) # End of Winkler Box
+#------------------------------------------------------------------------------#
+# Row 3C: Winkler Scores and Skill Scores --------------------------------------
+#------------------------------------------------------------------------------#
+# About: This section creates the tabbed last box, which contains both the     #
+# Winkler Scores and the Skill Scores. Each is included within their own tabs  #
+# and contain their own options. Users can easily switch between tabs to see   #
+# both metrics, filter the data, calculate the average metrics, and download   #
+# the data as `.csv` files.                                                    #
+#------------------------------------------------------------------------------#
   
-),  # End of Row containing Winkler Scores
+    ###########################################
+    # Creating the row to host the tabbed box #
+    ###########################################
+    fluidRow(
+      
+      #########################################
+      # Creating the box for Skill Score Data #
+      #########################################
+      tabBox(
+        
+        # Box title 
+        title = "", 
+        
+        # ID of the box 
+        id = "SkillScoresMeasures",
+        
+        # Width of the box 
+        width = 12,
+        
+        #####################################
+        # Rendering the Winkler Scores Data #
+        #####################################
+        tabPanel(id = "winklerScoresData",
+                 
+                 # Title of box 
+                 title = "Winkler Scores", 
+                 
+                 ############################################
+                 # Row 1: Rendering the Winkler Scores Data #
+                 ############################################
+                 fluidRow(
+                   
+                   ####################
+                   # Alignment column #
+                   ####################
+                   column(
+                     
+                     # Width of column 
+                     width = 12, 
+                     
+                     # Rendering the data frame
+                     dataTableOutput("winklerDataTableAGGP")
+                     
+                   ) # End of alignment column 
+                   
+                 ), # End of first row of data tab 
+                 
+                 ####################################
+                 # Row 2: Creating the user options #
+                 ####################################
+                 fluidRow(
+                   
+                   ####################
+                   # Alignment column #
+                   ####################
+                   column( 
+                     
+                     # Column width 
+                     width = 12, 
+                     
+                     # Overall style for row 
+                     div(style = "display:flex; vertical-aline: top",
+                         
+                         #######################################
+                         # Creating the download button - Data #
+                         #######################################
+                         div(downloadButton("downloadWinkerData", "Download Scores", style = "margin-right: 10px")),
+                         
+                         ###################################
+                         # Creating the data filter option #
+                         ###################################
+                         div(style = "margin-right: 10px", actionButton("filterWinklerDataMain", "Filtering Options")), 
+                         
+                         #########################################################
+                         # Creating the check-mark to see average Winkler Scores #
+                         #########################################################
+                         div(checkboxInput("seeAverageWinklerMain", "Use Average Metrics"))
+                         
+                     ), # End of style for row 
+                     
+                   ) # End of alignment column
+                   
+                 ) # End of Row 2 creating user options 
+                 
+        ), # End of Winkler data tab 
+        
+        #########################################
+        # Creating the box for Skill Score Data #
+        #########################################
+        tabPanel(id = "SkillScoresData",
+                 
+                 # Title of box 
+                 title = "Skill Scores", 
+                 
+                 ##########################################
+                 # Row 1: Rendering the Skill Scores Data #
+                 ##########################################
+                 fluidRow(
+                   
+                   ####################
+                   # Alignment column #
+                   ####################
+                   column(
+                     
+                     # Width of column 
+                     width = 12, 
+                     
+                     # Rendering the data frame
+                     dataTableOutput("skillScoresAGGPData")
+                     
+                   ) # End of alignment column 
+                   
+                 ), # End of first row of data tab 
+                 
+                 ####################################
+                 # Row 2: Creating the user options #
+                 ####################################
+                 fluidRow(
+                   
+                   ####################
+                   # Alignment column #
+                   ####################
+                   column( 
+                     
+                     # Column width 
+                     width = 12, 
+                     
+                     # Overall style for row 
+                     div(style = "display:flex; vertical-aline: top",
+                         
+                         #######################################
+                         # Creating the download button - Data #
+                         #######################################
+                         div(style = "margin-right: 10px", downloadButton("downloadSSMetrics", "Download Skill Scores")),
+                         
+                         ###################################
+                         # Creating the data filter option #
+                         ###################################
+                         div(style = "margin-right: 10px", actionButton("filterSSDataMain", "Filtering Options")), 
+                         
+                         ##################################################################
+                         # Creating the check-mark to use average metrics in skill Scores #
+                         ##################################################################
+                         div(checkboxInput("seeAvgSS", "Use Average Metrics"))
+                         
+                     ), # End of style for row 
+                     
+                   ) # End of alignment column
+                   
+                 ) # End of Row 2
+                 
+        ) # End of the skill scores data tab 
+        
+      ) # End of the tabbed box containing skill scores and Winkler scores 
+      
+    ) # End of row hosting the third box
+  
+  ) # End of alignment column 
+  
+), # End of 'conditionalPanel' for Page 3, Model Metrics 
 
-
-  ) # Column alignment overall
-
-), # End of Page 2 conditional panel 
-             
-              
 
 #------------------------------------------------------------------------------#
-# Page 3: Handling the other forecasts and metrics -----------------------------
+# Creating Page 4: Model Comparison --------------------------------------------
 #------------------------------------------------------------------------------#
-# About: This section handles outside models and compares them against the     #
-# calculated dashboard metrics.                                                #
-#------------------------------------------------------------------------------#
-
-#####################################
-# Only runs if page two is selected #
-#####################################
+# About: This section creates the user-interface for the fourth page of the    #
+# dashboard, which allows users to read in outside models and metrics and      #
+# compare them against the models included in the dashboard. The top row of    #
+# the dashboard shows the forecast figures, the middle includes the crude      #
+# and average metrics, and the last row shows the Winkler and Skill Scores.    #
+# There are a few side-bar options on this page as well, where users can read  #
+# in the outside models and metrics.                                           #
+#------------------------------------------------------------------------------#                   
+                
 conditionalPanel(
   
-  # Condition 
-  condition = "input.my_picker == 'Model Comparison'", 
+    # Condition to show the last page 
+    condition = "input.my_picker == 'Model Comparison'", 
+    
+  
+#------------------------------------------------------------------------------#
+# Row 4A: Individual and Panel forecast figures --------------------------------
+#------------------------------------------------------------------------------#
+# About: This section creates the individual and panel forecast figures for    #
+# the other model forecast files and the dashboard forecasts (panel only).     #
+# Additionally, this section host all of the available button and options,     #
+# such as the download buttons, figure editing, filtering, and arrows to       #
+# navigate through images.                                                     #
+#------------------------------------------------------------------------------#
+
+    ###############################################
+    # Creating the box-shell for forecast figures #
+    ###############################################
+    box(
+      
+      # Box title 
+      title = NULL, 
+      
+      # Width of the box 
+      width = 12, 
+      
+      #############################################################
+      # Row 1: Rendering the individual or panel forecast figures #
+      #############################################################
+      fluidRow(
+        
+        ####################
+        # Alignment column #
+        ####################
+        column(
+          
+          width = 12, 
+          
+          ##############################################
+          # Conditional Panel: Show Individual Figures #
+          ##############################################
+          
+          # Plot title
+          textOutput("OtherForecastTitle"), 
+          
+          # Rendering the data frame
+          plotOutput("otherModelFigure")
+          
+        ) # End of alignment column 
+        
+      ), # End of row one alignment column 
+      
+      ####################################
+      # Row 2: Creating the user options #
+      ####################################
+      fluidRow(
+        
+        ####################
+        # Alignment column #
+        ####################
+        column( 
+          
+          # Column width 
+          width = 12, 
+          
+          # Overall style for row 
+          div(style = "display: flex; justify-content: space-between; align-items: center; width: 100%;",
+              
+              ##########################################
+              # Creating the download and edit buttons #
+              ##########################################
+              div(style = "display:flex; vertical-aline: top",
+                  
+                  # Download button for figure for panel forecasts - Other 
+                  div(actionButton("downloadOtherForecastsFigs", "Download Figures", style = "margin-right: 10px")),
+                  
+                  # Edit legend names 
+                  div(style = "margin-right: 10px", uiOutput("otherFigureOptions")), 
+                  
+                  # Showing the panel figures check box
+                  div(checkboxInput("showPanelPlotOther", "Show the Panel Figures", value = F))
+                  
+              ), # End of style for buttons
+              
+              #######################
+              # Creating the arrows #
+              #######################
+              div(
+                
+                style = "display: flex; justify-content: flex-end; align-items: center;",
+                actionButton(inputId = "otherFigsPrevious", label = icon("arrow-left")),
+                actionButton(inputId = "otherFigstNext", label = icon("arrow-right"))
+                
+              ) # End of style for buttons 
+              
+            ) # End of overall row style 
+            
+          ) # End of alignment column
+          
+        ) # End of Row 2 - User Options
+        
+      ), # End of box for forecast figures 
+
+
+#------------------------------------------------------------------------------#
+# Row 4B: Average Metrics ------------------------------------------------------
+#------------------------------------------------------------------------------#
+# About: This section creates the box that contains the average metrics data   #
+# and the associated figures based upon the user-entered performance metrics   #
+# and metrics obtained from the dashboard. It is a tabbed box, where the first #
+# box contains the combined data set with all metrics and the second tab       #
+# contains the associated figures. This section also creates the buttons and   #
+# options available to the user, such as download options, filtering data,     #
+# and editing figures.                                                         #
+#------------------------------------------------------------------------------#
+  
+    #################################
+    # Creating the tabbed box shell #
+    #################################
+    tabBox(
+      
+        # Box title 
+        title = NULL, 
+        
+        # ID of the box 
+        id = "box2",
+        
+        # Width of the box 
+        width = 12, 
+      
+        #########################################
+        # Creating the average metrics Data Tab #
+        #########################################
+        tabPanel(id = "averageMetricsOtherData",
+                 
+                 # Title for box
+                 title = "Average Metrics",
+                 
+                 #####################################
+                 # First row of the box - Data table #
+                 #####################################
+                 fluidRow(
+                   
+                   # Alignment column
+                   column(
+                     
+                     # Width of column
+                     width = 12,
+                     
+                     # Rendering the data table
+                     dataTableOutput("AverageMetricsOther")
+                     
+                   ) # End of alignment column 
+                   
+                 ), # End of row for data table 
+                 
+                 ##########################################################
+                 # Second row of box - Options for filtering, downloading #
+                 ##########################################################
+                 fluidRow(
+                   
+                   # Alignment column
+                   column(
+                     
+                     # Width of column
+                     width = 12,
+                     
+                     # Overall style for row 
+                     div(style = "display:flex; vertical-aline: top",
+                         
+                         ############################################
+                         # Creating the download and filter buttons #
+                         ############################################
+                         
+                         # Download button for the combined average metrics 
+                         div(downloadButton("downloadAverageMetrics", "Download Avg. Metrics", style = "margin-right: 10px")),
+                         
+                         # Filtering for the average metrics 
+                         div(style = "margin-right: 10px", actionButton("filterAvgCombinedMetrics", "Filtering Options")), 
+                         
+                     ) # End of overall style for row 
+                     
+                   ) # End of alignment column 
+                   
+                 ) # End of row with filtering options 
+                 
+        ), # End of 'tabPanel' for the crude metrics data 
+        
+        ############################################
+        # Creating the average metrics figures tab #
+        ############################################
+        tabPanel(id = "AverageMetricsOtherFigure",
+                 
+                 # Title for box
+                 title = "Figure",
+                 
+                 #################################
+                 # First row of the box - Figure #
+                 #################################
+                 fluidRow(
+                   
+                   # Alignment column
+                   column(
+                     
+                     # Width of column
+                     width = 12,
+                     
+                     # Rendering the title
+                     textOutput("avgMetricOtherPanelTitle"),
+                     
+                     # Creating the plot
+                     plotOutput("avgMetricOtherPanel")
+                     
+                   ) # End of alignment column 
+                   
+                 ), # End of row creating the figure 
+                 
+                 ##########################################################
+                 # Second row of box - Options for filtering, downloading #
+                 ##########################################################
+                 fluidRow(
+                   
+                   # Alignment column
+                   column(
+                     
+                     # Width of column
+                     width = 12,
+                     
+                     #############################
+                     # Overall style for the row #
+                     #############################
+                     div(style = "display: flex; justify-content: space-between; align-items: center; width: 100%;", 
+                         
+                         ############################################
+                         # Creating the download and filter buttons #
+                         ############################################
+                         div(style = "display:flex; vertical-aline: top",
+                        
+                           # Download button for the combined average metrics figure
+                           div(actionButton("downloadOtherCombinedMetricsFigAvg", "Download Figures", style = "margin-right: 10px")),
+                           
+                           # Filtering for the average metrics 
+                           div(style = "margin-right: 10px", actionButton("figOptCombAvgMetrics", "Figure Options"))
+                         
+                         ), # End of download and filter button
+                         
+                         #############################################
+                         # Creating the forward and backwards arrows #
+                         #############################################
+                         div(
+                           
+                           style = "display: flex; justify-content: flex-end; align-items: center;",
+                           actionButton(inputId = "otheravgMetricPanelsPrevious", label = icon("arrow-left")),
+                           actionButton(inputId = "otheravgMetricPanelsNext", label = icon("arrow-right"))
+                           
+                         ) # End of arrow format
+                         
+                      ) # End of overall style for row 
+                     
+                   ) # End of alignment column 
+                   
+                 ) # End of row with figure options 
+                 
+      ), # End of 'tabPanel' for the average metrics figure 
+      
+    ), # End of 'tabbox' for the average metrics 
+    
+
+#------------------------------------------------------------------------------#
+# Row 4C: Crude Metrics --------------------------------------------------------
+#------------------------------------------------------------------------------#
+# About: This section creates the box that contains the crude metrics data     #
+# and the associated figures based upon the user-entered performance metrics   #
+# and metrics obtained from the dashboard. It is a tabbed box, where the first #
+# box contains the combined data set with all metrics and the second tab       #
+# contains the associated figures. This section also creates the buttons and   #
+# options available to the user, such as download options, filtering data,     #
+# and editing figures.                                                         #
+#------------------------------------------------------------------------------#
+
+  ###################################################
+  # Creating the tabbed-box shell for crude metrics #
+  ###################################################
+  tabBox(
+    
+      # Box title 
+      title = NULL, 
+      
+      # ID of the box 
+      id = "box2",
+      
+      # Width of the box 
+      width = 12, 
+      
+      #######################################
+      # Creating the Crude metrics Data Tab #
+      #######################################
+      tabPanel(id = "crudeMetricsOtherData",
+               
+               # Title for box
+               title = "Crude Metrics",
+               
+               #####################################
+               # First row of the box - Data table #
+               #####################################
+               fluidRow(
+                 
+                 # Alignment column
+                 column(
+                   
+                   # Width of column
+                   width = 12,
+                   
+                   # Rendering the data table
+                   dataTableOutput("crudeMetricsOther")
+                   
+                 ) # End of alignment column 
+                 
+                 ), # End of row with data 
+               
+               ##########################################################
+               # Second row of box - Options for filtering, downloading #
+               ##########################################################
+               fluidRow(
+                 
+                 # Alignment column
+                 column(
+                   
+                   # Width of column
+                   width = 12,
+                   
+                   # Overall style for row 
+                   div(style = "display:flex; vertical-aline: top",
+                       
+                       ############################################
+                       # Creating the download and filter buttons #
+                       ############################################
+                       
+                       # Download button for the combined crude metrics 
+                       div(downloadButton("downloadCrudeMetrics", "Download Crude Metrics", style = "margin-right: 10px")),
+                       
+                       # Filtering for the crude metrics 
+                       div(style = "margin-right: 10px", actionButton("filterCrudeCombinedMetrics", "Filtering Options")), 
+                       
+                      ) # End of overall style for row 
+                   
+                    ) # End of alignment column 
+                 
+                 ) # End of row with filtering options 
+               
+               ), # End of 'tabPanel' for the crude metrics data 
+      
+      ##########################################
+      # Creating the Crude metrics figures tab #
+      ##########################################
+      tabPanel(id = "crudeMetricsOtherFigure",
+               
+               # Title for box
+               title = "Figure",
+               
+               #################################
+               # First row of the box - Figure #
+               #################################
+               fluidRow(
+                 
+                 # Alignment column
+                 column(
+                   
+                   # Width of column
+                   width = 12,
+                   
+                   # Rendering the title
+                   textOutput("crudeMetricOtherPanelTitle"),
+                   
+                   # Creating the plot
+                   plotOutput("crudeMetricOtherPanel")
+                   
+                 ) # End of alignment column 
+                 
+               ), # End of row with for crude metrics figures 
+               
+               ##########################################################
+               # Second row of box - Options for filtering, downloading #
+               ##########################################################
+               fluidRow(
+                 
+                 # Alignment column
+                 column(
+                   
+                   # Width of column
+                   width = 12,
+                   
+                   #############################
+                   # Overall style for the row #
+                   #############################
+                   div(style = "display: flex; justify-content: space-between; align-items: center; width: 100%;", 
+                     
+                     ############################################
+                     # Creating the download and filter buttons #
+                     ############################################
+                     div(style = "display:flex; vertical-aline: top",
+                         
+                         # Download button for the combined crude metrics figure
+                         div(actionButton("downloadOtherCombinedMetricsFig", "Download Figures", style = "margin-right: 10px")),
+                         
+                         # Filtering for the crude metrics 
+                         div(style = "margin-right: 10px", actionButton("figOptCombCrudeMetrics", "Figure Options"))
+                         
+                     ), # End of style for download and filter buttons 
+                   
+                     #############################################
+                     # Creating the forward and backwards arrows #
+                     #############################################
+                     div(
+                       
+                       style = "display: flex; justify-content: flex-end; align-items: center;",
+                       actionButton(inputId = "otherCrudeMetricPanelsPrevious", label = icon("arrow-left")),
+                       actionButton(inputId = "otherCrudeMetricPanelsNext", label = icon("arrow-right"))
+                       
+                     ) # End of style for buttons 
+                     
+                   ) # End of style for row 
+                   
+                 ) # End of alignment column 
+                 
+               ) # End of row with figure options 
+               
+      ), # End of 'tabPanel' for the crude metrics figure 
+               
+  ), # End of 'tabbox' for the crude metrics 
   
 
-  ##############################################################
-  # Row 1: Rendering the panel and individual forecast figures #
-  ##############################################################
-  box(
-    
-    # Box title 
-    title = NULL, 
-    
-    # Width of the box 
-    width = 12, 
-    
-    #############################################################
-    # Row 1: Rendering the individual or panel forecast figures #
-    #############################################################
-    fluidRow(
-      
-      ####################
-      # Alignment column #
-      ####################
-      column(
-        
-        width = 12, 
-        
-        ##############################################
-        # Conditional Panel: Show Individual Figures #
-        ##############################################
-        
-        # Plot title
-        textOutput("OtherForecastTitle"), 
-        
-        # Rendering the data frame
-        plotOutput("otherModelFigure")
-        
-      ) # End of alignment column 
-      
-    ),
-    
-    ####################################
-    # Row 2: Creating the user options #
-    ####################################
-    fluidRow(
-      
-      ####################
-      # Alignment column #
-      ####################
-      column( 
-        
-        # Column width 
-        width = 12, 
-        
-        # Overall style for row 
-        div(style = "display: flex; justify-content: space-between; align-items: center; width: 100%;",
-            
-            ##########################################
-            # Creating the download and edit buttons #
-            ##########################################
-            div(style = "display:flex; vertical-aline: top",
-                
-                # Download button for figure for panel forecasts - Other 
-                div(actionButton("downloadOtherForecastsFigs", "Download Figures", style = "margin-right: 10px")),
-                
-                # Edit legend names 
-                div(style = "margin-right: 10px", uiOutput("otherFigureOptions")), 
-                
-                # Showing the panel figures check box
-                div(checkboxInput("showPanelPlotOther", "Show the Panel Figures", value = F))
-                
-            ),
-            
-            #######################
-            # Creating the arrows #
-            #######################
-            div(
-              
-              style = "display: flex; justify-content: flex-end; align-items: center;",
-              actionButton(inputId = "otherFigsPrevious", label = icon("arrow-left")),
-              actionButton(inputId = "otherFigstNext", label = icon("arrow-right"))
-              
-            )
-            
-        ) # End of overall row style 
-        
-      ) # End of alignment column
-      
-    ) # End of Row 2 - User Options
-    
-  ), # End of box for forecast figures 
-    
+#------------------------------------------------------------------------------#
+# Row 4D: Winkler Scores and Skill Scores --------------------------------------
+#------------------------------------------------------------------------------#
+# About: This section creates the tabbed last box, which contains both the     #
+# Winkler Scores and the Skill Scores. Each is included within their own tabs  #
+# and contain their own options. Users can easily switch between tabs to see   #
+# both metrics, filter the data, calculate the average metrics, and download   #
+# the data as `.csv` files.                                                    #
+#------------------------------------------------------------------------------#
 
-#------------------------------------------------------------------------------#
-# Creating the average metrics box ---------------------------------------------
-#------------------------------------------------------------------------------#
-# About: This section creates the metrics box that shows the average metrics   #
-# along with filtering options and ability to create images.                   #  
-#------------------------------------------------------------------------------#
+  #########################################################
+  # Creating the table shell for winkler and skill scores #
+  #########################################################
   tabBox(
     
     # Box title 
     title = NULL, 
     
     # ID of the box 
-    id = "box2",
+    id = "box3",
     
     # Width of the box 
     width = 12, 
     
-    #########################################
-    # Creating the average metrics Data Tab #
     ########################################
-    tabPanel(id = "averageMetricsOtherData",
+    # Creating the Winkler Scores Data Box #
+    ########################################
+    tabPanel(id = "WinklerScoresOtherData",
              
              # Title for box
-             title = "Average Metrics",
+             title = "Winkler Scores",
              
              #####################################
              # First row of the box - Data table #
@@ -3850,11 +4234,11 @@ conditionalPanel(
                  width = 12,
                  
                  # Rendering the data table
-                 dataTableOutput("AverageMetricsOther")
+                 dataTableOutput("winklerScoresOther")
                  
-               )
+               ) # End of alignment column 
                
-             ),
+             ), # End of row for Winkler Scores rendering 
              
              ##########################################################
              # Second row of box - Options for filtering, downloading #
@@ -3874,11 +4258,14 @@ conditionalPanel(
                      # Creating the download and filter buttons #
                      ############################################
                      
-                     # Download button for the combined crude metrics 
-                     div(downloadButton("downloadAverageMetrics", "Download Avg. Metrics", style = "margin-right: 10px")),
+                     # Download button for the combined Winkler Scores 
+                     div(style = "margin-right: 10px", downloadButton("downloadWinklerMetrics", "Download Winkler Scores")),
                      
-                     # Filtering for the crude metrics 
-                     div(style = "margin-right: 10px", actionButton("filterAvgCombinedMetrics", "Filtering Options")), 
+                     # Filtering for the combined Winkler Scores 
+                     div(style = "margin-right: 10px", actionButton("filterWinklerOtherMetrics", "Filtering Options")), 
+                     
+                     # Check-mark for average Winkler scores
+                     div(checkboxInput("winklerOtherAvg", "See Avg. Winkler Scores"))
                      
                  ) # End of overall style for row 
                  
@@ -3886,19 +4273,19 @@ conditionalPanel(
                
              ) # End of row with filtering options 
              
-    ), # End of 'tabPanel' for the crude metrics data 
+    ), # End of 'tabPanel' for the combined Winkler Scores 
     
-    ############################################
-    # Creating the average metrics figures tab #
-    ############################################
-    tabPanel(id = "AverageMetricsOtherFigure",
+    ######################################
+    # Creating the Skill Scores Data Box #
+    ######################################
+    tabPanel(id = "skillScoresOtherData",
              
              # Title for box
-             title = "Figure",
+             title = "Skill Scores",
              
-             #################################
-             # First row of the box - Figure #
-             #################################
+             #####################################
+             # First row of the box - Data table #
+             #####################################
              fluidRow(
                
                # Alignment column
@@ -3907,15 +4294,12 @@ conditionalPanel(
                  # Width of column
                  width = 12,
                  
-                 # Rendering the title
-                 textOutput("avgMetricOtherPanelTitle"),
+                 # Rendering the data table
+                 dataTableOutput("skillScoresOtherOUTPUT")
                  
-                 # Creating the plot
-                 plotOutput("avgMetricOtherPanel")
-                 
-               )
+               ) # End of alignment column 
                
-             ),
+             ), # End of row for data table
              
              ##########################################################
              # Second row of box - Options for filtering, downloading #
@@ -3928,357 +4312,37 @@ conditionalPanel(
                  # Width of column
                  width = 12,
                  
-                 #############################
-                 # Overall style for the row #
-                 #############################
-                 div(style = "display: flex; justify-content: space-between; align-items: center; width: 100%;", 
+                 # Overall style for row 
+                 div(style = "display:flex; vertical-aline: top",
                      
-                 
                      ############################################
                      # Creating the download and filter buttons #
                      ############################################
-                     div(style = "display:flex; vertical-aline: top",
-                    
-                     # Download button for the combined crude metrics figure
-                     div(actionButton("downloadOtherCombinedMetricsFigAvg", "Download Figures", style = "margin-right: 10px")),
                      
-                     # Filtering for the crude metrics 
-                     div(style = "margin-right: 10px", actionButton("figOptCombAvgMetrics", "Figure Options"))
+                     # Download button skill scores 
+                     div(style = "margin-right: 10px", downloadButton("downloadSSMetricsOther", "Download Skill Scores")),
                      
-                     ), # End of download and filter button
+                     # Filtering for the skill scores
+                     div(style = "margin-right: 10px", actionButton("filterSkillScoresOtherMetrics", "Filtering Options")), 
                      
-                     #############################################
-                     # Creating the forward and backwards arrows #
-                     #############################################
-                     div(
-                       
-                       style = "display: flex; justify-content: flex-end; align-items: center;",
-                       actionButton(inputId = "otheravgMetricPanelsPrevious", label = icon("arrow-left")),
-                       actionButton(inputId = "otheravgMetricPanelsNext", label = icon("arrow-right"))
-                       
-                     ) # End of arrow format
+                     # Check-mark for average skill scores
+                     div(checkboxInput("seeAvgSSOther", "See Avg. Skill Scores"))
                      
-                 ) # End of overall style for row 
-                 
-               ) # End of alignment column 
-               
-             ) # End of row with figure options 
-             
-    ), # End of 'tabPanel' for the crude metrics figure 
-    
-  ), # End of 'tabbox' for the crude metrics 
-  
-  
-#------------------------------------------------------------------------------#
-# Creating the crude metrics box -----------------------------------------------
-#------------------------------------------------------------------------------#
-# About: This section creates the metrics box that shows the crude metrics     #
-# along with filtering options and ability to create images.                   #  
-#------------------------------------------------------------------------------#
-tabBox(
-  
-  # Box title 
-  title = NULL, 
-  
-  # ID of the box 
-  id = "box2",
-  
-  # Width of the box 
-  width = 12, 
-  
-  #######################################
-  # Creating the Crude metrics Data Tab #
-  #######################################
-  tabPanel(id = "crudeMetricsOtherData",
-           
-           # Title for box
-           title = "Crude Metrics",
-           
-           #####################################
-           # First row of the box - Data table #
-           #####################################
-           fluidRow(
-             
-             # Alignment column
-             column(
-               
-               # Width of column
-               width = 12,
-               
-               # Rendering the data table
-               dataTableOutput("crudeMetricsOther")
-               
-             )
-             
-             ),
-           
-           ##########################################################
-           # Second row of box - Options for filtering, downloading #
-           ##########################################################
-           fluidRow(
-             
-             # Alignment column
-             column(
-               
-               # Width of column
-               width = 12,
-               
-               # Overall style for row 
-               div(style = "display:flex; vertical-aline: top",
-                   
-                   ############################################
-                   # Creating the download and filter buttons #
-                   ############################################
-                   
-                   # Download button for the combined crude metrics 
-                   div(downloadButton("downloadCrudeMetrics", "Download Crude Metrics", style = "margin-right: 10px")),
-                   
-                   # Filtering for the crude metrics 
-                   div(style = "margin-right: 10px", actionButton("filterCrudeCombinedMetrics", "Filtering Options")), 
-                   
                    ) # End of overall style for row 
-               
-               ) # End of alignment column 
-             
-             ) # End of row with filtering options 
-           
-           ), # End of 'tabPanel' for the crude metrics data 
-  
-  ##########################################
-  # Creating the Crude metrics figures tab #
-  ##########################################
-  tabPanel(id = "crudeMetricsOtherFigure",
-           
-           # Title for box
-           title = "Figure",
-           
-           #################################
-           # First row of the box - Figure #
-           #################################
-           fluidRow(
-             
-             # Alignment column
-             column(
-               
-               # Width of column
-               width = 12,
-               
-               # Rendering the title
-               textOutput("crudeMetricOtherPanelTitle"),
-               
-               # Creating the plot
-               plotOutput("crudeMetricOtherPanel")
-               
-             )
-             
-           ),
-           
-           ##########################################################
-           # Second row of box - Options for filtering, downloading #
-           ##########################################################
-           fluidRow(
-             
-             # Alignment column
-             column(
-               
-               # Width of column
-               width = 12,
-               
-               #############################
-               # Overall style for the row #
-               #############################
-               div(style = "display: flex; justify-content: space-between; align-items: center; width: 100%;", 
+                   
+              ) # End of alignment column 
                  
-                 ############################################
-                 # Creating the download and filter buttons #
-                 ############################################
-                 div(style = "display:flex; vertical-aline: top",
-                     
-                     # Download button for the combined crude metrics figure
-                     div(actionButton("downloadOtherCombinedMetricsFig", "Download Figures", style = "margin-right: 10px")),
-                     
-                     # Filtering for the crude metrics 
-                     div(style = "margin-right: 10px", actionButton("figOptCombCrudeMetrics", "Figure Options"))
-                     
-                 ),
-               
-                 #############################################
-                 # Creating the forward and backwards arrows #
-                 #############################################
-                 div(
-                   
-                   style = "display: flex; justify-content: flex-end; align-items: center;",
-                   actionButton(inputId = "otherCrudeMetricPanelsPrevious", label = icon("arrow-left")),
-                   actionButton(inputId = "otherCrudeMetricPanelsNext", label = icon("arrow-right"))
-                   
-                 )
+            ) # End of row with filtering options 
                  
-               ) # End of style for row 
-               
-             ) # End of alignment column 
-             
-           ) # End of row with figure options 
-           
-  ), # End of 'tabPanel' for the crude metrics figure 
+          ) # End of 'tabPanel' for the skill scores data 
+          
+        ) # End of 'tabbox' for the skill scores
+                       
+      ) # End of other page 
+        
+    ) # End of dashboard body
   
-), # End of 'tabbox' for the crude metrics 
-
-#------------------------------------------------------------------------------#
-# Creating the Winkler Score and Skill Score Box -------------------------------
-#------------------------------------------------------------------------------#
-# About: This section creates the skill scores and Winkler scores data.        #
-#------------------------------------------------------------------------------#
-tabBox(
-  
-  # Box title 
-  title = NULL, 
-  
-  # ID of the box 
-  id = "box3",
-  
-  # Width of the box 
-  width = 12, 
-  
-  ########################################
-  # Creating the Winkler Scores Data Box #
-  ########################################
-  tabPanel(id = "WinklerScoresOtherData",
-           
-           # Title for box
-           title = "Winkler Scores",
-           
-           #####################################
-           # First row of the box - Data table #
-           #####################################
-           fluidRow(
-             
-             # Alignment column
-             column(
-               
-               # Width of column
-               width = 12,
-               
-               # Rendering the data table
-               dataTableOutput("winklerScoresOther")
-               
-             )
-             
-           ),
-           
-           ##########################################################
-           # Second row of box - Options for filtering, downloading #
-           ##########################################################
-           fluidRow(
-             
-             # Alignment column
-             column(
-               
-               # Width of column
-               width = 12,
-               
-               # Overall style for row 
-               div(style = "display:flex; vertical-aline: top",
-                   
-                   ############################################
-                   # Creating the download and filter buttons #
-                   ############################################
-                   
-                   # Download button for the combined crude metrics 
-                   div(style = "margin-right: 10px", downloadButton("downloadWinklerMetrics", "Download Winkler Scores")),
-                   
-                   # Filtering for the crude metrics 
-                   div(style = "margin-right: 10px", actionButton("filterWinklerOtherMetrics", "Filtering Options")), 
-                   
-                   # Check-mark for average Winkler scores
-                   div(checkboxInput("winklerOtherAvg", "See Avg. Winkler Scores"))
-                   
-               ) # End of overall style for row 
-               
-             ) # End of alignment column 
-             
-           ) # End of row with filtering options 
-           
-  ), # End of 'tabPanel' for the crude metrics data 
-  
-  ######################################
-  # Creating the Skill Scores Data Box #
-  ######################################
-  tabPanel(id = "skillScoresOtherData",
-           
-           # Title for box
-           title = "Skill Scores",
-           
-           #####################################
-           # First row of the box - Data table #
-           #####################################
-           fluidRow(
-             
-             # Alignment column
-             column(
-               
-               # Width of column
-               width = 12,
-               
-               # Rendering the data table
-               dataTableOutput("skillScoresOtherOUTPUT")
-               
-             )
-             
-           ),
-           
-           ##########################################################
-           # Second row of box - Options for filtering, downloading #
-           ##########################################################
-           fluidRow(
-             
-             # Alignment column
-             column(
-               
-               # Width of column
-               width = 12,
-               
-               # Overall style for row 
-               div(style = "display:flex; vertical-aline: top",
-                   
-                   ############################################
-                   # Creating the download and filter buttons #
-                   ############################################
-                   
-                   # Download button skill scores 
-                   div(style = "margin-right: 10px", downloadButton("downloadSSMetricsOther", "Download Skill Scores")),
-                   
-                   # Filtering for the skill scores
-                   div(style = "margin-right: 10px", actionButton("filterSkillScoresOtherMetrics", "Filtering Options")), 
-                   
-                   # Check-mark for average skill scores
-                   div(checkboxInput("seeAvgSSOther", "See Avg. Skill Scores"))
-                   
-               ) # End of overall style for row 
-               
-             ) # End of alignment column 
-             
-           ) # End of row with filtering options 
-           
-  ), # End of 'tabPanel' for the skill scores data 
-  
-) # End of 'tabbox' for the skill scores
-
-               
-               
-                   
-                   
-) # End of other page 
-    
-
-) # End of dashboard body
-
-) # End of user interface 
-
-
-
-
-
-
+  ) # End of user interface 
 
 #------------------------------------------------------------------------------#
 # SERVER -----------------------------------------------------------------------
