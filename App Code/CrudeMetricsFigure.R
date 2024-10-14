@@ -577,7 +577,7 @@ CrudeMetricsFigure <- function(crudeMetrics, dateType, scaleY.input,
         ###############################################################
         }else{
           
-          breaksLabel <- paste0(dateBreaks, " days")
+          breaksLabel <- paste0(xDatebreaks, " days")
           
         }
         
