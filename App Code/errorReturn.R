@@ -157,6 +157,22 @@ errorReturn <- function(orignalData.input, otherForecast.input, dateType.input,
       
     }
     
+#------------------------------------------------------------------------------#
+# Checking column names --------------------------------------------------------
+#------------------------------------------------------------------------------#
+# About: This section checks the names of the columns in the forecast files.   #
+# If they do not match the correct order or spelling, and error returns.       #
+#------------------------------------------------------------------------------#
+    
+    ############################
+    # Pulling the column names #
+    ############################
+    if(any(colnames(indexedForecast) != c("Date", "data", "median", "LB", "UB"))){
+      
+      return("ERROR4")
+      break
+      
+    }    
     
 #------------------------------------------------------------------------------#
 # Checking the date type against the original data -----------------------------
@@ -182,9 +198,9 @@ errorReturn <- function(orignalData.input, otherForecast.input, dateType.input,
       # Difference between the first and second dates 
       dateDifference <- as.numeric(indexedForecastDate[2,1] - indexedForecastDate[1,1])
       
-      ####################################################
-      # Formatting the date column: Yearly or Time Index #
-      ####################################################
+    ####################################################
+    # Formatting the date column: Yearly or Time Index #
+    ####################################################
     }else{
       
       # Changing to date format
@@ -235,24 +251,6 @@ errorReturn <- function(orignalData.input, otherForecast.input, dateType.input,
       break
       
     }
-    
-#------------------------------------------------------------------------------#
-# Checking column names --------------------------------------------------------
-#------------------------------------------------------------------------------#
-# About: This section checks the names of the columns in the forecast files.   #
-# If they do not match the correct order or spelling, and error returns.       #
-#------------------------------------------------------------------------------#
-    
-    ############################
-    # Pulling the column names #
-    ############################
-    if(any(colnames(indexedForecast) != c("Date", "data", "median", "LB", "UB"))){
-      
-      return("ERROR4")
-      break
-      
-    }
-
     
     
   } # End of loop going through forecasts
