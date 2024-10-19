@@ -37,117 +37,117 @@ CrudeMetricsFigure.OTHER <- function(crudeMetrics, dateType, scaleY.input,
   ########################################
   # Reading in the list of crude metrics #
   ########################################
-  crude.metric.input.TP <- crudeMetrics
+  crude.metric.input.TP <<- crudeMetrics
   
   ####################################
   # Reading in the type of date data #
   ####################################
-  dateType.TP <- dateType 
+  dateType.TP <<- dateType 
   
   ################################################
   # Reading in the list of variables to be log10 #
   ################################################
-  logMetrics <- scaleY.input
+  logMetrics <<- scaleY.input
   
   ############################
   # Reading in the MSE label #
   ############################
-  MSELabel <- MSELabel.input
+  MSELabel <<- MSELabel.input
   
   ############################
   # Reading in the MAE label #
   ############################
-  MAELabel <- MAELabel.input
+  MAELabel <<- MAELabel.input
   
   ############################
   # Reading in the WIS label #
   ############################
-  WISLabel <- WISLabel.input
+  WISLabel <<- WISLabel.input
   
   ###########################
   # Reading in the PI label #
   ###########################
-  PILabel <- PILabel.input
+  PILabel <<- PILabel.input
   
   ####################################
   # Reading in the y-axis label size #
   ####################################
-  yLabelSize <- YAxisLabelSize.input
+  yLabelSize <<- YAxisLabelSize.input
   
   ####################################
   # Reading in the y-axis label face #
   ####################################
-  yLabelFace <- YAxisLabelFace.input
+  yLabelFace <<- YAxisLabelFace.input
   
   ###################################
   # Reading in the y-axis tick size #
   ###################################
-  yTickSize <- YAxisTickSize.input
+  yTickSize <<- YAxisTickSize.input
   
   #######################################
   # Reading in the y-axis breaks amount #
   #######################################
-  yBreaks <- YAxisBreaks.input
+  yBreaks <<- YAxisBreaks.input
   
   #####################################
   # Reading in the y-axis start point #
   #####################################
-  yStart <- YAxisStart.input
+  yStart <<- YAxisStart.input
   
   ###############################
   # Reading in the x-axis label #
   ###############################
-  xAxisLabel <- xAxisLabel.input
+  xAxisLabel <<- xAxisLabel.input
   
   ######################################
   # Reading in the common label choice #
   ######################################
-  commonXAxis <- xCommonLabel.input
+  commonXAxis <<- xCommonLabel.input
   
   ####################################
   # Reading in the x-axis label size #
   ####################################
-  xLabelSize <- XAxisLabelSize.input
+  xLabelSize <<- XAxisLabelSize.input
   
   ####################################
   # Reading in the x-axis label face #
   ####################################
-  xLabelFace <- XAxisLabelFace.input
+  xLabelFace <<- XAxisLabelFace.input
   
   ###################################
   # Reading in the x-axis tick size #
   ###################################
-  xAxisTickSize <- XAxisTickSize.input
+  xAxisTickSize <<- XAxisTickSize.input
   
   ######################################
   # Reading in the x-axis breaks value #
   ######################################
-  xDatebreaks <- xAxisBreaks.input
+  xDatebreaks <<- xAxisBreaks.input
   
   #####################################
   # Reading in the show legend choice #
   #####################################
-  showLegend <- showLegend.input
+  showLegend <<- showLegend.input
   
   #########################################
   # Reading in the legend position choice #
   #########################################
-  legendPos <- legendPosition.input
+  legendPos <<- legendPosition.input
   
   ######################################
   # Reading in the show numbers choice #
   ######################################
-  showNumber <- showBarNum.input
+  showNumber <<- showBarNum.input
   
   ###########################################
   # Reading in the size for the bar numbers #
   ###########################################
-  barSize <- barNumSize.input
+  barSize <<- barNumSize.input
   
   ###########################
   # Reading in the dot size #
   ###########################
-  dotSize <- dotSize.input
+  dotSize <<- dotSize.input
   
   #################################
   # Creating the list for figures #
@@ -588,7 +588,7 @@ CrudeMetricsFigure.OTHER <- function(crudeMetrics, dateType, scaleY.input,
         ###############################################################
         }else{
           
-          breaksLabel <- paste0(dateBreaks, " days")
+          breaksLabel <- paste0(xDatebreaks, " days")
           
         }
         
