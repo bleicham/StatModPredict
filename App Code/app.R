@@ -4865,6 +4865,50 @@ server <- function(input, output, session) {
 
   }) # End of "observe"
   
+#------------------------------------------------------------------------------#
+# Error to appear when using smoothing  ----------------------------------------
+#------------------------------------------------------------------------------#
+# About: This section returns a message if smoothing data is selected. The     #
+# message lets the user know that the model fits for the selected models will  #
+# not be available, including the MSE, MAE, PI, and WIS metrics.               #
+#------------------------------------------------------------------------------#
+  
+  ########################################
+  # Observing changes in reactive values #
+  ########################################
+  observe({
+    
+    ###############################
+    # Running if not error occurs #
+    ###############################
+    tryCatch({
+      
+      # Returning error if smoothing 
+      if(input$smoothingInput > 1 & !is.null(input$modelType)){
+        
+        # Error to show
+        shinyalert("Model fits and some fit metrics (MSE, MAE, WIS, PI) are not available for the 
+                   following models due to the smoothing transformation: ", c(input$modelType), 
+                   type = "warning")
+        
+      # Returning null if no error occurs
+      }else{
+        
+        NULL
+        
+      } # End of if-else for error
+      
+    ###########################
+    # Returns if error occurs #
+    ###########################
+    }, error = function(e){
+      
+      NULL
+      
+    }) # End of tryCatch
+    
+  }) # End of "observe"
+  
    
 #------------------------------------------------------------------------------#
 # Reading in the data frame ----------------------------------------------------
@@ -9636,12 +9680,12 @@ server <- function(input, output, session) {
       ##################
       tabPanel("Y-Axis",
                tags$h4("Primary Label Options"), # Labels title
-               tags$h6("Renaming the Labels"),
+               tags$h5("Renaming the Labels"),
                textInput("mseLabelCrudeMetric", "Mean Squared Error: ", value = MSELabel$text),
                textInput("maeLabelCrudeMetric", "Mean Absolute Error: ", value = MAELabel$text),
                textInput("wisLabelCrudeMetric", "Weighted Interval Score: ", value = WISLabel$text),
                textInput("PILabelCrudeMetric", "Prediction Interval: ", value = PILabel$text),
-               tags$h6("Text Options"),
+               tags$h5("Text Options"),
                numericInput("yLabelTextSizeCM", "Label Size: ", value = yLabelSizeCM$size),
                pickerInput("yLabalfaceCM", "Label Face: ", choices = c("Plain", "Bold", "Italic", "Bold & Italic"), selected = yLabelFaceCM$face),
                tags$h4("Axis Options"),
@@ -11030,7 +11074,7 @@ server <- function(input, output, session) {
      ##################################
      # Function to produce panel plot #
      ##################################
-     metricPanelAverage <- AverageMetricsPanel(avgMetrics.input = avgMetricsFiltered$metricsFULL,
+     metricPanelAverage <<- AverageMetricsPanel(avgMetrics.input = avgMetricsFiltered$metricsFULL,
                                                dateType.input = dateValues$dates,
                                                scaleY.input = input$logScaleAvgMetric,
                                                lowColor.input = lowColorAvgMetric$lowColor,
@@ -11952,7 +11996,6 @@ server <- function(input, output, session) {
 
    })
 
-  
 #------------------------------------------------------------------------------#
 # Checking the forecast files against the original data and for name -----------
 #------------------------------------------------------------------------------#
@@ -11992,6 +12035,7 @@ server <- function(input, output, session) {
     
     # Saving the response
     errorHolder$error <- errorReturnOtherForecast
+    
     
 #------------------------------------------------------------------------------#
 # Checking for the original file data and results ------------------------------
@@ -12116,7 +12160,7 @@ server <- function(input, output, session) {
 
   })
 
-
+  
 #------------------------------------------------------------------------------#
 # Creating the "Edit Figures" pop-up -------------------------------------------
 #------------------------------------------------------------------------------#
@@ -12560,7 +12604,7 @@ server <- function(input, output, session) {
                    yAxisLabFaceOPanel$face, yAxisTickLabelSizeOPanel$size,
                    yAxisBreaksOPanel$value, xAxisLabelOPanel$title,
                    xAxisLabelSizeOPanel$size, xAxisLabFaceOPanel$face,
-                   xAxisTickSizeO$size)
+                   xAxisTickSizeO$size, input$dataset2)
 
     # Returning the list
     return(events)
@@ -12585,7 +12629,7 @@ server <- function(input, output, session) {
       ###############################################
       isolate({
 
-        individual <- forecast.figures.other(formatted.forecast.input = vettedData$data, # Formatted figures list
+        individual <<- forecast.figures.other(formatted.forecast.input = vettedData$data, # Formatted figures list
                                              data.type.input = dateValues$dates, # Date input
                                              smoothing.input = input$smoothingInput, # Smoothing input
                                              scaleYAxis.input = scaleYOPanel$logScale, # Scale y-axis
@@ -12689,7 +12733,7 @@ server <- function(input, output, session) {
         #################
         # Panel figures #
         #################
-        panelOutput <- panel.forecast.figures.other(formatted.forecast.input = foremattedForecasts$forecasts, # Formatted forecast files
+        panelOutput <<- panel.forecast.figures.other(formatted.forecast.input = foremattedForecasts$forecasts, # Formatted forecast files
                                                     formatted.forecast.other.input = vettedData$data, # Other formatted forecast files
                                                     data.type.input = dateValues$dates, # Date type
                                                     smoothing.input = input$smoothingInput, # Smoothing input
@@ -12793,28 +12837,29 @@ server <- function(input, output, session) {
     current_index_otherModels(1)
 
   })
-
-  ####################################################################
-  # Clearing the list if the clear button is clicked or data changed #
-  ####################################################################
+  
+  #########################################################
+  # Clearing output when comparison forecasts are changed #
+  #########################################################
   observeEvent(input$dataset2, {
-
+    
     # Clearing the list with final plots
     finalFiguresOther$figures <- NULL
-
+    
     # Clearing the list with individual plots
     individualOtherPlots$figures <- NULL
-
+    
     # Clearing the list with panel plots
     PanelOtherPlots$figures <- NULL
-
+    
     # Clearing vetted data
     vettedData$data <- NULL
-
+    
     # Resetting the index
     current_index_otherModels(1)
-
+    
   })
+
 
 #------------------------------------------------------------------------------#
 # Creating the forward and backwards arrows for the other figures   ------------
@@ -13330,7 +13375,10 @@ server <- function(input, output, session) {
   
           # Clearing out the reactive value
           vettedMetrics$data <- NULL
-  
+          
+          # Clearing out the outside file reactive value
+          metricsOtherReactive$metricData <- NULL
+          
         ###################################
         # Producing Error Code 2: Horizon #
         ###################################
@@ -13341,6 +13389,9 @@ server <- function(input, output, session) {
   
           # Clearing out the reactive value
           vettedMetrics$data <- NULL
+          
+          # Clearing out the outside file reactive value
+          metricsOtherReactive$metricData <- NULL
   
         ###################################
         # Producing Error Code 3: Columns #
@@ -13352,6 +13403,9 @@ server <- function(input, output, session) {
   
           # Clearing out the reactive value
           vettedMetrics$data <- NULL
+          
+          # Clearing out the outside file reactive value
+          metricsOtherReactive$metricData <- NULL
   
         #####################################
         # Producing Error Code 4: Locations #
@@ -13363,6 +13417,9 @@ server <- function(input, output, session) {
   
           # Clearing out the reactive value
           vettedMetrics$data <- NULL
+          
+          # Clearing out the outside file reactive value
+          metricsOtherReactive$metricData <- NULL
   
         #####################################
         # Returning NULL if no error occurs #
@@ -13723,12 +13780,12 @@ server <- function(input, output, session) {
         ##################
         tabPanel("Y-Axis",
                  tags$h4("Primary Label Options"), # Labels title
-                 tags$h6("Renaming the Labels"),
+                 tags$h5("Renaming the Labels"),
                  textInput("mseLabelCrudeMetricO", "Mean Squared Error: ", value = MSELabelO$text),
                  textInput("maeLabelCrudeMetricO", "Mean Absolute Error: ", value = MAELabelO$text),
                  textInput("wisLabelCrudeMetricO", "Weighted Interval Score: ", value = WISLabelO$text),
                  textInput("PILabelCrudeMetricO", "Prediction Interval: ", value = PILabelO$text),
-                 tags$h6("Text Options"),
+                 tags$h5("Text Options"),
                  numericInput("yLabelTextSizeCMO", "Label Size: ", value = yLabelSizeCMO$size),
                  pickerInput("yLabalfaceCMO", "Label Face: ", choices = c("Plain", "Bold", "Italic", "Bold & Italic"), selected = yLabelFaceCMO$face),
                  tags$h4("Axis Options"),

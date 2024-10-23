@@ -227,7 +227,7 @@ AverageMetricsPanel <- function(avgMetrics.input, dateType.input, scaleY.input,
       dplyr::filter(Calibration == listCalibration[i])
     
     # Removing columns with NAs
-    dataFigure <-  dataFigure[, !apply(dataFigure, 2, function(x) all(is.na(x)))]
+    dataFigure <- dataFigure[, !apply(dataFigure, 2, function(x) all(is.na(x)))]
     
     #############################
     # List of available metrics #
@@ -279,6 +279,29 @@ AverageMetricsPanel <- function(avgMetrics.input, dateType.input, scaleY.input,
         
       }
       
+      ##########################
+      # Handling legend breaks #
+      ##########################
+      if(nrow(MSE.data) == 1){
+        
+        # Setting the legend break to 1
+        legendBreaks.MSE <- 1
+        
+      #####################################
+      # Keeping the default legend breaks #
+      #####################################
+      }else{
+        
+        # Setting the legend break to 1
+        legendBreaks.MSE <- legendBreaks
+        
+      }
+      
+      ############################
+      # TryCatch for color issue #
+      ############################
+      tryCatch({
+      
       ##############################################
       # Plotting the average figure: Show the text #
       ##############################################
@@ -288,8 +311,8 @@ AverageMetricsPanel <- function(avgMetrics.input, dateType.input, scaleY.input,
           geom_tile(color = outlineColor) +
           geom_text(aes(label = round(finalMSE, 2)), color = textColor, size = textSize) +
           scale_fill_gradient(low = lowColor, high = highColor, 
-                              breaks = seq(min(MSE.data$finalMSE), max(MSE.data$finalMSE), length.out = legendBreaks),
-                              labels = round(seq(min(MSE.data$finalMSE), max(MSE.data$finalMSE), length.out = legendBreaks), 2)) +
+                              breaks = seq(min(MSE.data$finalMSE), max(MSE.data$finalMSE), length.out = legendBreaks.MSE),
+                              labels = round(seq(min(MSE.data$finalMSE), max(MSE.data$finalMSE), length.out = legendBreaks.MSE), 2)) +
           labs(fill = legendLabel,
                y = yLabel,
                x = xLabel) +
@@ -310,8 +333,8 @@ AverageMetricsPanel <- function(avgMetrics.input, dateType.input, scaleY.input,
         MSE.Figure <- ggplot(data = MSE.data, aes(x = Model, y = fct_rev(Location), fill = finalMSE)) +
           geom_tile(color = outlineColor) +
           scale_fill_gradient(low = lowColor, high = highColor, 
-                              breaks = seq(min(MSE.data$finalMSE), max(MSE.data$finalMSE), length.out = legendBreaks),
-                              labels = round(seq(min(MSE.data$finalMSE), max(MSE.data$finalMSE), length.out = legendBreaks), 2)) +
+                              breaks = seq(min(MSE.data$finalMSE), max(MSE.data$finalMSE), length.out = legendBreaks.MSE),
+                              labels = round(seq(min(MSE.data$finalMSE), max(MSE.data$finalMSE), length.out = legendBreaks.MSE), 2)) +
           labs(fill = legendLabel,
                y = yLabel,
                x = xLabel) +
@@ -336,6 +359,16 @@ AverageMetricsPanel <- function(avgMetrics.input, dateType.input, scaleY.input,
       
       # Adding one to the index
       j <- j + 1
+      
+      
+      #################################################
+      # Returning nothing if the colors have an issue #
+      #################################################
+      }, error = function(e){
+        
+        MSE.Figure <- NULL
+        
+      })
       
     ########################
     # Null holder for list #
@@ -390,6 +423,29 @@ AverageMetricsPanel <- function(avgMetrics.input, dateType.input, scaleY.input,
         
       }
       
+      ##########################
+      # Handling legend breaks #
+      ##########################
+      if(nrow(MAE.data) == 1){
+        
+        # Setting the legend break to 1
+        legendBreaks.MAE <- 1
+        
+      #####################################
+      # Keeping the default legend breaks #
+      #####################################
+      }else{
+        
+        # Setting the legend break to 1
+        legendBreaks.MAE <- legendBreaks
+        
+      }
+      
+      ############################
+      # TryCatch for color issue #
+      ############################
+      tryCatch({
+      
       ##############################################
       # Plotting the average figure: Show the text #
       ##############################################
@@ -399,8 +455,8 @@ AverageMetricsPanel <- function(avgMetrics.input, dateType.input, scaleY.input,
           geom_tile(color = outlineColor) +
           geom_text(aes(label = round(finalMAE, 2)), color = textColor, size = textSize) +
           scale_fill_gradient(low = lowColor, high = highColor, 
-                              breaks = seq(min(MAE.data$finalMAE), max(MAE.data$finalMAE), length.out = legendBreaks),
-                              labels = round(seq(min(MAE.data$finalMAE), max(MAE.data$finalMAE), length.out = legendBreaks), 2)) +
+                              breaks = seq(min(MAE.data$finalMAE), max(MAE.data$finalMAE), length.out = legendBreaks.MAE),
+                              labels = round(seq(min(MAE.data$finalMAE), max(MAE.data$finalMAE), length.out = legendBreaks.MAE), 2)) +
           labs(fill = legendLabel,
                y = yLabel,
                x = xLabel) +
@@ -421,8 +477,8 @@ AverageMetricsPanel <- function(avgMetrics.input, dateType.input, scaleY.input,
         MAE.Figure <- ggplot(data = MAE.data, aes(x = Model, y = fct_rev(Location), fill = finalMAE)) +
           geom_tile(color = outlineColor) +
           scale_fill_gradient(low = lowColor, high = highColor, 
-                              breaks = seq(min(MAE.data$finalMAE), max(MAE.data$finalMAE), length.out = legendBreaks),
-                              labels = round(seq(min(MAE.data$finalMAE), max(MAE.data$finalMAE), length.out = legendBreaks), 2)) +
+                              breaks = seq(min(MAE.data$finalMAE), max(MAE.data$finalMAE), length.out = legendBreaks.MAE),
+                              labels = round(seq(min(MAE.data$finalMAE), max(MAE.data$finalMAE), length.out = legendBreaks.MAE), 2)) +
           labs(fill = legendLabel,
                y = yLabel,
                x = xLabel) +
@@ -436,7 +492,8 @@ AverageMetricsPanel <- function(avgMetrics.input, dateType.input, scaleY.input,
                 axis.text.x = element_text(size = xTickSize))
         
       }
-      
+        
+
       #################################
       # Adding the figure to the list #
       #################################
@@ -447,6 +504,16 @@ AverageMetricsPanel <- function(avgMetrics.input, dateType.input, scaleY.input,
       
       # Adding one to the index
       j <- j + 1
+      
+      #################################################
+      # Returning nothing if the colors have an issue #
+      #################################################
+      }, error = function(e){
+        
+        MAE.Figure <- NULL
+        
+      })
+      
       
     ########################
     # Null holder for list #
@@ -501,6 +568,29 @@ AverageMetricsPanel <- function(avgMetrics.input, dateType.input, scaleY.input,
         
       }
       
+      ##########################
+      # Handling legend breaks #
+      ##########################
+      if(nrow(PI.data) == 1){
+        
+        # Setting the legend break to 1
+        legendBreaks.PI <- 1
+        
+      #####################################
+      # Keeping the default legend breaks #
+      #####################################
+      }else{
+        
+        # Setting the legend break to 1
+        legendBreaks.PI <- legendBreaks
+        
+      }
+      
+      ############################
+      # TryCatch for color issue #
+      ############################
+      tryCatch({
+      
       ##############################################
       # Plotting the average figure: Show the text #
       ##############################################
@@ -510,8 +600,8 @@ AverageMetricsPanel <- function(avgMetrics.input, dateType.input, scaleY.input,
           geom_tile(color = outlineColor) +
           geom_text(aes(label = round(finalPI, 2)), color = textColor, size = textSize)  +
           scale_fill_gradient(low = lowColor, high = highColor, 
-                              breaks = seq(min(PI.data$finalPI), max(PI.data$finalPI), length.out = legendBreaks),
-                              labels = round(seq(min(PI.data$finalPI), max(PI.data$finalPI), length.out = legendBreaks), 2)) +
+                              breaks = seq(min(PI.data$finalPI), max(PI.data$finalPI), length.out = legendBreaks.PI),
+                              labels = round(seq(min(PI.data$finalPI), max(PI.data$finalPI), length.out = legendBreaks.PI), 2)) +
           labs(fill = legendLabel,
                y = yLabel,
                x = xLabel) +
@@ -532,8 +622,8 @@ AverageMetricsPanel <- function(avgMetrics.input, dateType.input, scaleY.input,
         PI.Figure <- ggplot(data = PI.data, aes(x = Model, y = fct_rev(Location), fill = finalPI)) +
           geom_tile(color = outlineColor) +
           scale_fill_gradient(low = lowColor, high = highColor, 
-                              breaks = seq(min(PI.data$finalPI), max(PI.data$finalPI), length.out = legendBreaks),
-                              labels = round(seq(min(PI.data$finalPI), max(PI.data$finalPI), length.out = legendBreaks), 2)) +
+                              breaks = seq(min(PI.data$finalPI), max(PI.data$finalPI), length.out = legendBreaks.PI),
+                              labels = round(seq(min(PI.data$finalPI), max(PI.data$finalPI), length.out = legendBreaks.PI), 2)) +
           labs(fill = legendLabel,
                y = yLabel,
                x = xLabel) +
@@ -548,6 +638,7 @@ AverageMetricsPanel <- function(avgMetrics.input, dateType.input, scaleY.input,
         
       }
       
+
       #################################
       # Adding the figure to the list #
       #################################
@@ -558,6 +649,16 @@ AverageMetricsPanel <- function(avgMetrics.input, dateType.input, scaleY.input,
     
       # Adding one to the index
       j <- j + 1
+      
+      #################################################
+      # Returning nothing if the colors have an issue #
+      #################################################
+      }, error = function(e){
+        
+        PI.Figure <- NULL
+        
+      })
+      
       
     ########################
     # Null holder for list #
@@ -612,6 +713,29 @@ AverageMetricsPanel <- function(avgMetrics.input, dateType.input, scaleY.input,
         
       }
       
+      ##########################
+      # Handling legend breaks #
+      ##########################
+      if(nrow(WIS.data) == 1){
+        
+        # Setting the legend break to 1
+        legendBreaks.WIS <- 1
+        
+      #####################################
+      # Keeping the default legend breaks #
+      #####################################
+      }else{
+        
+        # Setting the legend break to 1
+        legendBreaks.WIS <- legendBreaks
+        
+      }
+      
+      ############################
+      # TryCatch for color issue #
+      ############################
+      tryCatch({
+        
       ##############################################
       # Plotting the average figure: Show the text #
       ##############################################
@@ -621,8 +745,8 @@ AverageMetricsPanel <- function(avgMetrics.input, dateType.input, scaleY.input,
           geom_tile(color = outlineColor) +
           geom_text(aes(label = round(finalWIS, 2)), color = textColor, size = textSize)  +
           scale_fill_gradient(low = lowColor, high = highColor, 
-                              breaks = seq(min(WIS.data$finalWIS), max(WIS.data$finalWIS), length.out = legendBreaks),
-                              labels = round(seq(min(WIS.data$finalWIS), max(WIS.data$finalWIS), length.out = legendBreaks), 2)) +
+                              breaks = seq(min(WIS.data$finalWIS), max(WIS.data$finalWIS), length.out = legendBreaks.WIS),
+                              labels = round(seq(min(WIS.data$finalWIS), max(WIS.data$finalWIS), length.out = legendBreaks.WIS), 2)) +
           labs(fill = legendLabel,
                y = yLabel,
                x = xLabel) +
@@ -643,8 +767,8 @@ AverageMetricsPanel <- function(avgMetrics.input, dateType.input, scaleY.input,
         WIS.Figure <- ggplot(data = WIS.data, aes(x = Model, y = fct_rev(Location), fill = finalWIS)) +
           geom_tile(color = outlineColor) +
           scale_fill_gradient(low = lowColor, high = highColor, 
-                              breaks = seq(min(WIS.data$finalWIS), max(WIS.data$finalWIS), length.out = legendBreaks),
-                              labels = round(seq(min(WIS.data$finalWIS), max(WIS.data$finalWIS), length.out = legendBreaks), 2)) +
+                              breaks = seq(min(WIS.data$finalWIS), max(WIS.data$finalWIS), length.out = legendBreaks.WIS),
+                              labels = round(seq(min(WIS.data$finalWIS), max(WIS.data$finalWIS), length.out = legendBreaks.WIS), 2)) +
           labs(fill = legendLabel,
                y = yLabel,
                x = xLabel) +
@@ -658,7 +782,7 @@ AverageMetricsPanel <- function(avgMetrics.input, dateType.input, scaleY.input,
                 axis.text.x = element_text(size = xTickSize))
         
       }
-      
+
       #################################
       # Adding the figure to the list #
       #################################
@@ -669,6 +793,17 @@ AverageMetricsPanel <- function(avgMetrics.input, dateType.input, scaleY.input,
       
       # Adding one to the index
       j <- j + 1
+      
+      
+      #################################################
+      # Returning nothing if the colors have an issue #
+      #################################################
+      }, error = function(e){
+        
+        WIS.Figure <- NULL
+        
+      })
+      
       
     ########################
     # Null holder for list #
@@ -723,6 +858,11 @@ AverageMetricsPanel <- function(avgMetrics.input, dateType.input, scaleY.input,
         
       }
       
+      ############################
+      # TryCatch for color issue #
+      ############################
+      tryCatch({
+      
       ##############################################
       # Plotting the average figure: Show the text #
       ##############################################
@@ -769,7 +909,7 @@ AverageMetricsPanel <- function(avgMetrics.input, dateType.input, scaleY.input,
                 axis.text.x = element_text(size = xTickSize))
         
       }
-      
+        
       #################################
       # Adding the figure to the list #
       #################################
@@ -780,6 +920,15 @@ AverageMetricsPanel <- function(avgMetrics.input, dateType.input, scaleY.input,
       
       # Adding one to the index
       j <- j + 1
+      
+      #################################################
+      # Returning nothing if the colors have an issue #
+      #################################################
+      }, error = function(e){
+        
+        AICc.Figure <- NULL
+        
+      })
       
     ########################
     # Null holder for list #
@@ -834,6 +983,11 @@ AverageMetricsPanel <- function(avgMetrics.input, dateType.input, scaleY.input,
         
       }
       
+      ############################
+      # TryCatch for color issue #
+      ############################
+      tryCatch({
+        
       ##############################################
       # Plotting the average figure: Show the text #
       ##############################################
@@ -892,6 +1046,15 @@ AverageMetricsPanel <- function(avgMetrics.input, dateType.input, scaleY.input,
       # Adding one to the index
       j <- j + 1
       
+      #################################################
+      # Returning nothing if the colors have an issue #
+      #################################################
+      }, error = function(e){
+        
+        AIC.Figure <- NULL
+        
+      })
+      
     ########################
     # Null holder for list #
     ########################
@@ -945,6 +1108,11 @@ AverageMetricsPanel <- function(avgMetrics.input, dateType.input, scaleY.input,
         
       }
       
+      ############################
+      # TryCatch for color issue #
+      ############################
+      tryCatch({
+        
       ##############################################
       # Plotting the average figure: Show the text #
       ##############################################
@@ -991,7 +1159,7 @@ AverageMetricsPanel <- function(avgMetrics.input, dateType.input, scaleY.input,
                 axis.text.x = element_text(size = xTickSize))
         
       }
-      
+
       #################################
       # Adding the figure to the list #
       #################################
@@ -1002,6 +1170,17 @@ AverageMetricsPanel <- function(avgMetrics.input, dateType.input, scaleY.input,
 
       # Adding one to the index
       j <- j + 1
+      
+      
+      #################################################
+      # Returning nothing if the colors have an issue #
+      #################################################
+      }, error = function(e){
+        
+        BIC.Figure <- NULL
+        
+      })
+      
       
     ########################
     # Null holder for list #

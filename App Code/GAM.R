@@ -8,7 +8,7 @@
 # This file takes in output related to the user selected forecasting periods,  #
 # desired forecasting horizon, type of date data, data smoothing, and 'GAM'    #
 # related parameters to produce a list of GAM based quantile forecasts. The    #
-# forecasts are outputted in quantile format, with a median prediction and 22  #
+# forecasts are outputted in quantile format, with a central prediction and 22 #
 # additional quantiles. The user also has the option to customize the GLM      #
 # error distribution, and other GAM related model fitting options. Available   #
 # error distributions include normal, Poisson, and negative binomial.          #
@@ -19,8 +19,8 @@
 #     estimation. Version 1.9-0. [cited 2023 Oct 16]. Available from: https:// #
 #     www.rdocumentation.org/packages/mgcv/versions/1.9-0/topics/gam.          #
 #                                                                              #
-# Forecasts are outputted in quantile format, with a a median prediction, as   #
-# the model assumes normality, and 22 additional quantiles.                    #
+# Forecasts are outputted in quantile format, with a central prediction, as    #
+# and 22 additional quantiles.                                                 #
 #------------------------------------------------------------------------------#
 #                Authors: Amanda Bleichrodt and Ruiyan Luo                     #
 #------------------------------------------------------------------------------#
@@ -247,6 +247,9 @@ GAM <- function(calibration.input, horizon.input, date.Type.input,
         # Data to be used for the remainder of the code
         data.cur <- data.cur
         
+        # Length
+        lengthData <- length(data.cur) 
+        
       ######################################################################
       # Runs if smoothing is indicated - Rounds if NB or Poisson is chosen #
       ######################################################################
@@ -258,10 +261,16 @@ GAM <- function(calibration.input, horizon.input, date.Type.input,
           # Rounding the smoothed data
           data.cur <- round(rollmean(data.cur, smoothing.input.G), 0)
           
+          # Length
+          lengthData <- length(data.cur) + floor(smoothing.input.G/2)
+          
         }else{
           
           # No rounding with the smoothed data 
           data.cur <- rollmean(data.cur, smoothing.input.G) 
+          
+          # Length
+          lengthData <- length(data.cur) + floor(smoothing.input.G/2)
           
         } # End of else for rounding smoothing 
         
@@ -382,7 +391,7 @@ GAM <- function(calibration.input, horizon.input, date.Type.input,
     ############################################
     
     # Forecasting from the model fit
-    fcst <- stats::predict(gam.mod, data.frame(time=1:(length(data.cur) + horizon.input.G)), se.fit=T)
+    fcst <- stats::predict(gam.mod, data.frame(time=1:(lengthData + horizon.input.G)), se.fit=T)
     
     # Creating a variable that includes the forecasted values/means 
     GAMForecast <- as.data.frame(as.numeric(fcst$fit))
@@ -486,6 +495,11 @@ GAM <- function(calibration.input, horizon.input, date.Type.input,
     ############################################
     # Adding the forecast to the quantile list #
     ############################################
+    
+    # Removing row name
+    row.names(GAMForecast) <- NULL
+    
+    # Adding it to list
     quantile.list.locations[[g]] <- GAMForecast
     
     # Adding names to list data frames

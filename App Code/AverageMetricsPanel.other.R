@@ -325,7 +325,30 @@ AverageMetricsPanel.other <- function(avgMetrics.input, dateType.input, scaleY.i
         # Reorder the 'model' factor 
         temp.data$Model <- factor(temp.data$Model, 
                                           levels = c(important_models, setdiff(all_models, important_models)))
+        
+        ##########################
+        # Handling legend breaks #
+        ##########################
+        if(nrow(temp.data) == 1){
+          
+          # Setting the legend break to 1
+          legendBreaks.temp <- 1
+          
+          #####################################
+          # Keeping the default legend breaks #
+          #####################################
+        }else{
+          
+          # Setting the legend break to 1
+          legendBreaks.temp <- legendBreaks
+          
+        }
 
+        ############################
+        # TryCatch for color issue #
+        ############################
+        tryCatch({
+          
         ##############################################
         # Plotting the average figure: Show the text #
         ##############################################
@@ -335,8 +358,8 @@ AverageMetricsPanel.other <- function(avgMetrics.input, dateType.input, scaleY.i
             geom_tile(color = outlineColor) +
             geom_text(aes(label = round(temp.metricFinal, 2)), color = textColor, size = textSize) +
             scale_fill_gradient(low = lowColor, high = highColor, 
-                                breaks = seq(min(temp.data$temp.metricFinal), max(temp.data$temp.metricFinal), length.out = legendBreaks),
-                                labels = round(seq(min(temp.data$temp.metricFinal), max(temp.data$temp.metricFinal), length.out = legendBreaks), 2)) +
+                                breaks = seq(min(temp.data$temp.metricFinal), max(temp.data$temp.metricFinal), length.out = legendBreaks.temp),
+                                labels = round(seq(min(temp.data$temp.metricFinal), max(temp.data$temp.metricFinal), length.out = legendBreaks.temp), 2)) +
             labs(fill = legendLabel,
                  y = yLabel,
                  x = xLabel) +
@@ -357,8 +380,8 @@ AverageMetricsPanel.other <- function(avgMetrics.input, dateType.input, scaleY.i
           Figure <- ggplot(data = temp.data, aes(x = Model, y = fct_rev(Location), fill = temp.metricFinal)) +
             geom_tile(color = outlineColor) +
             scale_fill_gradient(low = lowColor, high = highColor, 
-                                breaks = seq(min(temp.data$temp.metricFinal), max(temp.data$temp.metricFinal), length.out = legendBreaks),
-                                labels = round(seq(min(temp.data$temp.metricFinal), max(temp.data$temp.metricFinal), length.out = legendBreaks), 2)) +
+                                breaks = seq(min(temp.data$temp.metricFinal), max(temp.data$temp.metricFinal), length.out = legendBreaks.temp),
+                                labels = round(seq(min(temp.data$temp.metricFinal), max(temp.data$temp.metricFinal), length.out = legendBreaks.temp), 2)) +
             labs(fill = legendLabel,
                  y = yLabel,
                  x = xLabel) +
@@ -383,6 +406,15 @@ AverageMetricsPanel.other <- function(avgMetrics.input, dateType.input, scaleY.i
         
         # Adding one to the index
         j <- j + 1
+        
+        #################################################
+        # Returning nothing if the colors have an issue #
+        #################################################
+        }, error = function(e){
+          
+          Figure <- NULL
+          
+        })
         
       } # End of loop for metrics
       

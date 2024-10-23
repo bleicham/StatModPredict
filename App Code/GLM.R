@@ -8,10 +8,10 @@
 # This file takes in output related to the user selected forecasting periods,  #
 # desired forecasting horizon, type of date data, data smoothing, and 'GLM'    #
 # related parameters to produce a list of GLM based quantile forecasts. The    #
-# forecasts are outputted in quantile format, with a median                    #
+# forecasts are outputted in quantile format, with a central                   #
 # prediction and 22 additional quantiles. The user also has the option to      #
 # customize the GLM error distribution. Available error distributions include  #
-# normal, Poisson, and negative binomial. The 'gam' function within the        #
+# normal, Poisson, and negative binomial. The 'glm' function within the        #
 # "stats" package is used to fit the model with time as the only covariate,    #
 # and additional details on the function can be found at:                      #
 #                                                                              #
@@ -19,9 +19,9 @@
 #     23]. Available from: https://www.rdocumentation.org/packages/stats/vers  #
 #     ions/3.6.2/topics/glm                                                    #
 #                                                                              #
-# Forecasts are outputted in quantile format, with a a median prediction, as   #
-# the model assumes normality, and 22 additional quantiles. Available error    #
-# distributions include normal, Poisson, and negative binomial.                #
+# Forecasts are outputted in quantile format, with a central prediction, and   #
+# 22 additional quantiles. Available error distributions include normal,       #
+# Poisson, and negative binomial.                                              #
 #------------------------------------------------------------------------------#
 #                Authors: Amanda Bleichrodt and Ruiyan Luo                     #
 #------------------------------------------------------------------------------#
@@ -176,6 +176,9 @@ GLM <- function(calibration.input, horizon.input, date.Type.input,
         # Data to be used for the remainder of the code
         data.cur <- data.cur
         
+        # Length
+        lengthData <- length(data.cur)
+        
         ######################################################################
         # Runs if smoothing is indicated - Rounds if NB or Poisson is chosen #
         ######################################################################
@@ -187,10 +190,16 @@ GLM <- function(calibration.input, horizon.input, date.Type.input,
             # Rounding the smoothed data
             data.cur <- round(rollmean(data.cur, smoothing.input.GLM), 0)
             
+            # Length
+            lengthData <- length(data.cur) + floor(smoothing.input.GLM/2)
+            
           }else{
             
             # No rounding with the smoothed data 
             data.cur <- rollmean(data.cur, smoothing.input.GLM) 
+            
+            # Length
+            lengthData <- length(data.cur) + floor(smoothing.input.GLM/2)
             
           } # End of else for rounding smoothing 
           
@@ -306,7 +315,7 @@ GLM <- function(calibration.input, horizon.input, date.Type.input,
     
     # Forecasting from the model fit
     fcst <- stats::predict(glm.mod, data.frame(time=1: 
-                                                 (length(data.cur) + horizon.input.GLM)), se.fit=T)
+                                                 (lengthData + horizon.input.GLM)), se.fit=T)
     
   
     # Saving the model forecasts - both historic and ahead 
@@ -379,22 +388,23 @@ GLM <- function(calibration.input, horizon.input, date.Type.input,
                     `upper.98%` = `u 0.02`) %>%
       mutate_all(~ round(., 2)) # Rounding the results to two decimals 
     
+    
     ########################################
     # Handling when data smoothing is used #
     ########################################
     if(smoothing.input.GLM == 1 || is.null(smoothing.input.GLM)){
       
-      # Keeping what was used before
-      GLMForecast <- GLMForecast 
-    
-    #################################
-    # Runs if an smoothing occurred #
-    #################################
+      # Keeping original forecast
+      GLMForecast <- GLMForecast
+      
+    ################################
+    # Runs if smoothing is applied #
+    ################################
     }else{
-
+      
       # Keeping only the forecast horizon
       GLMForecast <- GLMForecast[(nrow(GLMForecast) - horizon.input.GLM + 1):nrow(GLMForecast),]
-
+      
     }
     
 #------------------------------------------------------------------------------#
@@ -408,6 +418,11 @@ GLM <- function(calibration.input, horizon.input, date.Type.input,
     ############################################
     # Adding the forecast to the quantile list #
     ############################################
+    
+    # Removing row numbers
+    row.names(GLMForecast) <- NULL
+    
+    # Adding to list
     quantile.list.locations[[s]] <- GLMForecast
     
     # Adding names to list data frames

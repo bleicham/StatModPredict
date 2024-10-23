@@ -246,6 +246,9 @@ ARIMA <- function(calibration.input, horizon.input,
         # Data to be used for the remainder of the code
         data <- data
         
+        # Length
+        lengthData <- 0
+        
       #################################
       # Run if smoothing is indicated #
       #################################
@@ -253,6 +256,9 @@ ARIMA <- function(calibration.input, horizon.input,
         
         # Data w/smoothing employed
         data <- rollmean(data, smoothing.input.A)
+        
+        # Length
+        lengthData <- floor(smoothing.input.A/2)
         
       }
       
@@ -397,7 +403,7 @@ ARIMA <- function(calibration.input, horizon.input,
       ################################################################
       
       # Producing the forecasts
-      fcst <- forecast::forecast(fit, h=horizon.input.A, level=levels)
+      fcst <- forecast::forecast(fit, h=(horizon.input.A+lengthData), level=levels)
       
       # Creating a variable that includes the forecasted values/means
       means <- round(fcst$mean, 2)
@@ -419,6 +425,24 @@ ARIMA <- function(calibration.input, horizon.input,
       
       # Combining the means, and PIs into one data frame
       fcstval <- cbind(means, lower, upper)
+      
+      ########################################
+      # Handling when data smoothing is used #
+      ########################################
+      if(smoothing.input.A == 1 || is.null(smoothing.input.A)){
+        
+        # Keeping original forecast
+        fcstval <- fcstval
+        
+      ################################
+      # Runs if smoothing is applied #
+      ################################
+      }else{
+        
+        # Keeping only the forecast horizon
+        fcstval <- fcstval[(nrow(fcstval) - horizon.input.A + 1):nrow(fcstval),]
+        
+      }
       
 #------------------------------------------------------------------------------#
 # Creating a list of quantile frames -------------------------------------------

@@ -23,22 +23,22 @@ errorReturn <- function(orignalData.input, otherForecast.input, dateType.input,
   #################
   # Original data #
   #################
-  orignalData <- orignalData.input
+  orignalData <<- orignalData.input
   
   ##############################
   # Model comparison forecasts #
   ##############################
-  otherForecast <- otherForecast.input
+  otherForecast <<- otherForecast.input
   
   ###################################
   # Date type for the original data #
   ###################################
-  dateType <- dateType.input
+  dateType <<- dateType.input
   
   ####################
   # Original Horizon #
   ####################
-  orignalHorizon <- horizon.input
+  orignalHorizon <<- horizon.input
   
   ##################################
   # Creating the `not-in` function #
@@ -103,7 +103,6 @@ errorReturn <- function(orignalData.input, otherForecast.input, dateType.input,
     }
     
     # Check for the word "Performance"
-    # Checking for the word calibration
     if(fileSplit[[1]][1] == "Performance"){
       
       return("ERROR1")
