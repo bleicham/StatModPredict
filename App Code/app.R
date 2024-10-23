@@ -12629,7 +12629,7 @@ server <- function(input, output, session) {
       ###############################################
       isolate({
 
-        individual <<- forecast.figures.other(formatted.forecast.input = vettedData$data, # Formatted figures list
+        individual <- forecast.figures.other(formatted.forecast.input = vettedData$data, # Formatted figures list
                                              data.type.input = dateValues$dates, # Date input
                                              smoothing.input = input$smoothingInput, # Smoothing input
                                              scaleYAxis.input = scaleYOPanel$logScale, # Scale y-axis
@@ -12838,28 +12838,6 @@ server <- function(input, output, session) {
 
   })
   
-  #########################################################
-  # Clearing output when comparison forecasts are changed #
-  #########################################################
-  observeEvent(input$dataset2, {
-    
-    # Clearing the list with final plots
-    finalFiguresOther$figures <- NULL
-    
-    # Clearing the list with individual plots
-    individualOtherPlots$figures <- NULL
-    
-    # Clearing the list with panel plots
-    PanelOtherPlots$figures <- NULL
-    
-    # Clearing vetted data
-    vettedData$data <- NULL
-    
-    # Resetting the index
-    current_index_otherModels(1)
-    
-  })
-
 
 #------------------------------------------------------------------------------#
 # Creating the forward and backwards arrows for the other figures   ------------
@@ -12987,8 +12965,7 @@ server <- function(input, output, session) {
     )
 
   }) # End of 'observe'
-
-
+  
 
 #------------------------------------------------------------------------------#
 # Downloading the figures pop-up -----------------------------------------------
