@@ -36,127 +36,127 @@ panel.forecast.figures.other <- function(formatted.forecast.input, formatted.for
   ###########################
   # Formatted Forecast list #
   ###########################
-  formatted.forecast.Figure <<- formatted.forecast.input
+  formatted.forecast.Figure <- formatted.forecast.input
   
   #####################################
   # Formatted Forecast - Other models #
   #####################################
-  formatted.forecast.Figure.other <<- formatted.forecast.other.input
+  formatted.forecast.Figure.other <- formatted.forecast.other.input
 
   #############
   # Date type #
   #############
-  date.Figure <<- data.type.input
+  date.Figure <- data.type.input
   
   ###################
   # Smoothing input #
   ###################
-  smoothing.Figure <<- smoothing.input
+  smoothing.Figure <- smoothing.input
   
   ###################
   # Scale of y-axis #
   ###################
-  scaleY <<- scaleYAxis.input
+  scaleY <- scaleYAxis.input
   
   ################
   # Y-Axis label #
   ################
-  yAxisLabel <<- yAxisLabel.input
+  yAxisLabel <- yAxisLabel.input
   
   ###############
   # Date breaks #
   ###############
-  dateBreaks <<- dateBreaks.input
+  dateBreaks <- dateBreaks.input
   
   #######################
   # Start point, Y Axis #
   #######################
-  startYAxis <<- startYPoint.input
+  startYAxis <- startYPoint.input
   
   ############
   # Dot size #
   ############
-  dotSizeData <<- dotSize.input
+  dotSizeData <- dotSize.input
   
   #############
   # Dot color #
   #############
-  dotColorData <<- dotColor.input
+  dotColorData <- dotColor.input
   
   ####################
   # Median line type #
   ####################
-  MLinetype <<- linetype.input
+  MLinetype <- linetype.input
   
   #####################
   # Median line color #
   #####################
-  MLineColor <<- lineColor.input
+  MLineColor <- lineColor.input
   
   #####################
   # Median line width #
   #####################
-  MLineWidth <<- lineWidth.input
+  MLineWidth <- lineWidth.input
   
   ###################
   # Bound line type #
   ###################
-  BLineType <<- boundtype.input
+  BLineType <- boundtype.input
   
   ####################
   # Bound line width #
   ####################
-  BLineWidth <<- boundWidth.input
+  BLineWidth <- boundWidth.input
   
   ####################
   # Bound line color #
   ####################
-  BLineColor <<- boundColor.input
+  BLineColor <- boundColor.input
   
   #####################
   # Y-Axis Label size #
   #####################
-  YAxisLabelSize <<- yLabelSize.input
+  YAxisLabelSize <- yLabelSize.input
   
   #####################
   # Y-Axis Label face #
   #####################
-  YAxisLabelFace <<- yLabelFace.input
+  YAxisLabelFace <- yLabelFace.input
   
   ####################
   # Y-Axis Tick Size #
   ####################
-  YAxisTickSize <<- yTickSize.input
+  YAxisTickSize <- yTickSize.input
   
   #################
   # Y-Axis Breaks #
   #################
-  YAxisBreaks <<- yTickBreaks.input
+  YAxisBreaks <- yTickBreaks.input
   
   ################
   # X-Axis Label #
   ################
-  XAxisLabel <<- xAxisLabel.input
+  XAxisLabel <- xAxisLabel.input
   
   #####################
   # X-Axis Label Size #
   #####################
-  xAxisLabelSize <<- xAxisLabelSize.input
+  xAxisLabelSize <- xAxisLabelSize.input
   
   #####################
   # X-Axis Label Face #
   #####################
-  xAxisLabelFace <<- xAxisLabelFace.input
+  xAxisLabelFace <- xAxisLabelFace.input
   
   ####################
   # X-Axis Tick Size #
   ####################
-  xAxisTickSize <<- xAxisTickSize.input
+  xAxisTickSize <- xAxisTickSize.input
   
   ##################
   # Quantile input #
   ##################
-  quantileSelection <<- quantile.input
+  quantileSelection <- quantile.input
 
   #####################################
   # Creating the empty list for final #
@@ -441,7 +441,7 @@ panel.forecast.figures.other <- function(formatted.forecast.input, formatted.for
   
       # Dates on x-axis
       data.for.plot <- data.for.plot %>%
-        mutate(dates = anytime::anydate(Date)) # Handling dates if working with weekly and daily data
+        mutate(dates = anytime::anydate(parse_date_time(Date, orders = c("ymd", "dmy", "mdy", "BdY", "ymd")))) # Handling dates if working with weekly and daily data
   
     ##############################################################
     # Handling dates in the forecast files - years or time index #

@@ -23,22 +23,22 @@ errorReturn <- function(orignalData.input, otherForecast.input, dateType.input,
   #################
   # Original data #
   #################
-  orignalData <<- orignalData.input
+  orignalData <- orignalData.input
   
   ##############################
   # Model comparison forecasts #
   ##############################
-  otherForecast <<- otherForecast.input
+  otherForecast <- otherForecast.input
   
   ###################################
   # Date type for the original data #
   ###################################
-  dateType <<- dateType.input
+  dateType <- dateType.input
   
   ####################
   # Original Horizon #
   ####################
-  orignalHorizon <<- horizon.input
+  orignalHorizon <- horizon.input
   
   ##################################
   # Creating the `not-in` function #
@@ -188,7 +188,7 @@ errorReturn <- function(orignalData.input, otherForecast.input, dateType.input,
       
       # Changing to date format
       indexedForecastDate <- indexedForecast %>%
-        dplyr::mutate(Date = anytime::anydate(Date))
+        dplyr::mutate(Date = anytime::anydate(chron(Date)))
       
       ##########################
       # Checking the date type #

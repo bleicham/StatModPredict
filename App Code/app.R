@@ -104,7 +104,7 @@
                  shinyalert, shinyjs, shinybusy, editData, shinyBS, DT, stringr,
                  tidyverse, forstringr, mgcv, processx, ggpubr, forecast, 
                  prophet, zip, glue, shinyjqui, patchwork, ggplot2, zoo, gridExtra,
-                 viridis, qdapRegex, RColorBrewer)
+                 viridis, qdapRegex, RColorBrewer, chron, lubridate)
   
 
 #------------------------------------------------------------------------------#
@@ -4886,9 +4886,12 @@ server <- function(input, output, session) {
       # Returning error if smoothing 
       if(input$smoothingInput > 1 & !is.null(input$modelType)){
         
+        # Models for error
+        modelsError <- input$modelType[input$modelType != "Prophet"]
+        
         # Error to show
         shinyalert("Model fits and some fit metrics (MSE, MAE, WIS, PI) are not available for the 
-                   following models due to the smoothing transformation: ", c(input$modelType), 
+                   following models due to the smoothing transformation: ", c(modelsError), 
                    type = "warning")
         
       # Returning null if no error occurs
@@ -5823,7 +5826,8 @@ server <- function(input, output, session) {
       # Creating the UI object
       return(numericInput("smoothingInput",
                           "Data Smoothing:",
-                          value = "1"))
+                          value = 1,
+                          min = 1))
       
       ###############################################
       # Returns NULL if not working with daily data #
@@ -12080,8 +12084,20 @@ server <- function(input, output, session) {
           # Returning the error
           shinyalert(title = "Error", type = "error", text = "Please check the naming scheme of your data.")
   
+          # Clearing the list with final plots
+          finalFiguresOther$figures <- NULL
+          
+          # Clearing the list with individual plots
+          individualOtherPlots$figures <- NULL
+          
+          # Clearing the list with panel plots
+          PanelOtherPlots$figures <- NULL
+          
           # Clearing vetted data
           vettedData$data <- NULL
+          
+          # Resetting the index
+          current_index_otherModels(1)
           
         #####################################
         # Producing Error Code 2: Locations #
@@ -12091,8 +12107,20 @@ server <- function(input, output, session) {
           # Returning the error
           shinyalert(title = "Error", type = "error", text = "Please check your file names. The location listed does not match any location loaded with the orignal data.")
   
+          # Clearing the list with final plots
+          finalFiguresOther$figures <- NULL
+          
+          # Clearing the list with individual plots
+          individualOtherPlots$figures <- NULL
+          
+          # Clearing the list with panel plots
+          PanelOtherPlots$figures <- NULL
+          
           # Clearing vetted data
           vettedData$data <- NULL
+          
+          # Resetting the index
+          current_index_otherModels(1)
           
         #################################
         # Producing Error Code 3: Dates #
@@ -12102,8 +12130,20 @@ server <- function(input, output, session) {
           # Returning the error
           shinyalert(title = "Error", type = "error", text = "The temporal sequence (daily, weekly, yearly, index) included in the forecast files does not match the orignal data. Please check your data and file name.")
   
+          # Clearing the list with final plots
+          finalFiguresOther$figures <- NULL
+          
+          # Clearing the list with individual plots
+          individualOtherPlots$figures <- NULL
+          
+          # Clearing the list with panel plots
+          PanelOtherPlots$figures <- NULL
+          
           # Clearing vetted data
           vettedData$data <- NULL
+          
+          # Resetting the index
+          current_index_otherModels(1)
           
         ###################################
         # Producing Error Code 4: Columns #
@@ -12113,8 +12153,20 @@ server <- function(input, output, session) {
           # Returning the error
           shinyalert(title = "Error", type = "error", text = "Please check the names of the columns within loaded data. The should be in the following order: Date, data, median, LB, UB")
   
+          # Clearing the list with final plots
+          finalFiguresOther$figures <- NULL
+          
+          # Clearing the list with individual plots
+          individualOtherPlots$figures <- NULL
+          
+          # Clearing the list with panel plots
+          PanelOtherPlots$figures <- NULL
+          
           # Clearing vetted data
           vettedData$data <- NULL
+          
+          # Resetting the index
+          current_index_otherModels(1)
           
         ####################################
         # Producing Error Code 5: Horizons #
@@ -12124,8 +12176,20 @@ server <- function(input, output, session) {
           # Returning the error
           shinyalert(title = "Error", type = "error", text = "Please check the forecasting horizon specified in the loaded data. It should match that indicated in the main dashboard side-bar.")
   
+          # Clearing the list with final plots
+          finalFiguresOther$figures <- NULL
+          
+          # Clearing the list with individual plots
+          individualOtherPlots$figures <- NULL
+          
+          # Clearing the list with panel plots
+          PanelOtherPlots$figures <- NULL
+          
           # Clearing vetted data
           vettedData$data <- NULL
+          
+          # Resetting the index
+          current_index_otherModels(1)
           
         #####################################
         # Returning NULL if no error occurs #
@@ -12604,7 +12668,7 @@ server <- function(input, output, session) {
                    yAxisLabFaceOPanel$face, yAxisTickLabelSizeOPanel$size,
                    yAxisBreaksOPanel$value, xAxisLabelOPanel$title,
                    xAxisLabelSizeOPanel$size, xAxisLabFaceOPanel$face,
-                   xAxisTickSizeO$size, input$dataset2)
+                   xAxisTickSizeO$size)
 
     # Returning the list
     return(events)
