@@ -12080,7 +12080,7 @@ server <- function(input, output, session) {
           # Returning the error
           shinyalert(title = "Error", type = "error", text = "Please check the naming scheme of your data.")
   
-          # Clearing out the reactive value
+          # Clearing vetted data
           vettedData$data <- NULL
           
         #####################################
@@ -12091,9 +12091,9 @@ server <- function(input, output, session) {
           # Returning the error
           shinyalert(title = "Error", type = "error", text = "Please check your file names. The location listed does not match any location loaded with the orignal data.")
   
-          # Clearing out the reactive value
+          # Clearing vetted data
           vettedData$data <- NULL
-      
+          
         #################################
         # Producing Error Code 3: Dates #
         #################################
@@ -12102,7 +12102,7 @@ server <- function(input, output, session) {
           # Returning the error
           shinyalert(title = "Error", type = "error", text = "The temporal sequence (daily, weekly, yearly, index) included in the forecast files does not match the orignal data. Please check your data and file name.")
   
-          # Clearing out the reactive value
+          # Clearing vetted data
           vettedData$data <- NULL
           
         ###################################
@@ -12113,7 +12113,7 @@ server <- function(input, output, session) {
           # Returning the error
           shinyalert(title = "Error", type = "error", text = "Please check the names of the columns within loaded data. The should be in the following order: Date, data, median, LB, UB")
   
-          # Clearing out the reactive value
+          # Clearing vetted data
           vettedData$data <- NULL
           
         ####################################
@@ -12124,9 +12124,9 @@ server <- function(input, output, session) {
           # Returning the error
           shinyalert(title = "Error", type = "error", text = "Please check the forecasting horizon specified in the loaded data. It should match that indicated in the main dashboard side-bar.")
   
-          # Clearing out the reactive value
+          # Clearing vetted data
           vettedData$data <- NULL
-  
+          
         #####################################
         # Returning NULL if no error occurs #
         #####################################
@@ -12733,7 +12733,7 @@ server <- function(input, output, session) {
         #################
         # Panel figures #
         #################
-        panelOutput <<- panel.forecast.figures.other(formatted.forecast.input = foremattedForecasts$forecasts, # Formatted forecast files
+        panelOutput <- panel.forecast.figures.other(formatted.forecast.input = foremattedForecasts$forecasts, # Formatted forecast files
                                                     formatted.forecast.other.input = vettedData$data, # Other formatted forecast files
                                                     data.type.input = dateValues$dates, # Date type
                                                     smoothing.input = input$smoothingInput, # Smoothing input
@@ -12838,7 +12838,28 @@ server <- function(input, output, session) {
 
   })
   
-
+  ####################################################################
+  # Clearing the list if the clear button is clicked or data changed #
+  ####################################################################
+  observeEvent(input$run, {
+    
+    # Clearing the list with final plots
+    finalFiguresOther$figures <- NULL
+    
+    # Clearing the list with individual plots
+    individualOtherPlots$figures <- NULL
+    
+    # Clearing the list with panel plots
+    PanelOtherPlots$figures <- NULL
+    
+    # Clearing vetted data
+    vettedData$data <- NULL
+    
+    # Resetting the index
+    current_index_otherModels(1)
+    
+  })
+  
 #------------------------------------------------------------------------------#
 # Creating the forward and backwards arrows for the other figures   ------------
 #------------------------------------------------------------------------------#
