@@ -54,6 +54,19 @@ skillScoresMain <- function(averageIndicator, CrudeMetrics, winkler.input,
   metricToShow <- metricPage.input
   
 #------------------------------------------------------------------------------#
+# Creating the 'not-in' function -----------------------------------------------
+#------------------------------------------------------------------------------#
+# About: This section creates the 'not-in' function. Therefore, `%!in%` now    #
+# can be used as the inverse of the built-in `%in%` function.                  #
+#------------------------------------------------------------------------------#
+  
+  `%!in%` <- function(x, y) {
+    
+    !(x %in% y)
+    
+  }
+  
+#------------------------------------------------------------------------------#
 # Combining the Winkler Scores and Metrics Data --------------------------------
 #------------------------------------------------------------------------------#
 # About: This section compares the metrics data and the Winkler scores.        #
@@ -91,7 +104,7 @@ skillScoresMain <- function(averageIndicator, CrudeMetrics, winkler.input,
   ########################
   
   # Possible variable names
-  possibleNames <- c("Location", "Model", "Calibration", "Date", "MSE", "MAE", "WIS", "PI", "AICc", "AIC", "BIC", "Winkler Score")
+  possibleNames <- c("Location", "Model", "Calibration", "Date", "MSE", "MAE", "WIS", "AICc", "AIC", "BIC", "Winkler Score")
   
   # Selecting the needed variables 
   crudeDataFinal <- crudeDataMerged %>%
@@ -239,7 +252,7 @@ skillScoresMain <- function(averageIndicator, CrudeMetrics, winkler.input,
   if(average.input){
     
     toExport <- winklerData %>%
-      dplyr::select(-Date)
+      dplyr::select(-Date) 
     
   }else{
     

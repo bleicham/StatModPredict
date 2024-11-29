@@ -3484,6 +3484,11 @@ conditionalPanel(
     # Condition 
     condition = "input.my_picker == 'Model Metrics'", 
     
+    #########################################
+    # Setting a fluidRow for the whole page #
+    #########################################
+    fluidRow(
+    
     ######################################################
     # Setting a standard column width for the whole page #
     ######################################################
@@ -4075,6 +4080,8 @@ conditionalPanel(
     ) # End of row hosting the third box
   
   ) # End of alignment column 
+
+ ) # End of 'fluidRow'
   
 ), # End of 'conditionalPanel' for Page 3, Model Metrics 
 
@@ -4976,6 +4983,57 @@ server <- function(input, output, session) {
     
   }) # End of "observe"
   
+#------------------------------------------------------------------------------#
+# Checking location names ------------------------------------------------------
+#------------------------------------------------------------------------------#
+# About: This section checks the file column headers to ensure they do not     #
+# include the "-" character, as it causes issues later in the code.            #
+#------------------------------------------------------------------------------#
+  
+
+  ########################################
+  # Observing changes in reactive values #
+  ########################################
+  observe({
+    
+    # Requiring the file
+    req(file())
+    
+    #########################################
+    # Pulling the column names and checking #
+    #########################################
+    
+    # Pulling the data
+    dataFile <- file()
+    
+    dataTest <- dataFile
+    
+    # Pulling the names
+    groupNames <- c(colnames(dataTest)[-1])
+    
+    # Checking for "-"
+    has_dash <- any(grepl("-", groupNames))
+    
+    ################
+    # Error return #
+    ################
+    if(has_dash){
+      
+      # Error to show
+      shinyalert("At least one of the column names in the selected data contain a special character (i.e., "-"). Please remove all special characters from the column names and reload your data.", 
+                 type = "warning")
+      
+    ###################
+    # No error return #
+    ###################
+    }else{
+      
+      NULL
+      
+    }
+    
+  })
+  
   
 #------------------------------------------------------------------------------#
 # Adding locations filter to the top of the page -------------------------------
@@ -5177,9 +5235,9 @@ server <- function(input, output, session) {
 
   })
 
-  ############################################
-  #Observing a change in the locations input #
-  ############################################
+  #############################################
+  # Observing a change in the locations input #
+  #############################################
   observeEvent(input$locations, {
 
     # Resetting the time series data
@@ -11078,7 +11136,7 @@ server <- function(input, output, session) {
      ##################################
      # Function to produce panel plot #
      ##################################
-     metricPanelAverage <<- AverageMetricsPanel(avgMetrics.input = avgMetricsFiltered$metricsFULL,
+     metricPanelAverage <- AverageMetricsPanel(avgMetrics.input = avgMetricsFiltered$metricsFULL,
                                                dateType.input = dateValues$dates,
                                                scaleY.input = input$logScaleAvgMetric,
                                                lowColor.input = lowColorAvgMetric$lowColor,
