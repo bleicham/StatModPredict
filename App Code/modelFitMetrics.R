@@ -252,7 +252,7 @@ modelFitMetrics <- function(crude.data.input, date.Type.input,
 #------------------------------------------------------------------------------#
     
     PI_MSE_MAE <- quantileForecastCleaned %>%
-      dplyr::mutate(inCoverage = ifelse(observed <= get(paste0("upper.", quantileCalculation, "%")) & observed >= get(paste0("lower.", quantileCalculation, "%")), 1, 0), # Determining if in coverage
+      dplyr::mutate(inCoverage = ifelse(observed < get(paste0("upper.", quantileCalculation, "%")) & observed > get(paste0("lower.", quantileCalculation, "%")), 1, 0), # Determining if in coverage
                     mean95PI = (sum(inCoverage)/calibrationLength)*100) %>% # Calculating the percent coverage
       dplyr::select(observed, means, mean95PI) %>% # Selected needed variables 
       dplyr::mutate(MSE = ((means - observed)^2), # Calculating MSE
