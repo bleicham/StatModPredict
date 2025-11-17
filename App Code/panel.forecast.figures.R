@@ -535,7 +535,8 @@ panel.forecast.figures <- function(formatted.forecast.input, data.type.input,
           breaks.graph <- case_when(
             
             breakCalculation > 1 ~ floor(breakCalculation),
-            breakCalculation <= 1 ~ round(breakCalculation, 2)
+            breakCalculation >= 0.1 ~ round(breakCalculation, 2),
+            breakCalculation < 0.1 ~ 0.1
             
           )
           

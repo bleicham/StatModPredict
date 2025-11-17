@@ -8944,7 +8944,8 @@ server <- function(input, output, session) {
             if (!is.null(plot_obj)) {
 
               # File name
-              file_name <- glue("{plot_name}.{input$extFig}")
+              safe_name <- gsub("[^A-Za-z0-9_-]", "_", plot_name)
+              file_name <- paste0(safe_name, ".", input$extFig)
 
               # TIFF file
               if(input$extFig == "tiff"){
@@ -10407,7 +10408,8 @@ server <- function(input, output, session) {
             if (!is.null(plot_obj)) {
 
               # File name
-              file_name <- glue("{plot_name}.{input$extFig}")
+              safe_name <- gsub("[^A-Za-z0-9_-]", "_", plot_name)
+              file_name <- paste0(safe_name, ".", input$extFig)
 
               # TIFF file
               if(input$extFig == "tiff"){
@@ -11443,7 +11445,8 @@ server <- function(input, output, session) {
         if (!is.null(plot_obj)) {
 
           # File name
-          file_name <- glue("{plot_name}.{input$extFig}")
+          safe_name <- gsub("[^A-Za-z0-9_-]", "_", plot_name)
+          file_name <- paste0(safe_name, ".", input$extFig)
 
           # TIFF file
           if(input$extFig == "tiff"){
@@ -13256,7 +13259,8 @@ server <- function(input, output, session) {
             if (!is.null(plot_obj)) {
 
               # File name
-              file_name <- glue("{plot_name}.{input$extFig}")
+              safe_name <- gsub("[^A-Za-z0-9_-]", "_", plot_name)
+              file_name <- paste0(safe_name, ".", input$extFig)
 
               # TIFF file
               if(input$extFig == "tiff"){
@@ -14541,7 +14545,8 @@ server <- function(input, output, session) {
             if (!is.null(plot_obj)) {
 
               # File name
-              file_name <- glue("{plot_name}.{input$extFig}")
+              safe_name <- gsub("[^A-Za-z0-9_-]", "_", plot_name)
+              file_name <- paste0(safe_name, ".", input$extFig)
 
               # TIFF file
               if(input$extFig == "tiff"){
@@ -15505,7 +15510,8 @@ server <- function(input, output, session) {
         if (!is.null(plot_obj)) {
 
           # File name
-          file_name <- glue("{plot_name}.{input$extFig}")
+          safe_name <- gsub("[^A-Za-z0-9_-]", "_", plot_name)
+          file_name <- paste0(safe_name, ".", input$extFig)
 
           # TIFF file
           if(input$extFig == "tiff"){
