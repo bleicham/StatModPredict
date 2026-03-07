@@ -9384,7 +9384,9 @@ server <- function(input, output, session) {
     ###############################################
     # Adding the final list to the reactive value #
     ###############################################
-    modelMetricsCrude$metricsList <- metrics
+    if(!is.null(metrics)){
+      modelMetricsCrude$metricsList <- metrics
+    }
 
   }) # End of 'observe'
 
