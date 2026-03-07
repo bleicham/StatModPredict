@@ -9384,7 +9384,7 @@ server <- function(input, output, session) {
     ###############################################
     # Adding the final list to the reactive value #
     ###############################################
-    if(!is.null(metrics)){
+    if (!is.null(metrics)){
       modelMetricsCrude$metricsList <- metrics
     }
 
