@@ -13603,8 +13603,6 @@ server <- function(input, output, session) {
       # Adding it to the unfiltered reactive value
       finalCrudeUnfiltered$metrics <- combinedMetrics
       
-    }
-    
 #------------------------------------------------------------------------------#
 # Creating the filtering pop-up ------------------------------------------------
 #------------------------------------------------------------------------------#
@@ -13612,34 +13610,34 @@ server <- function(input, output, session) {
 # performance metrics. Filtering options include, type, location, model, and   #
 # calibration period length.                                                   #
 #------------------------------------------------------------------------------#
-    
-    #######################
-    # Creating the pop-up #
-    #######################
-    observeEvent(input$filterCrudeCombinedMetrics, ignoreInit = T,{
       
-      # Requiring the combined metrics
-      req(combinedMetrics)
-      
-      # Changing the indicator to one (i.e., button has been clicked)
-      isolate({indicatorForFilterMetrics(1)})
-      
-      # Isolating button click behavior 
-      isolate({
+      #######################
+      # Creating the pop-up #
+      #######################
+      observeEvent(input$filterCrudeCombinedMetrics, ignoreInit = T,{
         
-        # Button 
-        showModal(modalDialog(
-          title = "Filtering Options",
-          pickerInput("ModelCrudeData1", "Model:", c(unique(combinedMetrics$Model)), selected = c(unique(combinedMetrics$Model)), multiple = T), # Model filtering
-          pickerInput("perfType1", "Performance Metric Type:", c(unique(combinedMetrics$Type)), selected = c(unique(combinedMetrics$Type)), multiple = T), # Metric Type
-          pickerInput("locationChoicesCrude1", "Location:", c(unique(combinedMetrics$Location)), selected = c(unique(combinedMetrics$Location)), multiple = T), # Location
-          pickerInput("calibrationChoices1", "Calibration:", c(unique(combinedMetrics$Calibration)), selected = c(unique(combinedMetrics$Calibration)), multiple = T) # Calibration 
+        # Requiring the combined metrics
+        req(combinedMetrics)
+        
+        # Changing the indicator to one (i.e., button has been clicked)
+        isolate({indicatorForFilterMetrics(1)})
+        
+        # Isolating button click behavior 
+        isolate({
           
-        ))
+          # Button 
+          showModal(modalDialog(
+            title = "Filtering Options",
+            pickerInput("ModelCrudeData1", "Model:", c(unique(combinedMetrics$Model)), selected = c(unique(combinedMetrics$Model)), multiple = T), # Model filtering
+            pickerInput("perfType1", "Performance Metric Type:", c(unique(combinedMetrics$Type)), selected = c(unique(combinedMetrics$Type)), multiple = T), # Metric Type
+            pickerInput("locationChoicesCrude1", "Location:", c(unique(combinedMetrics$Location)), selected = c(unique(combinedMetrics$Location)), multiple = T), # Location
+            pickerInput("calibrationChoices1", "Calibration:", c(unique(combinedMetrics$Calibration)), selected = c(unique(combinedMetrics$Calibration)), multiple = T) # Calibration 
+            
+          ))
+          
+        })
         
-      })
-      
-    }) # End of 'observeEvent'
+      }) # End of 'observeEvent'
 
 #------------------------------------------------------------------------------#
 # Filtering the crude metrics data ---------------------------------------------
@@ -13648,33 +13646,35 @@ server <- function(input, output, session) {
 # selected variables above. If no indicators are selected, the original data is#
 # exported.                                                                    #
 #------------------------------------------------------------------------------#
-    
-    ######################
-    # Filtering the data #
-    ######################
-    if(indicatorForFilterMetrics() == 1){
       
-      # Filtering the data 
-      dataToExport <- combinedMetrics %>%
-        dplyr::filter(Model %in% c(input$ModelCrudeData1), # Model filtering
-                      Type %in% c(input$perfType1), # Metric type filtering
-                      Location %in% c(input$locationChoicesCrude1), # Location filtering
-                      Calibration %in% c(input$calibrationChoices1)) # Calibration filtering
-                      
-    ############################
-    # No filtering to the data #
-    ############################
-    }else{
-      
-      # Not filtering the data 
-      dataToExport <- combinedMetrics 
-      
-    }
+      ######################
+      # Filtering the data #
+      ######################
+      if(indicatorForFilterMetrics() == 1){
+        
+        # Filtering the data 
+        dataToExport <- combinedMetrics %>%
+          dplyr::filter(Model %in% c(input$ModelCrudeData1), # Model filtering
+                        Type %in% c(input$perfType1), # Metric type filtering
+                        Location %in% c(input$locationChoicesCrude1), # Location filtering
+                        Calibration %in% c(input$calibrationChoices1)) # Calibration filtering
+                        
+      ############################
+      # No filtering to the data #
+      ############################
+      }else{
+        
+        # Not filtering the data 
+        dataToExport <- combinedMetrics 
+        
+      }
 
-    ############################################
-    # Saving the results in the reactive value #
-    ############################################
-    finalCrudeCombined$data <- dataToExport
+      ############################################
+      # Saving the results in the reactive value #
+      ############################################
+      finalCrudeCombined$data <- dataToExport
+      
+    } # End of if(!is.null(vettedMetrics$data))
     
     
   }) # End of 'observe'
@@ -14630,8 +14630,6 @@ server <- function(input, output, session) {
       
       averageMetrics <- average.compare.metrics(metrics.input = finalCrudeUnfiltered$metrics)
       
-    }
-
 #------------------------------------------------------------------------------#
 # Creating the filtering pop-up ------------------------------------------------
 #------------------------------------------------------------------------------#
@@ -14640,33 +14638,33 @@ server <- function(input, output, session) {
 # model, and calibration period length.                                        #
 #------------------------------------------------------------------------------#
 
-    #######################
-    # Creating the pop-up #
-    #######################
-    observeEvent(input$filterAvgCombinedMetrics, ignoreInit = T,{
+      #######################
+      # Creating the pop-up #
+      #######################
+      observeEvent(input$filterAvgCombinedMetrics, ignoreInit = T,{
 
-      # Requiring the combined metrics
-      req(averageMetrics)
+        # Requiring the combined metrics
+        req(averageMetrics)
 
-      # Changing the indicator to one (i.e., button has been clicked)
-      isolate({indicatorForFilterMetricsAvg(1)})
+        # Changing the indicator to one (i.e., button has been clicked)
+        isolate({indicatorForFilterMetricsAvg(1)})
 
-      # Isolating button click behavior
-      isolate({
+        # Isolating button click behavior
+        isolate({
 
-        # Button
-        showModal(modalDialog(
-          title = "Filtering Options",
-          pickerInput("ModelCrudeDataA", "Model:", c(unique(averageMetrics$Model)), selected = c(unique(averageMetrics$Model)), multiple = T), # Model filtering
-          pickerInput("perfTypeA", "Performance Metric Type:", c(unique(averageMetrics$Type)), selected = c(unique(averageMetrics$Type)), multiple = T), # Metric Type
-          pickerInput("locationChoicesCrudeA", "Location:", c(unique(averageMetrics$Location)), selected = c(unique(averageMetrics$Location)), multiple = T), # Location
-          pickerInput("calibrationChoicesA", "Calibration:", c(unique(averageMetrics$Calibration)), selected = c(unique(averageMetrics$Calibration)), multiple = T) # Calibration
+          # Button
+          showModal(modalDialog(
+            title = "Filtering Options",
+            pickerInput("ModelCrudeDataA", "Model:", c(unique(averageMetrics$Model)), selected = c(unique(averageMetrics$Model)), multiple = T), # Model filtering
+            pickerInput("perfTypeA", "Performance Metric Type:", c(unique(averageMetrics$Type)), selected = c(unique(averageMetrics$Type)), multiple = T), # Metric Type
+            pickerInput("locationChoicesCrudeA", "Location:", c(unique(averageMetrics$Location)), selected = c(unique(averageMetrics$Location)), multiple = T), # Location
+            pickerInput("calibrationChoicesA", "Calibration:", c(unique(averageMetrics$Calibration)), selected = c(unique(averageMetrics$Calibration)), multiple = T) # Calibration
 
-        ))
+          ))
 
-      })
+        })
 
-    }) # End of 'observeEvent'
+      }) # End of 'observeEvent'
 
 #------------------------------------------------------------------------------#
 # Filtering the average metrics data -------------------------------------------
@@ -14676,32 +14674,34 @@ server <- function(input, output, session) {
 # exported.                                                                    #
 #------------------------------------------------------------------------------#
 
-    ######################
-    # Filtering the data #
-    ######################
-    if(indicatorForFilterMetricsAvg() == 1){
+      ######################
+      # Filtering the data #
+      ######################
+      if(indicatorForFilterMetricsAvg() == 1){
 
-      # Filtering the data
-      dataToExport <- averageMetrics %>%
-        dplyr::filter(Model %in% c(input$ModelCrudeDataA), # Model filtering
-                      Type %in% c(input$perfTypeA), # Metric type filtering
-                      Location %in% c(input$locationChoicesCrudeA), # Location filtering
-                      Calibration %in% c(input$calibrationChoicesA)) # Calibration filtering
+        # Filtering the data
+        dataToExport <- averageMetrics %>%
+          dplyr::filter(Model %in% c(input$ModelCrudeDataA), # Model filtering
+                        Type %in% c(input$perfTypeA), # Metric type filtering
+                        Location %in% c(input$locationChoicesCrudeA), # Location filtering
+                        Calibration %in% c(input$calibrationChoicesA)) # Calibration filtering
 
-    ############################
-    # No filtering to the data #
-    ############################
-    }else{
+      ############################
+      # No filtering to the data #
+      ############################
+      }else{
 
-      # Not filtering the data
-      dataToExport <- averageMetrics
+        # Not filtering the data
+        dataToExport <- averageMetrics
 
-    }
+      }
 
-    ############################################
-    # Saving the results in the reactive value #
-    ############################################
-    finalAvgCombined$metricsFULL <- dataToExport 
+      ############################################
+      # Saving the results in the reactive value #
+      ############################################
+      finalAvgCombined$metricsFULL <- dataToExport
+      
+    } # End of if(!is.null(finalCrudeUnfiltered$metrics)) 
     
     
   }) # End of 'observe'
