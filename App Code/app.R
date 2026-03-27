@@ -5281,6 +5281,9 @@ server <- function(input, output, session) {
     ####################################
     filename = function() {
 
+      # Require data to be available
+      req(timeseriesData$dataList)
+
       # File name
       paste("time-series-data-", input$dataset, sep = "")
 
@@ -5290,6 +5293,9 @@ server <- function(input, output, session) {
     # Function to save the file #
     #############################
     content = function(file) {
+
+      # Require data to be available
+      req(timeseriesData$dataList)
 
       # Saving the file
       write.csv(timeseriesData$dataList, file, row.names = FALSE)
@@ -5811,6 +5817,9 @@ server <- function(input, output, session) {
     ####################################
     filename = function() {
 
+      # Require data to be available
+      req(timeseriesFigureList$figureStatic)
+
       # Closing the figure specification
       removeModal()
 
@@ -5826,6 +5835,9 @@ server <- function(input, output, session) {
     # Function to save the file #
     #############################
     content = function(file) {
+
+      # Require data to be available
+      req(timeseriesFigureList$figureStatic)
 
       # Static version of plot
       figure <- timeseriesFigureList$figureStatic
@@ -9560,6 +9572,9 @@ server <- function(input, output, session) {
     ##########################################################
     filename = function() {
       
+      # Require data to be available
+      req(crudeMetricsFiltered$metricsFULL)
+      
       paste("crude-metrics-data-", input$dataset, sep = "")
       
     },
@@ -9568,6 +9583,9 @@ server <- function(input, output, session) {
     # Function to save the file - as .csv #
     #######################################
     content = function(file) {
+      
+      # Require data to be available
+      req(crudeMetricsFiltered$metricsFULL)
       
       # Saving the file
       write.csv(data.frame(crudeMetricsFiltered$metricsFULL), file, row.names = FALSE)
@@ -10680,6 +10698,9 @@ server <- function(input, output, session) {
     ##########################################################
     filename = function() {
       
+      # Require data to be available
+      req(avgMetricsFiltered$metricsFULL)
+      
       paste("Average-Metrics-Metrics-", input$dataset, sep = "")
       
     },
@@ -10688,6 +10709,9 @@ server <- function(input, output, session) {
     # Function to save the file - as .csv #
     #######################################
     content = function(file) {
+      
+      # Require data to be available
+      req(avgMetricsFiltered$metricsFULL)
       
       # Saving the file
       write.csv(data.frame(avgMetricsFiltered$metricsFULL), file, row.names = FALSE)
