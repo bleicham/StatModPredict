@@ -8829,157 +8829,152 @@ server <- function(input, output, session) {
 # the figures will be saved the user's directory.                              #
 #------------------------------------------------------------------------------#
 
-  ############################################
-  # Observing changes in the reactive values #
-  ############################################
-  observe({
+  ##############################################
+  # Creating the option to download the figure #
+  ##############################################
+  output$downloadForecastFigure <- downloadHandler(
 
-    #########################
-    # Saving a single image #
-    #########################
-    if(length(finalFiguresDashboard$data) == 1){
+    ####################################
+    # Function to create the file-name #
+    ####################################
+    filename = function() {
 
-      ##############################################
-      # Creating the option to download the figure #
-      ##############################################
-      output$downloadForecastFigure <- downloadHandler(
+      # Require data to be available
+      req(finalFiguresDashboard$data)
 
-        ####################################
-        # Function to create the file-name #
-        ####################################
-        filename = function() {
+      #########################
+      # Saving a single image #
+      #########################
+      if(length(finalFiguresDashboard$data) == 1){
 
-          # Closing the figure specification
-          removeModal()
+        # Closing the figure specification
+        removeModal()
 
-          # File name
-          paste("Forecast-Figure.", input$extFig, sep = "")
+        # File name
+        paste("Forecast-Figure.", input$extFig, sep = "")
 
-        },
+      #######################
+      # Saving a zip folder #
+      #######################
+      }else{
 
-        #############################
-        # Function to save the file #
-        #############################
-        content = function(file) {
+        paste("Forecast-Figures.zip", sep = "")
 
-          # Static version of plot
-          figure <- finalFiguresDashboard$data[[1]]
+      } # End of 'if-else' for type of saved object
 
-          # Running with compression if using a '.tiff'
-          if(input$extFig == 'tiff'){
+    },
 
-            # Saving the file
-            ggsave(file, plot = figure,
-                   dpi = input$dpi,
-                   width = input$width,
-                   height = input$height,
-                   units = input$units,
-                   compression = "lzw")
+    #############################
+    # Function to save the file #
+    #############################
+    content = function(file) {
 
-          # Running without compression if not using a '.tiff'
-          }else{
+      # Require data to be available
+      req(finalFiguresDashboard$data)
 
-            # Saving the file
-            ggsave(file, plot = figure,
-                   dpi = input$dpi,
-                   width = input$width,
-                   height = input$height,
-                   units = input$units)
-          }
+      #########################
+      # Saving a single image #
+      #########################
+      if(length(finalFiguresDashboard$data) == 1){
 
-        }) # End of saving the figure(s)
+        # Static version of plot
+        figure <- finalFiguresDashboard$data[[1]]
 
-    #######################
-    # Saving a zip folder #
-    #######################
-    }else{
+        # Running with compression if using a '.tiff'
+        if(input$extFig == 'tiff'){
 
-      output$downloadForecastFigure <- downloadHandler(
+          # Saving the file
+          ggsave(file, plot = figure,
+                 dpi = input$dpi,
+                 width = input$width,
+                 height = input$height,
+                 units = input$units,
+                 compression = "lzw")
 
-        ####################
-        # Filename for ZIP #
-        ####################
-        filename = function(){
+        # Running without compression if not using a '.tiff'
+        }else{
 
-          paste("Forecast-Figures.zip", sep = "")
+          # Saving the file
+          ggsave(file, plot = figure,
+                 dpi = input$dpi,
+                 width = input$width,
+                 height = input$height,
+                 units = input$units)
+        }
 
-        },
+      #######################
+      # Saving a zip folder #
+      #######################
+      }else{
 
-        ############################################
-        # Determining what should be in the folder #
-        ############################################
-        content = function(file){
+        # Removing the message
+        removeModal()
 
-          # Removing the message
-          removeModal()
+        # Creating a temp directory for files
+        temp_directory <- file.path(tempdir(), as.integer(Sys.time()))
 
-          # Creating a temp directory for files
-          temp_directory <- file.path(tempdir(), as.integer(Sys.time()))
+        # Physically creating the directory
+        dir.create(temp_directory)
 
-          # Physically creating the directory
-          dir.create(temp_directory)
+        # Saving the ggplots
+        for (plot_name in names(finalFiguresDashboard$data)) {
 
-          # Saving the ggplots
-          for (plot_name in names(finalFiguresDashboard$data)) {
+          # Plot
+          plot_obj <- finalFiguresDashboard$data[[plot_name]]
 
-            # Plot
-            plot_obj <- finalFiguresDashboard$data[[plot_name]]
+          # If plot is found
+          if (!is.null(plot_obj)) {
 
-            # If plot is found
-            if (!is.null(plot_obj)) {
+            # File name
+            safe_name <- gsub("[^A-Za-z0-9_-]", "_", plot_name)
+            file_name <- paste0(safe_name, ".", input$extFig)
 
-              # File name
-              safe_name <- gsub("[^A-Za-z0-9_-]", "_", plot_name)
-              file_name <- paste0(safe_name, ".", input$extFig)
+            # TIFF file
+            if(input$extFig == "tiff"){
+              ggsave(
+                file.path(temp_directory, file_name),
+                plot = plot_obj,
+                dpi = input$dpi,
+                width = input$width,
+                height = input$height,
+                units = input$units,
+                device = input$extFig,
+                compression = "lzw")
 
-              # TIFF file
-              if(input$extFig == "tiff"){
-                ggsave(
-                  file.path(temp_directory, file_name),
-                  plot = plot_obj,
-                  dpi = input$dpi,
-                  width = input$width,
-                  height = input$height,
-                  units = input$units,
-                  device = input$extFig,
-                  compression = "lzw")
+            }else{
 
-              }else{
-
-                # All other image types
-                ggsave(
-                  file.path(temp_directory, file_name),
-                  plot = plot_obj,
-                  dpi = input$dpi,
-                  width = input$width,
-                  height = input$height,
-                  units = input$units,
-                  device = input$extFig)
-
-              }
+              # All other image types
+              ggsave(
+                file.path(temp_directory, file_name),
+                plot = plot_obj,
+                dpi = input$dpi,
+                width = input$width,
+                height = input$height,
+                units = input$units,
+                device = input$extFig)
 
             }
 
           }
 
-          #####################
-          # Create a zip file #
-          #####################
-          zip::zip(
-            zipfile = file,
-            files = dir(temp_directory),
-            root = temp_directory
-          )
+        }
 
-        },
+        #####################
+        # Create a zip file #
+        #####################
+        zip::zip(
+          zipfile = file,
+          files = dir(temp_directory),
+          root = temp_directory
+        )
 
-        contentType = "application/zip"
+      } # End of 'if-else' for type of saved object
 
-      )
+    },
 
-    } # End of 'if-else' for type of saved object
+    contentType = "application/octet-stream"
 
-  }) # End of 'observe'
+  ) # End of 'downloadHandler'
 
     
       
@@ -10290,160 +10285,156 @@ server <- function(input, output, session) {
 # the figures will be saved the user's directory.                              #
 #------------------------------------------------------------------------------#
 
-  ############################################
-  # Observing changes in the reactive values #
-  ############################################
-  observe({
+  ##############################################
+  # Creating the option to download the figure #
+  ##############################################
+  output$downloadCrudeMetricsFigure <- downloadHandler(
 
-    #########################
-    # Saving a single image #
-    #########################
-    if(length(modelCrudePlot$figures) == 1){
+    ####################################
+    # Function to create the file-name #
+    ####################################
+    filename = function() {
 
-      ##############################################
-      # Creating the option to download the figure #
-      ##############################################
-      output$downloadCrudeMetricsFigure <- downloadHandler(
+      # Require data to be available
+      req(modelCrudePlot$figures)
 
-        ####################################
-        # Function to create the file-name #
-        ####################################
-        filename = function() {
+      #########################
+      # Saving a single image #
+      #########################
+      if(length(modelCrudePlot$figures) == 1){
 
-          # Closing the figure specification
-          removeModal()
+        # Closing the figure specification
+        removeModal()
 
-          # File name
-          paste("Crude-Metrics-Figures.", input$extFig, sep = "")
+        # File name
+        paste("Crude-Metrics-Figures.", input$extFig, sep = "")
 
-        },
+      #######################
+      # Saving a zip folder #
+      #######################
+      }else{
 
-        #############################
-        # Function to save the file #
-        #############################
-        content = function(file) {
+        paste("Crude-Metrics-Figures.zip", sep = "")
 
-          # Static version of plot
-          figure <- modelCrudePlot$figures[[1]]
+      } # End of 'if-else' for download options
 
-          # Running with compression if using a '.tiff'
-          if(input$extFig == 'tiff'){
+    },
 
-            # Saving the file
-            ggsave(file, plot = figure,
-                   dpi = input$dpi,
-                   width = input$width,
-                   height = input$height,
-                   units = input$units,
-                   compression = "lzw")
+    #############################
+    # Function to save the file #
+    #############################
+    content = function(file) {
 
-          # Running without compression if not using a '.tiff'
-          }else{
+      # Require data to be available
+      req(modelCrudePlot$figures)
 
-            # Saving the file
-            ggsave(file, plot = figure,
-                   dpi = input$dpi,
-                   width = input$width,
-                   height = input$height,
-                   units = input$units)
-          }
+      #########################
+      # Saving a single image #
+      #########################
+      if(length(modelCrudePlot$figures) == 1){
 
-        }) # End of saving the figure(s)
+        # Static version of plot
+        figure <- modelCrudePlot$figures[[1]]
 
-    #######################
-    # Saving a zip folder #
-    #######################
-    }else{
+        # Running with compression if using a '.tiff'
+        if(input$extFig == 'tiff'){
 
-      ##############################################
-      # Creating the option to download the figure #
-      ##############################################
-      output$downloadCrudeMetricsFigure <- downloadHandler(
+          # Saving the file
+          ggsave(file, plot = figure,
+                 dpi = input$dpi,
+                 width = input$width,
+                 height = input$height,
+                 units = input$units,
+                 compression = "lzw")
 
-        #####################
-        # File name for ZIP #
-        #####################
-        filename = function(){
+        # Running without compression if not using a '.tiff'
+        }else{
 
-          paste("Crude-Metrics-Figures.zip", sep = "")
+          # Saving the file
+          ggsave(file, plot = figure,
+                 dpi = input$dpi,
+                 width = input$width,
+                 height = input$height,
+                 units = input$units)
+        }
 
-        },
+      #######################
+      # Saving a zip folder #
+      #######################
+      }else{
 
-        ############################################
-        # Determining what should be in the folder #
-        ############################################
-        content = function(file){
+        ##############################################
+        # Creating the option to download the figure #
+        ##############################################
 
-          # Removing the message
-          removeModal()
+        # Removing the message
+        removeModal()
 
-          # Creating a temp directory for files
-          temp_directory <- file.path(tempdir(), as.integer(Sys.time()))
+        # Creating a temp directory for files
+        temp_directory <- file.path(tempdir(), as.integer(Sys.time()))
 
-          # Physically creating the directory
-          dir.create(temp_directory)
+        # Physically creating the directory
+        dir.create(temp_directory)
 
-          # Saving the ggplots
-          for (plot_name in names(modelCrudePlot$figures)) {
+        # Saving the ggplots
+        for (plot_name in names(modelCrudePlot$figures)) {
 
-            # Plot
-            plot_obj <- modelCrudePlot$figures[[plot_name]]
+          # Plot
+          plot_obj <- modelCrudePlot$figures[[plot_name]]
 
-            # If plot is found
-            if (!is.null(plot_obj)) {
+          # If plot is found
+          if (!is.null(plot_obj)) {
 
-              # File name
-              safe_name <- gsub("[^A-Za-z0-9_-]", "_", plot_name)
-              file_name <- paste0(safe_name, ".", input$extFig)
+            # File name
+            safe_name <- gsub("[^A-Za-z0-9_-]", "_", plot_name)
+            file_name <- paste0(safe_name, ".", input$extFig)
 
-              # TIFF file
-              if(input$extFig == "tiff"){
-                ggsave(
-                  file.path(temp_directory, file_name),
-                  plot = plot_obj,
-                  dpi = input$dpi,
-                  width = input$width,
-                  height = input$height,
-                  units = input$units,
-                  device = input$extFig,
-                  compression = "lzw")
+            # TIFF file
+            if(input$extFig == "tiff"){
+              ggsave(
+                file.path(temp_directory, file_name),
+                plot = plot_obj,
+                dpi = input$dpi,
+                width = input$width,
+                height = input$height,
+                units = input$units,
+                device = input$extFig,
+                compression = "lzw")
 
-              }else{
+            }else{
 
-                # All other image types
-                ggsave(
-                  file.path(temp_directory, file_name),
-                  plot = plot_obj,
-                  dpi = input$dpi,
-                  width = input$width,
-                  height = input$height,
-                  units = input$units,
-                  device = input$extFig)
-
-              }
+              # All other image types
+              ggsave(
+                file.path(temp_directory, file_name),
+                plot = plot_obj,
+                dpi = input$dpi,
+                width = input$width,
+                height = input$height,
+                units = input$units,
+                device = input$extFig)
 
             }
 
           }
 
-          #####################
-          # Create a zip file #
-          #####################
-          zip::zip(
-            zipfile = file,
-            files = dir(temp_directory),
-            root = temp_directory
-          )
+        }
 
-        },
+        #####################
+        # Create a zip file #
+        #####################
+        zip::zip(
+          zipfile = file,
+          files = dir(temp_directory),
+          root = temp_directory
+        )
 
-        contentType = "application/zip"
+      } # End of 'if-else' for download options
 
-      )
+    },
 
-    } # End of 'if-else' for download options
+    contentType = "application/octet-stream"
 
-  }) # End of 'observe'
+  ) # End of 'downloadHandler'
 
   
 #------------------------------------------------------------------------------#
@@ -13147,154 +13138,152 @@ server <- function(input, output, session) {
   ############################################
   # Observing changes in the reactive values #
   ############################################
-  observe({
+  ##############################################
+  # Creating the option to download the figure #
+  ##############################################
+  output$downloadOtherFigsIndividual <- downloadHandler(
 
-    #########################
-    # Saving a single image #
-    #########################
-    if(length(finalFiguresOther$figures) == 1){
+    ####################################
+    # Function to create the file-name #
+    ####################################
+    filename = function() {
 
-      ##############################################
-      # Creating the option to download the figure #
-      ##############################################
-      output$downloadOtherFigsIndividual <- downloadHandler(
+      # Require data to be available
+      req(finalFiguresOther$figures)
 
-        ####################################
-        # Function to create the file-name #
-        ####################################
-        filename = function() {
+      #########################
+      # Saving a single image #
+      #########################
+      if(length(finalFiguresOther$figures) == 1){
 
-          # Closing the figure specification
-          removeModal()
+        # Closing the figure specification
+        removeModal()
 
-          # File name
-          paste("Other-Forecast-Figure.", input$extFig, sep = "")
+        # File name
+        paste("Other-Forecast-Figure.", input$extFig, sep = "")
 
-        },
+      #######################
+      # Saving a zip folder #
+      #######################
+      }else{
 
-        #############################
-        # Function to save the file #
-        #############################
-        content = function(file) {
+        paste("Other-Forecast-Figures.zip", sep = "")
 
-          # Static version of plot
-          figure <- finalFiguresOther$figures[[1]]
+      } # End of 'if-else' for type of saved object
 
-          # Running with compression if using a '.tiff'
-          if(input$extFig == 'tiff'){
+    },
 
-            # Saving the file
-            ggsave(file, plot = figure,
-                   dpi = input$dpi,
-                   width = input$width,
-                   height = input$height,
-                   units = input$units,
-                   compression = "lzw")
+    #############################
+    # Function to save the file #
+    #############################
+    content = function(file) {
 
-          # Running without compression if not using a '.tiff'
-          }else{
+      # Require data to be available
+      req(finalFiguresOther$figures)
 
-            # Saving the file
-            ggsave(file, plot = figure,
-                   dpi = input$dpi,
-                   width = input$width,
-                   height = input$height,
-                   units = input$units)
-          }
+      #########################
+      # Saving a single image #
+      #########################
+      if(length(finalFiguresOther$figures) == 1){
 
-        }) # End of saving the figure(s)
+        # Static version of plot
+        figure <- finalFiguresOther$figures[[1]]
 
-    #######################
-    # Saving a zip folder #
-    #######################
-    }else{
+        # Running with compression if using a '.tiff'
+        if(input$extFig == 'tiff'){
 
-      output$downloadOtherFigsIndividual <- downloadHandler(
+          # Saving the file
+          ggsave(file, plot = figure,
+                 dpi = input$dpi,
+                 width = input$width,
+                 height = input$height,
+                 units = input$units,
+                 compression = "lzw")
 
-        #####################
-        # File name for ZIP #
-        #####################
-        filename = function(){
+        # Running without compression if not using a '.tiff'
+        }else{
 
-          paste("Other-Forecast-Figures.zip", sep = "")
+          # Saving the file
+          ggsave(file, plot = figure,
+                 dpi = input$dpi,
+                 width = input$width,
+                 height = input$height,
+                 units = input$units)
+        }
 
-        },
+      #######################
+      # Saving a zip folder #
+      #######################
+      }else{
 
-        ############################################
-        # Determining what should be in the folder #
-        ############################################
-        content = function(file){
+        # Removing the message
+        removeModal()
 
-          # Removing the message
-          removeModal()
+        # Creating a temp directory for files
+        temp_directory <- file.path(tempdir(), as.integer(Sys.time()))
 
-          # Creating a temp directory for files
-          temp_directory <- file.path(tempdir(), as.integer(Sys.time()))
+        # Physically creating the directory
+        dir.create(temp_directory)
 
-          # Physically creating the directory
-          dir.create(temp_directory)
+        # Saving the ggplots
+        for (plot_name in names(finalFiguresOther$figures)) {
 
-          # Saving the ggplots
-          for (plot_name in names(finalFiguresOther$figures)) {
+          # Plot
+          plot_obj <- finalFiguresOther$figures[[plot_name]]
 
-            # Plot
-            plot_obj <- finalFiguresOther$figures[[plot_name]]
+          # If plot is found
+          if (!is.null(plot_obj)) {
 
-            # If plot is found
-            if (!is.null(plot_obj)) {
+            # File name
+            safe_name <- gsub("[^A-Za-z0-9_-]", "_", plot_name)
+            file_name <- paste0(safe_name, ".", input$extFig)
 
-              # File name
-              safe_name <- gsub("[^A-Za-z0-9_-]", "_", plot_name)
-              file_name <- paste0(safe_name, ".", input$extFig)
+            # TIFF file
+            if(input$extFig == "tiff"){
+              ggsave(
+                file.path(temp_directory, file_name),
+                plot = plot_obj,
+                dpi = input$dpi,
+                width = input$width,
+                height = input$height,
+                units = input$units,
+                device = input$extFig,
+                compression = "lzw")
 
-              # TIFF file
-              if(input$extFig == "tiff"){
-                ggsave(
-                  file.path(temp_directory, file_name),
-                  plot = plot_obj,
-                  dpi = input$dpi,
-                  width = input$width,
-                  height = input$height,
-                  units = input$units,
-                  device = input$extFig,
-                  compression = "lzw")
+            }else{
 
-              }else{
-
-                # All other image types
-                ggsave(
-                  file.path(temp_directory, file_name),
-                  plot = plot_obj,
-                  dpi = input$dpi,
-                  width = input$width,
-                  height = input$height,
-                  units = input$units,
-                  device = input$extFig)
-
-              }
+              # All other image types
+              ggsave(
+                file.path(temp_directory, file_name),
+                plot = plot_obj,
+                dpi = input$dpi,
+                width = input$width,
+                height = input$height,
+                units = input$units,
+                device = input$extFig)
 
             }
 
           }
 
-          #####################
-          # Create a zip file #
-          #####################
-          zip::zip(
-            zipfile = file,
-            files = dir(temp_directory),
-            root = temp_directory
-          )
+        }
 
-        },
+        #####################
+        # Create a zip file #
+        #####################
+        zip::zip(
+          zipfile = file,
+          files = dir(temp_directory),
+          root = temp_directory
+        )
 
-        contentType = "application/zip"
+      } # End of 'if-else' for type of saved object
 
-      )
+    },
 
-    } # End of 'if-else' for type of saved object
+    contentType = "application/octet-stream"
 
-  }) # End of 'observe'
+  ) # End of 'downloadHandler'
 
 
 #------------------------------------------------------------------------------#
@@ -14430,157 +14419,156 @@ server <- function(input, output, session) {
   ############################################
   # Observing changes in the reactive values #
   ############################################
-  observe({
+  ##############################################
+  # Creating the option to download the figure #
+  ##############################################
+  output$downloadOtherCrudeMetrics <- downloadHandler(
 
-    #########################
-    # Saving a single image #
-    #########################
-    if(length(CrudeMetricsOtherPlots$figures) == 1){
+    ####################################
+    # Function to create the file-name #
+    ####################################
+    filename = function() {
 
-      ##############################################
-      # Creating the option to download the figure #
-      ##############################################
-      output$downloadOtherCrudeMetrics <- downloadHandler(
+      # Require data to be available
+      req(CrudeMetricsOtherPlots$figures)
 
-        ####################################
-        # Function to create the file-name #
-        ####################################
-        filename = function() {
+      #########################
+      # Saving a single image #
+      #########################
+      if(length(CrudeMetricsOtherPlots$figures) == 1){
 
-          # Closing the figure specification
-          removeModal()
+        # Closing the figure specification
+        removeModal()
 
-          # File name
-          paste("Crude-Metrics-Figures.", input$extFig, sep = "")
+        # File name
+        paste("Crude-Metrics-Figures.", input$extFig, sep = "")
 
-        },
+      #######################
+      # Saving a zip folder #
+      #######################
+      }else{
 
-        #############################
-        # Function to save the file #
-        #############################
-        content = function(file) {
+        paste("Crude-Metrics-Figures.zip", sep = "")
 
-          # Static version of plot
-          figure <- CrudeMetricsOtherPlots$figures[[1]]
+      } # End of 'if-else' for download options
 
-          # Running with compression if using a '.tiff'
-          if(input$extFig == 'tiff'){
+    },
 
-            # Saving the file
-            ggsave(file, plot = figure,
-                   dpi = input$dpi,
-                   width = input$width,
-                   height = input$height,
-                   units = input$units,
-                   compression = "lzw")
+    #############################
+    # Function to save the file #
+    #############################
+    content = function(file) {
 
-            # Running without compression if not using a '.tiff'
-          }else{
+      # Require data to be available
+      req(CrudeMetricsOtherPlots$figures)
 
-            # Saving the file
-            ggsave(file, plot = figure,
-                   dpi = input$dpi,
-                   width = input$width,
-                   height = input$height,
-                   units = input$units)
-          }
+      #########################
+      # Saving a single image #
+      #########################
+      if(length(CrudeMetricsOtherPlots$figures) == 1){
 
-        }) # End of saving the figure(s)
+        # Static version of plot
+        figure <- CrudeMetricsOtherPlots$figures[[1]]
 
-    #######################
-    # Saving a zip folder #
-    #######################
-    }else{
+        # Running with compression if using a '.tiff'
+        if(input$extFig == 'tiff'){
 
-      ##############################################
-      # Creating the option to download the figure #
-      ##############################################
-      output$downloadOtherCrudeMetrics <- downloadHandler(
+          # Saving the file
+          ggsave(file, plot = figure,
+                 dpi = input$dpi,
+                 width = input$width,
+                 height = input$height,
+                 units = input$units,
+                 compression = "lzw")
 
-        #####################
-        # File name for ZIP #
-        #####################
-        filename = function(){
+          # Running without compression if not using a '.tiff'
+        }else{
 
-          paste("Crude-Metrics-Figures.zip", sep = "")
+          # Saving the file
+          ggsave(file, plot = figure,
+                 dpi = input$dpi,
+                 width = input$width,
+                 height = input$height,
+                 units = input$units)
+        }
 
-        },
+      #######################
+      # Saving a zip folder #
+      #######################
+      }else{
 
-        ############################################
-        # Determining what should be in the folder #
-        ############################################
-        content = function(file){
+        ##############################################
+        # Creating the option to download the figure #
+        ##############################################
 
-          # Removing the message
-          removeModal()
+        # Removing the message
+        removeModal()
 
-          # Creating a temp directory for files
-          temp_directory <- file.path(tempdir(), as.integer(Sys.time()))
+        # Creating a temp directory for files
+        temp_directory <- file.path(tempdir(), as.integer(Sys.time()))
 
-          # Physically creating the directory
-          dir.create(temp_directory)
+        # Physically creating the directory
+        dir.create(temp_directory)
 
-          # Saving the ggplots
-          for (plot_name in names(CrudeMetricsOtherPlots$figures)) {
+        # Saving the ggplots
+        for (plot_name in names(CrudeMetricsOtherPlots$figures)) {
 
-            # Plot
-            plot_obj <- CrudeMetricsOtherPlots$figures[[plot_name]]
+          # Plot
+          plot_obj <- CrudeMetricsOtherPlots$figures[[plot_name]]
 
-            # If plot is found
-            if (!is.null(plot_obj)) {
+          # If plot is found
+          if (!is.null(plot_obj)) {
 
-              # File name
-              safe_name <- gsub("[^A-Za-z0-9_-]", "_", plot_name)
-              file_name <- paste0(safe_name, ".", input$extFig)
+            # File name
+            safe_name <- gsub("[^A-Za-z0-9_-]", "_", plot_name)
+            file_name <- paste0(safe_name, ".", input$extFig)
 
-              # TIFF file
-              if(input$extFig == "tiff"){
-                ggsave(
-                  file.path(temp_directory, file_name),
-                  plot = plot_obj,
-                  dpi = input$dpi,
-                  width = input$width,
-                  height = input$height,
-                  units = input$units,
-                  device = input$extFig,
-                  compression = "lzw")
+            # TIFF file
+            if(input$extFig == "tiff"){
+              ggsave(
+                file.path(temp_directory, file_name),
+                plot = plot_obj,
+                dpi = input$dpi,
+                width = input$width,
+                height = input$height,
+                units = input$units,
+                device = input$extFig,
+                compression = "lzw")
 
-              }else{
+            }else{
 
-                # All other image types
-                ggsave(
-                  file.path(temp_directory, file_name),
-                  plot = plot_obj,
-                  dpi = input$dpi,
-                  width = input$width,
-                  height = input$height,
-                  units = input$units,
-                  device = input$extFig)
-
-              }
+              # All other image types
+              ggsave(
+                file.path(temp_directory, file_name),
+                plot = plot_obj,
+                dpi = input$dpi,
+                width = input$width,
+                height = input$height,
+                units = input$units,
+                device = input$extFig)
 
             }
 
           }
 
-          #####################
-          # Create a zip file #
-          #####################
-          zip::zip(
-            zipfile = file,
-            files = dir(temp_directory),
-            root = temp_directory
-          )
+        }
 
-        },
+        #####################
+        # Create a zip file #
+        #####################
+        zip::zip(
+          zipfile = file,
+          files = dir(temp_directory),
+          root = temp_directory
+        )
 
-        contentType = "application/zip"
+      } # End of 'if-else' for download options
 
-      )
+    },
 
-    } # End of 'if-else' for download options
+    contentType = "application/octet-stream"
 
-  }) # End of 'observe'
+  ) # End of 'downloadHandler'
   
 #------------------------------------------------------------------------------#
 # Calculating the average metrics ----------------------------------------------
