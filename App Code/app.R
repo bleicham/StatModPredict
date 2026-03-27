@@ -3194,7 +3194,7 @@ conditionalPanel(
                    
                    # Creating and formatting button
                    div(style = "display: flex; justify-content: flex-start; align-items: center;",
-                       uiOutput("download_FormatttedForecastsUI"))
+                       downloadButton("download_FormattedForecasts", "Download Forecast Data"))
                    
                  ) # End of button column
                  
@@ -3303,7 +3303,7 @@ conditionalPanel(
                 div(style = "display:flex; vertical-aline: top",
                     
                     # Rendering the download button 
-                    div(uiOutput("download_quantile_forecastsUI"), style = "margin-right:10px"),
+                    div(downloadButton("download_quantile_forecasts", "Download Quantile Forecasts"), style = "margin-right:10px"),
                     
                     div(style = "margin-right: 10px;", actionButton("filterQuantileForecasts", "Filtering Options"))
                     
@@ -3642,7 +3642,7 @@ conditionalPanel(
                       
                       # Creating the download button 
                       div(style = "margin-right: 10px",
-                          uiOutput("download_AvgMetricsUI")),
+                          downloadButton("download_AvgMetrics", "Download Average Metrics")),
                       
                       # Filtering data 
                       div(style = "margin-right: 10px;", actionButton("filterAvgMetrics", "Filtering Options"))
@@ -3849,7 +3849,7 @@ conditionalPanel(
                       
                       # Download Button
                       div(style = "margin-right: 10px",
-                          uiOutput("download_metricsUI")),
+                          downloadButton("download_metrics", "Download Crude Metrics")),
                       
                       # Filtering data 
                       div(style = "margin-right: 10px;", actionButton("filterCrudeMetrics", "Filtering Options"))    
@@ -3988,7 +3988,7 @@ conditionalPanel(
                          #######################################
                          # Creating the download button - Data #
                          #######################################
-                         div(uiOutput("downloadWinkerDataUI")),
+                         div(downloadButton("downloadWinkerData", "Download Scores", style = "margin-right: 10px")),
                          
                          ###################################
                          # Creating the data filter option #
@@ -4055,7 +4055,7 @@ conditionalPanel(
                          #######################################
                          # Creating the download button - Data #
                          #######################################
-                         div(style = "margin-right: 10px", uiOutput("downloadSSMetricsUI")),
+                         div(style = "margin-right: 10px", downloadButton("downloadSSMetrics", "Download Skill Scores")),
                          
                          ###################################
                          # Creating the data filter option #
@@ -4282,7 +4282,7 @@ conditionalPanel(
                          ############################################
                          
                          # Download button for the combined average metrics 
-                         div(uiOutput("downloadAverageMetricsUI")),
+                         div(downloadButton("downloadAverageMetrics", "Download Avg. Metrics", style = "margin-right: 10px")),
                          
                          # Filtering for the average metrics 
                          div(style = "margin-right: 10px", actionButton("filterAvgCombinedMetrics", "Filtering Options")), 
@@ -4451,7 +4451,7 @@ conditionalPanel(
                        ############################################
                        
                        # Download button for the combined crude metrics 
-                       div(uiOutput("downloadCrudeMetricsUI")),
+                       div(downloadButton("downloadCrudeMetrics", "Download Crude Metrics", style = "margin-right: 10px")),
                        
                        # Filtering for the crude metrics 
                        div(style = "margin-right: 10px", actionButton("filterCrudeCombinedMetrics", "Filtering Options")), 
@@ -4618,7 +4618,7 @@ conditionalPanel(
                      ############################################
                      
                      # Download button for the combined Winkler Scores 
-                     div(style = "margin-right: 10px", uiOutput("downloadWinklerMetricsUI")),
+                     div(style = "margin-right: 10px", downloadButton("downloadWinklerMetrics", "Download Winkler Scores")),
                      
                      # Filtering for the combined Winkler Scores 
                      div(style = "margin-right: 10px", actionButton("filterWinklerOtherMetrics", "Filtering Options")), 
@@ -4679,7 +4679,7 @@ conditionalPanel(
                      ############################################
                      
                      # Download button skill scores 
-                     div(style = "margin-right: 10px", uiOutput("downloadSSMetricsOtherUI")),
+                     div(style = "margin-right: 10px", downloadButton("downloadSSMetricsOther", "Download Skill Scores")),
                      
                      # Filtering for the skill scores
                      div(style = "margin-right: 10px", actionButton("filterSkillScoresOtherMetrics", "Filtering Options")), 
@@ -5141,55 +5141,6 @@ server <- function(input, output, session) {
       }) # End of render UI
 
   }) # End of observe statement
-
-
-#------------------------------------------------------------------------------#
-# Creating the download buttons server side ------------------------------------
-#------------------------------------------------------------------------------#
-# About: This section creates the download buttons that were previously        #
-# defined in the UI section. Moving them to the server side allows for         #
-# dynamic rendering consistent with other download buttons in the app.         #
-#------------------------------------------------------------------------------#
-
-  output$download_FormatttedForecastsUI <- renderUI({
-    downloadButton("download_FormatttedForecasts", "Download Forecast Data")
-  })
-
-  output$download_quantile_forecastsUI <- renderUI({
-    downloadButton("download_quantile_forecasts", "Download Quantile Forecasts")
-  })
-
-  output$download_AvgMetricsUI <- renderUI({
-    downloadButton("download_AvgMetrics", "Download Average Metrics")
-  })
-
-  output$download_metricsUI <- renderUI({
-    downloadButton("download_metrics", "Download Crude Metrics")
-  })
-
-  output$downloadWinkerDataUI <- renderUI({
-    downloadButton("downloadWinkerData", "Download Scores", style = "margin-right: 10px")
-  })
-
-  output$downloadSSMetricsUI <- renderUI({
-    downloadButton("downloadSSMetrics", "Download Skill Scores")
-  })
-
-  output$downloadAverageMetricsUI <- renderUI({
-    downloadButton("downloadAverageMetrics", "Download Avg. Metrics", style = "margin-right: 10px")
-  })
-
-  output$downloadCrudeMetricsUI <- renderUI({
-    downloadButton("downloadCrudeMetrics", "Download Crude Metrics", style = "margin-right: 10px")
-  })
-
-  output$downloadWinklerMetricsUI <- renderUI({
-    downloadButton("downloadWinklerMetrics", "Download Winkler Scores")
-  })
-
-  output$downloadSSMetricsOtherUI <- renderUI({
-    downloadButton("downloadSSMetricsOther", "Download Skill Scores")
-  })
 
 
 #------------------------------------------------------------------------------#
@@ -7345,113 +7296,103 @@ server <- function(input, output, session) {
 # with the resulting '.csv's are available for download.                       #
 #------------------------------------------------------------------------------#
    
-   ##########################################################
-   # Observing changes in the reactive value with forecasts #
-   ##########################################################
-   observe({
-     
-     ###############################################
-     # Downloading a '.csv' if one forecast is run #
-     ###############################################
-     if(length(finalQuantileCombined$data) == 1){
-       
+   ######################################################
+   # Backbone of download button for quantile forecasts #
+   ######################################################
+   output$download_quantile_forecasts <- downloadHandler(
+
+     ####################################
+     # Function to create the file-name #
+     ####################################
+     filename = function() {
+
+       # Require data to be available
+       req(finalQuantileCombined$data)
+
+       ###############################################
+       # Downloading a '.csv' if one forecast is run #
+       ###############################################
+       if (length(finalQuantileCombined$data) == 1) {
+
+         # File name
+         paste("quantile-calibration-", input$calibrationPeriod, "-location-", input$locations, '-model-', input$modelType, "-", input$dataset, sep = "")
+
        ######################################################
-       # Backbone of download button for quantile forecasts #
+       # Downloading a '.zip' if multiple forecasts are run #
        ######################################################
-       output$download_quantile_forecasts <- downloadHandler(
-         
-         ####################################
-         # Function to create the file-name #
-         ####################################
-         filename = function() {
-           
-           # File name 
-           paste("quantile-calibration-", input$calibrationPeriod, "-location-", input$locations, '-model-', input$modelType, "-", input$dataset, sep = "")
-           
-         },
-         
-         #############################
-         # Function to save the file #
-         #############################
-         content = function(file) {
-           
-           # Saving the file
-           write.csv(finalQuantileCombined$data[[1]], file, row.names = FALSE)
-           
-         }
-         
-       ) # End of download button  
-     
-     ######################################################
-     # Downloading a '.zip' if multiple forecasts are run #
-     ######################################################
-     }else{
-       
+       } else {
+
+         paste("Quantile-Forecasts.zip", sep = "")
+
+       } # End of 'if-else' for files
+
+     },
+
+     #############################
+     # Function to save the file #
+     #############################
+     content = function(file) {
+
+       # Require data to be available
+       req(finalQuantileCombined$data)
+
+       ###############################################
+       # Downloading a '.csv' if one forecast is run #
+       ###############################################
+       if (length(finalQuantileCombined$data) == 1) {
+
+         # Saving the file
+         write.csv(finalQuantileCombined$data[[1]], file, row.names = FALSE)
+
        ######################################################
-       # Backbone of download button for quantile forecasts #
+       # Downloading a '.zip' if multiple forecasts are run #
        ######################################################
-       output$download_quantile_forecasts <- downloadHandler(
-         
-         ####################
-         # Filename for ZIP #
-         ####################
-         filename = function(){
-           
-           paste("Quantile-Forecasts.zip", sep = "")
-           
-         },
-         
-         ############################################
-         # Determining what should be in the folder #
-         ############################################
-         content = function(file){
-           
-           # Removing the message
-           removeModal()
-           
-           # Creating a temp directory for files 
-           temp_directory <- file.path(tempdir(), as.integer(Sys.time()))
-           
-           # Physically creating the directory 
-           dir.create(temp_directory)
-           
-           # Saving the '.csv' files
-           for (fileName in names(finalQuantileCombined$data)) {
-             
-             # Forecast file 
-             file_obj <- data.frame(finalQuantileCombined$data[[fileName]])
-             
-             # If forecast file is found 
-             if (!is.null(file_obj)) {
-               
-               # File name 
-               file_name <- glue("{fileName}.csv")
-               
-               # Saving the '.csv'
-               write_csv(file_obj, file.path(temp_directory, file_name))
-               
-             }
-             
+       } else {
+
+         # Removing the message
+         removeModal()
+
+         # Creating a temp directory for files
+         temp_directory <- file.path(tempdir(), as.integer(Sys.time()))
+
+         # Physically creating the directory
+         dir.create(temp_directory)
+
+         # Saving the '.csv' files
+         for (fileName in names(finalQuantileCombined$data)) {
+
+           # Forecast file
+           file_obj <- data.frame(finalQuantileCombined$data[[fileName]])
+
+           # If forecast file is found
+           if (!is.null(file_obj)) {
+
+             # File name
+             file_name <- glue("{fileName}.csv")
+
+             # Saving the '.csv'
+             write_csv(file_obj, file.path(temp_directory, file_name))
+
            }
-           
-           #####################
-           # Create a zip file #
-           #####################
-           zip::zip(
-             zipfile = file,
-             files = dir(temp_directory),
-             root = temp_directory
-           )
-           
-         },
-         
-         contentType = "application/zip"
-         
-       ) # End of download handler 
-       
-     } # End of 'else' for files
-     
-   }) # ENd of 'observe' 
+
+         }
+
+         #####################
+         # Create a zip file #
+         #####################
+         zip::zip(
+           zipfile = file,
+           files = dir(temp_directory),
+           root = temp_directory
+         )
+
+       } # End of 'if-else' for files
+
+     },
+
+     contentType = "application/octet-stream"
+
+   ) # End of download handler
    
 #------------------------------------------------------------------------------#
 # Reading in the updated time series '.csv' ------------------------------------
@@ -7989,108 +7930,103 @@ server <- function(input, output, session) {
 # multiple files are outputted, they are included within a '.zip' folder.      #
 #------------------------------------------------------------------------------#
 
-  ###########################################
-  # Observing changes in the reactive value #
-  ###########################################
-  observe({
+  ###############################################################
+  # Backbone of download button for the formatted forecast data #
+  ###############################################################
+  output$download_FormattedForecasts <- downloadHandler(
 
-    ###########################
-    # Producing a '.csv' file #
-    ###########################
-    if(length(finalForecastCombined$data) == 1){
+    ####################################
+    # Function to create the file-name #
+    ####################################
+    filename = function() {
 
-      ###############################################################
-      # Backbone of download button for the formatted forecast data #
-      ###############################################################
-      output$download_FormatttedForecasts <- downloadHandler(
+      # Require data to be available
+      req(finalForecastCombined$data)
 
-        ####################################
-        # Function to create the file-name #
-        ####################################
-        filename = function() {
+      ###########################
+      # Producing a '.csv' file #
+      ###########################
+      if (length(finalForecastCombined$data) == 1) {
 
-          # File name
-          paste("formatted-forecast-calibration-", input$calibrationPeriod, "-location-", input$locations, '-model-', input$modelType, "-", input$dataset, sep = "")
+        # File name
+        paste("formatted-forecast-calibration-", input$calibrationPeriod, "-location-", input$locations, '-model-', input$modelType, "-", input$dataset, sep = "")
 
-        },
+      #############################
+      # Producing a '.zip' folder #
+      #############################
+      } else {
 
-        #############################
-        # Function to save the file #
-        #############################
-        content = function(file) {
+        paste("Formatted-Forecasts.zip", sep = "")
 
-          # Saving the file
-          write.csv(finalForecastCombined$data[[1]], file, row.names = FALSE)
+      } # End of 'if-else' for number of files
 
-        })
+    },
 
     #############################
-    # Producing a '.zip' folder #
+    # Function to save the file #
     #############################
-    }else{
+    content = function(file) {
 
-      output$download_FormatttedForecasts <- downloadHandler(
+      # Require data to be available
+      req(finalForecastCombined$data)
 
-        ####################
-        # Filename for ZIP #
-        ####################
-        filename = function(){
+      ###########################
+      # Producing a '.csv' file #
+      ###########################
+      if (length(finalForecastCombined$data) == 1) {
 
-          paste("Formatted-Forecasts.zip", sep = "")
+        # Saving the file
+        write.csv(finalForecastCombined$data[[1]], file, row.names = FALSE)
 
-        },
+      #############################
+      # Producing a '.zip' folder #
+      #############################
+      } else {
 
-        ############################################
-        # Determining what should be in the folder #
-        ############################################
-        content = function(file){
+        # Removing the message
+        removeModal()
 
-          # Removing the message
-          removeModal()
+        # Creating a temp directory for files
+        temp_directory <- file.path(tempdir(), as.integer(Sys.time()))
 
-          # Creating a temp directory for files
-          temp_directory <- file.path(tempdir(), as.integer(Sys.time()))
+        # Physically creating the directory
+        dir.create(temp_directory)
 
-          # Physically creating the directory
-          dir.create(temp_directory)
+        # Saving the files
+        for (fileName in names(finalForecastCombined$data)) {
 
-          # Saving the files
-          for(fileName in names(finalForecastCombined$data)) {
+          # Individual file
+          file_obj <- finalForecastCombined$data[[fileName]]
 
-            # Individual file
-            file_obj <- finalForecastCombined$data[[fileName]]
+          # If plot is found
+          if (!is.null(file_obj)) {
 
-            # If plot is found
-            if (!is.null(file_obj)) {
+            # File name
+            file_name <- glue("{fileName}.csv")
 
-              # File name
-              file_name <- glue("{fileName}.csv")
-
-              # Saving the csv
-              write_csv(file_obj, file.path(temp_directory, file_name))
-
-            }
+            # Saving the csv
+            write_csv(file_obj, file.path(temp_directory, file_name))
 
           }
 
-          #####################
-          # Create a zip file #
-          #####################
-          zip::zip(
-            zipfile = file,
-            files = dir(temp_directory),
-            root = temp_directory
-          )
+        }
 
-        },
+        #####################
+        # Create a zip file #
+        #####################
+        zip::zip(
+          zipfile = file,
+          files = dir(temp_directory),
+          root = temp_directory
+        )
 
-        contentType = "application/zip"
+      } # End of 'if-else' for number of files to download
 
-      ) # End of 'downloadHandler'
+    },
 
-    } # End of 'if-else' for number of files to download
+    contentType = "application/octet-stream"
 
-  })
+  ) # End of 'downloadHandler'
 
 #------------------------------------------------------------------------------#
 # Creating the "Edit Figures" pop-up -------------------------------------------
