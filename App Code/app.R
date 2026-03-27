@@ -3194,7 +3194,7 @@ conditionalPanel(
                    
                    # Creating and formatting button
                    div(style = "display: flex; justify-content: flex-start; align-items: center;",
-                       uiOutput("download_FormatttedForecastsUI"))
+                       downloadButton("download_FormatttedForecasts", "Download Forecast Data"))
                    
                  ) # End of button column
                  
@@ -3303,7 +3303,7 @@ conditionalPanel(
                 div(style = "display:flex; vertical-aline: top",
                     
                     # Rendering the download button 
-                    div(uiOutput("download_quantile_forecastsUI"), style = "margin-right:10px"),
+                    div(downloadButton("download_quantile_forecasts", "Download Quantile Forecasts"), style = "margin-right:10px"),
                     
                     div(style = "margin-right: 10px;", actionButton("filterQuantileForecasts", "Filtering Options"))
                     
@@ -3642,7 +3642,7 @@ conditionalPanel(
                       
                       # Creating the download button 
                       div(style = "margin-right: 10px",
-                          uiOutput("download_AvgMetricsUI")),
+                          downloadButton("download_AvgMetrics", "Download Average Metrics")),
                       
                       # Filtering data 
                       div(style = "margin-right: 10px;", actionButton("filterAvgMetrics", "Filtering Options"))
@@ -3849,7 +3849,7 @@ conditionalPanel(
                       
                       # Download Button
                       div(style = "margin-right: 10px",
-                          uiOutput("download_metricsUI")),
+                          downloadButton("download_metrics", "Download Crude Metrics")),
                       
                       # Filtering data 
                       div(style = "margin-right: 10px;", actionButton("filterCrudeMetrics", "Filtering Options"))    
@@ -3988,7 +3988,7 @@ conditionalPanel(
                          #######################################
                          # Creating the download button - Data #
                          #######################################
-                         div(uiOutput("downloadWinkerDataUI")),
+                         div(downloadButton("downloadWinkerData", "Download Scores", style = "margin-right: 10px")),
                          
                          ###################################
                          # Creating the data filter option #
@@ -4055,7 +4055,7 @@ conditionalPanel(
                          #######################################
                          # Creating the download button - Data #
                          #######################################
-                         div(style = "margin-right: 10px", uiOutput("downloadSSMetricsUI")),
+                         div(style = "margin-right: 10px", downloadButton("downloadSSMetrics", "Download Skill Scores")),
                          
                          ###################################
                          # Creating the data filter option #
@@ -4282,7 +4282,7 @@ conditionalPanel(
                          ############################################
                          
                          # Download button for the combined average metrics 
-                         div(uiOutput("downloadAverageMetricsUI")),
+                         div(downloadButton("downloadAverageMetrics", "Download Avg. Metrics", style = "margin-right: 10px")),
                          
                          # Filtering for the average metrics 
                          div(style = "margin-right: 10px", actionButton("filterAvgCombinedMetrics", "Filtering Options")), 
@@ -4451,7 +4451,7 @@ conditionalPanel(
                        ############################################
                        
                        # Download button for the combined crude metrics 
-                       div(uiOutput("downloadCrudeMetricsUI")),
+                       div(downloadButton("downloadCrudeMetrics", "Download Crude Metrics", style = "margin-right: 10px")),
                        
                        # Filtering for the crude metrics 
                        div(style = "margin-right: 10px", actionButton("filterCrudeCombinedMetrics", "Filtering Options")), 
@@ -4618,7 +4618,7 @@ conditionalPanel(
                      ############################################
                      
                      # Download button for the combined Winkler Scores 
-                     div(style = "margin-right: 10px", uiOutput("downloadWinklerMetricsUI")),
+                     div(style = "margin-right: 10px", downloadButton("downloadWinklerMetrics", "Download Winkler Scores")),
                      
                      # Filtering for the combined Winkler Scores 
                      div(style = "margin-right: 10px", actionButton("filterWinklerOtherMetrics", "Filtering Options")), 
@@ -4679,7 +4679,7 @@ conditionalPanel(
                      ############################################
                      
                      # Download button skill scores 
-                     div(style = "margin-right: 10px", uiOutput("downloadSSMetricsOtherUI")),
+                     div(style = "margin-right: 10px", downloadButton("downloadSSMetricsOther", "Download Skill Scores")),
                      
                      # Filtering for the skill scores
                      div(style = "margin-right: 10px", actionButton("filterSkillScoresOtherMetrics", "Filtering Options")), 
@@ -5141,55 +5141,6 @@ server <- function(input, output, session) {
       }) # End of render UI
 
   }) # End of observe statement
-
-
-#------------------------------------------------------------------------------#
-# Creating the download buttons server side ------------------------------------
-#------------------------------------------------------------------------------#
-# About: This section creates the download buttons that were previously        #
-# defined in the UI section. Moving them to the server side allows for         #
-# dynamic rendering consistent with other download buttons in the app.         #
-#------------------------------------------------------------------------------#
-
-  output$download_FormatttedForecastsUI <- renderUI({
-    downloadButton("download_FormatttedForecasts", "Download Forecast Data")
-  })
-
-  output$download_quantile_forecastsUI <- renderUI({
-    downloadButton("download_quantile_forecasts", "Download Quantile Forecasts")
-  })
-
-  output$download_AvgMetricsUI <- renderUI({
-    downloadButton("download_AvgMetrics", "Download Average Metrics")
-  })
-
-  output$download_metricsUI <- renderUI({
-    downloadButton("download_metrics", "Download Crude Metrics")
-  })
-
-  output$downloadWinkerDataUI <- renderUI({
-    downloadButton("downloadWinkerData", "Download Scores", style = "margin-right: 10px")
-  })
-
-  output$downloadSSMetricsUI <- renderUI({
-    downloadButton("downloadSSMetrics", "Download Skill Scores")
-  })
-
-  output$downloadAverageMetricsUI <- renderUI({
-    downloadButton("downloadAverageMetrics", "Download Avg. Metrics", style = "margin-right: 10px")
-  })
-
-  output$downloadCrudeMetricsUI <- renderUI({
-    downloadButton("downloadCrudeMetrics", "Download Crude Metrics", style = "margin-right: 10px")
-  })
-
-  output$downloadWinklerMetricsUI <- renderUI({
-    downloadButton("downloadWinklerMetrics", "Download Winkler Scores")
-  })
-
-  output$downloadSSMetricsOtherUI <- renderUI({
-    downloadButton("downloadSSMetricsOther", "Download Skill Scores")
-  })
 
 
 #------------------------------------------------------------------------------#
