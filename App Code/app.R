@@ -8972,7 +8972,7 @@ server <- function(input, output, session) {
 
     },
 
-    contentType = "application/zip"
+    contentType = "application/octet-stream"
 
   ) # End of 'downloadHandler'
 
@@ -10432,7 +10432,7 @@ server <- function(input, output, session) {
 
     },
 
-    contentType = "application/zip"
+    contentType = "application/octet-stream"
 
   ) # End of 'downloadHandler'
 
@@ -13281,7 +13281,7 @@ server <- function(input, output, session) {
 
     },
 
-    contentType = "application/zip"
+    contentType = "application/octet-stream"
 
   ) # End of 'downloadHandler'
 
@@ -14566,7 +14566,7 @@ server <- function(input, output, session) {
 
     },
 
-    contentType = "application/zip"
+    contentType = "application/octet-stream"
 
   ) # End of 'downloadHandler'
   
