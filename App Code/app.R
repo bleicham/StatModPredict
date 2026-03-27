@@ -3194,7 +3194,7 @@ conditionalPanel(
                    
                    # Creating and formatting button
                    div(style = "display: flex; justify-content: flex-start; align-items: center;",
-                       downloadButton("download_FormattedForecasts", "Download Forecast Data"))
+                       uiOutput("formattedForecastsBtn"))
                    
                  ) # End of button column
                  
@@ -3303,7 +3303,7 @@ conditionalPanel(
                 div(style = "display:flex; vertical-aline: top",
                     
                     # Rendering the download button 
-                    div(downloadButton("download_quantile_forecasts", "Download Quantile Forecasts"), style = "margin-right:10px"),
+                    uiOutput("quantileForecastsBtn"),
                     
                     div(style = "margin-right: 10px;", actionButton("filterQuantileForecasts", "Filtering Options"))
                     
@@ -3630,46 +3630,9 @@ conditionalPanel(
             div(style = "display:flex; vertical-aline: top",
                 
                 ########################################################
-                # Conditional Panel: Download data & Filtering Options #
+                # Dynamic download/filter buttons for Average Metrics    #
                 ########################################################
-                conditionalPanel(
-                  
-                  # Condition
-                  condition = "!input.AvgFigure",
-                  
-                  # Row style 
-                  div(style = "display:flex; vertical-aline: top",
-                      
-                      # Creating the download button 
-                      div(style = "margin-right: 10px",
-                          downloadButton("download_AvgMetrics", "Download Average Metrics")),
-                      
-                      # Filtering data 
-                      div(style = "margin-right: 10px;", actionButton("filterAvgMetrics", "Filtering Options"))
-                      
-                  ) # End of style for conditional panel 
-                  
-                ), # End of condition
-                
-                ###########################################################
-                # Conditional Panel: Download Figure & Figure edit button #
-                ###########################################################
-                conditionalPanel(
-                  
-                  # Condition
-                  condition = "input.AvgFigure", 
-                  
-                  # Aligning buttons
-                  div(style = "display:flex; vertical-aline: top",
-                      
-                      #Download Button
-                      div(style = "margin-right: 10px",
-                          actionButton("download_AvgmetricsFig", "Download Average Metrics Figure", icon = icon("download"))),
-                      
-                      # Edit figures button
-                      div(style = "margin-right: 10px", actionButton("editAvgMetrics", "Figure Options")))
-                  
-                ),
+                uiOutput("avgMetricsButtons"),
                 
                 #########################
                 # Show figure check-box #
@@ -3836,49 +3799,10 @@ conditionalPanel(
             ########################
             div(style = "display:flex; vertical-aline: top",
                 
-                #############################################################
-                # Condition: Show Download Button for Data & Filter Options #
-                #############################################################
-                conditionalPanel(
-                  
-                  # Condition
-                  condition = "!input.crudeFigure",
-                  
-                  # Style 
-                  div(style = "display:flex; vertical-aline: top",
-                      
-                      # Download Button
-                      div(style = "margin-right: 10px",
-                          downloadButton("download_metrics", "Download Crude Metrics")),
-                      
-                      # Filtering data 
-                      div(style = "margin-right: 10px;", actionButton("filterCrudeMetrics", "Filtering Options"))    
-                      
-                  )
-                  
-                ), # End of condition
-                
                 ###############################################################
-                # Condition: Show Download Button for Figure & Figure Options #
+                # Dynamic download/filter buttons for Crude Metrics           #
                 ###############################################################
-                conditionalPanel(
-                  
-                  # Condition
-                  condition = "input.crudeFigure",
-                  
-                  # Aligning buttons
-                  div(style = "display:flex; vertical-aline: top",
-                      
-                      # Download Button
-                      div(style = "margin-right: 10px",
-                          actionButton("download_metricsFig", "Download Crude Metrics Figure", icon = icon("download"))),
-                      
-                      # Edit figures button
-                      div(style = "margin-right: 10px", actionButton("figOptCRUDEMetrics", "Figure Options"))
-                      
-                  )
-                  
-                ), # End of condition
+                uiOutput("crudeButtons"),
                 
                 #########################
                 # Show figure check-box #
@@ -3982,25 +3906,7 @@ conditionalPanel(
                      # Column width 
                      width = 12, 
                      
-                     # Overall style for row 
-                     div(style = "display:flex; vertical-aline: top",
-                         
-                         #######################################
-                         # Creating the download button - Data #
-                         #######################################
-                         div(downloadButton("downloadWinkerData", "Download Scores", style = "margin-right: 10px")),
-                         
-                         ###################################
-                         # Creating the data filter option #
-                         ###################################
-                         div(style = "margin-right: 10px", actionButton("filterWinklerDataMain", "Filtering Options")), 
-                         
-                         #########################################################
-                         # Creating the check-mark to see average Winkler Scores #
-                         #########################################################
-                         div(checkboxInput("seeAverageWinklerMain", "Use Average Metrics"))
-                         
-                     ), # End of style for row 
+                     uiOutput("winklerMainButtons")
                      
                    ) # End of alignment column
                    
@@ -4049,25 +3955,7 @@ conditionalPanel(
                      # Column width 
                      width = 12, 
                      
-                     # Overall style for row 
-                     div(style = "display:flex; vertical-aline: top",
-                         
-                         #######################################
-                         # Creating the download button - Data #
-                         #######################################
-                         div(style = "margin-right: 10px", downloadButton("downloadSSMetrics", "Download Skill Scores")),
-                         
-                         ###################################
-                         # Creating the data filter option #
-                         ###################################
-                         div(style = "margin-right: 10px", actionButton("filterSSDataMain", "Filtering Options")), 
-                         
-                         ##################################################################
-                         # Creating the check-mark to use average metrics in skill Scores #
-                         ##################################################################
-                         div(checkboxInput("seeAvgSS", "Use Average Metrics"))
-                         
-                     ), # End of style for row 
+                     uiOutput("skillScoresMainButtons")
                      
                    ) # End of alignment column
                    
@@ -4282,11 +4170,7 @@ conditionalPanel(
                          ############################################
                          
                          # Download button for the combined average metrics 
-                         div(downloadButton("downloadAverageMetrics", "Download Avg. Metrics", style = "margin-right: 10px")),
-                         
-                         # Filtering for the average metrics 
-                         div(style = "margin-right: 10px", actionButton("filterAvgCombinedMetrics", "Filtering Options")), 
-                         
+                         uiOutput("avgMetricsCompBtn")
                      ) # End of overall style for row 
                      
                    ) # End of alignment column 
@@ -4451,11 +4335,7 @@ conditionalPanel(
                        ############################################
                        
                        # Download button for the combined crude metrics 
-                       div(downloadButton("downloadCrudeMetrics", "Download Crude Metrics", style = "margin-right: 10px")),
-                       
-                       # Filtering for the crude metrics 
-                       div(style = "margin-right: 10px", actionButton("filterCrudeCombinedMetrics", "Filtering Options")), 
-                       
+                       uiOutput("crudeMetricsCompBtn")
                       ) # End of overall style for row 
                    
                     ) # End of alignment column 
@@ -4618,14 +4498,7 @@ conditionalPanel(
                      ############################################
                      
                      # Download button for the combined Winkler Scores 
-                     div(style = "margin-right: 10px", downloadButton("downloadWinklerMetrics", "Download Winkler Scores")),
-                     
-                     # Filtering for the combined Winkler Scores 
-                     div(style = "margin-right: 10px", actionButton("filterWinklerOtherMetrics", "Filtering Options")), 
-                     
-                     # Check-mark for average Winkler scores
-                     div(checkboxInput("winklerOtherAvg", "See Avg. Winkler Scores"))
-                     
+                     uiOutput("winklerCompBtn")
                  ) # End of overall style for row 
                  
                ) # End of alignment column 
@@ -4679,14 +4552,7 @@ conditionalPanel(
                      ############################################
                      
                      # Download button skill scores 
-                     div(style = "margin-right: 10px", downloadButton("downloadSSMetricsOther", "Download Skill Scores")),
-                     
-                     # Filtering for the skill scores
-                     div(style = "margin-right: 10px", actionButton("filterSkillScoresOtherMetrics", "Filtering Options")), 
-                     
-                     # Check-mark for average skill scores
-                     div(checkboxInput("seeAvgSSOther", "See Avg. Skill Scores"))
-                     
+                     uiOutput("ssCompBtn")
                    ) # End of overall style for row 
                    
               ) # End of alignment column 
@@ -5281,6 +5147,9 @@ server <- function(input, output, session) {
     ####################################
     filename = function() {
 
+      # Require data to be available
+      req(timeseriesData$dataList)
+
       # File name
       paste("time-series-data-", input$dataset, sep = "")
 
@@ -5290,6 +5159,9 @@ server <- function(input, output, session) {
     # Function to save the file #
     #############################
     content = function(file) {
+
+      # Require data to be available
+      req(timeseriesData$dataList)
 
       # Saving the file
       write.csv(timeseriesData$dataList, file, row.names = FALSE)
@@ -5811,6 +5683,9 @@ server <- function(input, output, session) {
     ####################################
     filename = function() {
 
+      # Require data to be available
+      req(timeseriesFigureList$figureStatic)
+
       # Closing the figure specification
       removeModal()
 
@@ -5826,6 +5701,9 @@ server <- function(input, output, session) {
     # Function to save the file #
     #############################
     content = function(file) {
+
+      # Require data to be available
+      req(timeseriesFigureList$figureStatic)
 
       # Static version of plot
       figure <- timeseriesFigureList$figureStatic
@@ -7288,6 +7166,16 @@ server <- function(input, output, session) {
    }) # End of render statement for quantile forecasts
    
 #------------------------------------------------------------------------------#
+# Dynamic UI for the quantile forecasts download button ------------------------
+#------------------------------------------------------------------------------#
+   output$quantileForecastsBtn <- renderUI({
+     div(
+       downloadButton("download_quantile_forecasts", "Download Quantile Forecasts"),
+       style = "margin-right:10px"
+     )
+   })
+
+#------------------------------------------------------------------------------#
 # Downloading the quantile forecasts as a zip ----------------------------------
 #------------------------------------------------------------------------------#
 # About: This section allows users to 'zip' the files that are loaded for      #
@@ -7920,6 +7808,13 @@ server <- function(input, output, session) {
 
    }) # End of render statement for formatted forecasts
 
+
+#------------------------------------------------------------------------------#
+# Dynamic UI for the formatted forecasts download button -----------------------
+#------------------------------------------------------------------------------#
+  output$formattedForecastsBtn <- renderUI({
+    downloadButton("download_FormattedForecasts", "Download Forecast Data")
+  })
 
 #------------------------------------------------------------------------------#
 # Downloading the formatted forecasts as a 'zip' file --------------------------
@@ -9544,8 +9439,37 @@ server <- function(input, output, session) {
                         options = list(scrollX = T)))
        
    }) # End of rendering the crude metrics
+
+  ##############################################################
+  # Dynamic UI for Crude Metrics download and filter buttons  #
+  ##############################################################
+  output$crudeButtons <- renderUI({
+
+    if(is.null(input$crudeFigure) || !isTruthy(input$crudeFigure)){
+
+      div(style = "display:flex; vertical-align: top",
+
+          div(style = "margin-right: 10px",
+              downloadButton("download_metrics", "Download Crude Metrics")),
+
+          div(style = "margin-right: 10px;",
+              actionButton("filterCrudeMetrics", "Filtering Options"))
+      )
+
+    } else {
+
+      div(style = "display:flex; vertical-align: top",
+
+          div(style = "margin-right: 10px",
+              actionButton("download_metricsFig", "Download Crude Metrics Figure", icon = icon("download"))),
+
+          div(style = "margin-right: 10px",
+              actionButton("figOptCRUDEMetrics", "Figure Options"))
+      )
+
+    }
+  }) # End of renderUI for crudeButtons
    
-  
 #------------------------------------------------------------------------------#
 # Downloading the crude metrics as a '.csv' file -------------------------------
 #------------------------------------------------------------------------------#
@@ -9560,6 +9484,9 @@ server <- function(input, output, session) {
     ##########################################################
     filename = function() {
       
+      # Require data to be available
+      req(crudeMetricsFiltered$metricsFULL)
+      
       paste("crude-metrics-data-", input$dataset, sep = "")
       
     },
@@ -9568,6 +9495,9 @@ server <- function(input, output, session) {
     # Function to save the file - as .csv #
     #######################################
     content = function(file) {
+      
+      # Require data to be available
+      req(crudeMetricsFiltered$metricsFULL)
       
       # Saving the file
       write.csv(data.frame(crudeMetricsFiltered$metricsFULL), file, row.names = FALSE)
@@ -10665,6 +10595,35 @@ server <- function(input, output, session) {
        
    }) # End of render statement for the data frame
 
+  ################################################################
+  # Dynamic UI for Average Metrics download and filter buttons  #
+  ################################################################
+  output$avgMetricsButtons <- renderUI({
+
+    if(is.null(input$AvgFigure) || !isTruthy(input$AvgFigure)){
+
+      div(style = "display:flex; vertical-align: top",
+
+          div(style = "margin-right: 10px",
+              downloadButton("download_AvgMetrics", "Download Average Metrics")),
+
+          div(style = "margin-right: 10px;",
+              actionButton("filterAvgMetrics", "Filtering Options"))
+      )
+
+    } else {
+
+      div(style = "display:flex; vertical-align: top",
+
+          div(style = "margin-right: 10px",
+              actionButton("download_AvgmetricsFig", "Download Average Metrics Figure", icon = icon("download"))),
+
+          div(style = "margin-right: 10px",
+              actionButton("editAvgMetrics", "Figure Options"))
+      )
+
+    }
+  }) # End of renderUI for avgMetricsButtons
 
 #------------------------------------------------------------------------------#
 # Downloading the average metrics as a '.csv' file -----------------------------
@@ -10680,6 +10639,9 @@ server <- function(input, output, session) {
     ##########################################################
     filename = function() {
       
+      # Require data to be available
+      req(avgMetricsFiltered$metricsFULL)
+      
       paste("Average-Metrics-Metrics-", input$dataset, sep = "")
       
     },
@@ -10688,6 +10650,9 @@ server <- function(input, output, session) {
     # Function to save the file - as .csv #
     #######################################
     content = function(file) {
+      
+      # Require data to be available
+      req(avgMetricsFiltered$metricsFULL)
       
       # Saving the file
       write.csv(data.frame(avgMetricsFiltered$metricsFULL), file, row.names = FALSE)
@@ -11393,6 +11358,9 @@ server <- function(input, output, session) {
     #####################
     filename = function(){
 
+      # Require data to be available
+      req(modelAvgPlot$figures)
+
       paste("Average-Metrics-Figures.zip", sep = "")
 
     },
@@ -11401,6 +11369,9 @@ server <- function(input, output, session) {
     # Determining what should be in the folder #
     ############################################
     content = function(file){
+
+      # Require data to be available
+      req(modelAvgPlot$figures)
 
       # Removing the message
       removeModal()
@@ -11613,6 +11584,16 @@ server <- function(input, output, session) {
    ###########################################
    output$winklerDataTableAGGP <- renderDataTable({winklerFinalAGGP$scores})
 
+  ##############################################################
+  # Dynamic UI for Winkler Scores download and filter buttons #
+  ##############################################################
+  output$winklerMainButtons <- renderUI({
+    div(style = "display:flex; vertical-align: top",
+        div(downloadButton("downloadWinkerData", "Download Scores", style = "margin-right: 10px")),
+        div(style = "margin-right: 10px", actionButton("filterWinklerDataMain", "Filtering Options")),
+        div(checkboxInput("seeAverageWinklerMain", "Use Average Metrics"))
+    )
+  }) # End of renderUI for winklerMainButtons
 
 #------------------------------------------------------------------------------#
 # Downloading the Winkler Scores -----------------------------------------------
@@ -11631,6 +11612,9 @@ server <- function(input, output, session) {
      ####################################
      filename = function() {
 
+       # Require data to be available
+       req(winklerFinalAGGP$scores)
+
        # File name
        paste("winkler-Scores-", input$dataset, sep = "")
 
@@ -11640,6 +11624,9 @@ server <- function(input, output, session) {
      # Function to save the file #
      #############################
      content = function(file) {
+
+       # Require data to be available
+       req(winklerFinalAGGP$scores)
 
        # Saving the file
        write.csv(winklerFinalAGGP$scores, file, row.names = FALSE)
@@ -11823,6 +11810,16 @@ server <- function(input, output, session) {
    ############################
    output$skillScoresAGGPData <- renderDataTable({finalSSCombinedMAIN$scores})
 
+  ###################################################################
+  # Dynamic UI for Skill Scores download and filter buttons        #
+  ###################################################################
+  output$skillScoresMainButtons <- renderUI({
+    div(style = "display:flex; vertical-align: top",
+        div(style = "margin-right: 10px", downloadButton("downloadSSMetrics", "Download Skill Scores")),
+        div(style = "margin-right: 10px", actionButton("filterSSDataMain", "Filtering Options")),
+        div(checkboxInput("seeAvgSS", "Use Average Metrics"))
+    )
+  }) # End of renderUI for skillScoresMainButtons
 
 #------------------------------------------------------------------------------#
 # Downloading the skill scores as a '.csv' -------------------------------------
@@ -11839,6 +11836,9 @@ server <- function(input, output, session) {
     ####################################
     filename = function() {
 
+      # Require data to be available
+      req(finalSSCombinedMAIN$scores)
+
       # File name
       paste("skill-scores-", input$dataset, sep = "")
 
@@ -11848,6 +11848,9 @@ server <- function(input, output, session) {
     # Function to save the file #
     #############################
     content = function(file) {
+
+      # Require data to be available
+      req(finalSSCombinedMAIN$scores)
 
       # Saving the file
       write.csv(finalSSCombinedMAIN$scores, file, row.names = FALSE)
@@ -13715,6 +13718,16 @@ server <- function(input, output, session) {
     
   }) # End of 'renderDataTable'
 
+  ################################################################
+  # Dynamic UI for Crude Metrics (comparison) download buttons  #
+  ################################################################
+  output$crudeMetricsCompBtn <- renderUI({
+    div(style = "display:flex; vertical-align: top",
+        div(downloadButton("downloadCrudeMetrics", "Download Crude Metrics", style = "margin-right: 10px")),
+        div(style = "margin-right: 10px", actionButton("filterCrudeCombinedMetrics", "Filtering Options"))
+    )
+  }) # End of renderUI for crudeMetricsCompBtn
+
 #------------------------------------------------------------------------------#
 # Downloading the combined metrics data as a '.csv' ----------------------------
 #------------------------------------------------------------------------------#
@@ -13730,6 +13743,9 @@ server <- function(input, output, session) {
     ####################################
     filename = function() {
       
+      # Require data to be available
+      req(finalCrudeCombined$data)
+
       # File name 
       paste("combined-crude-metrics-", input$dataset, sep = "")
       
@@ -13740,6 +13756,9 @@ server <- function(input, output, session) {
     #############################
     content = function(file) {
       
+      # Require data to be available
+      req(finalCrudeCombined$data)
+
       # Saving the file
       write.csv(finalCrudeCombined$data, file, row.names = FALSE)
       
@@ -14734,8 +14753,17 @@ server <- function(input, output, session) {
     return(datatable(finalAvgCombined$metricsFULL, options = list(scrollX = TRUE)))
     
   }) # End of 'renderDataTable'
-  
-  
+
+  ##################################################################
+  # Dynamic UI for Average Metrics (comparison) download buttons  #
+  ##################################################################
+  output$avgMetricsCompBtn <- renderUI({
+    div(style = "display:flex; vertical-align: top",
+        div(downloadButton("downloadAverageMetrics", "Download Avg. Metrics", style = "margin-right: 10px")),
+        div(style = "margin-right: 10px", actionButton("filterAvgCombinedMetrics", "Filtering Options"))
+    )
+  }) # End of renderUI for avgMetricsCompBtn
+
 #------------------------------------------------------------------------------#
 # Downloading the combined metrics data as a '.csv' ----------------------------
 #------------------------------------------------------------------------------#
@@ -14751,6 +14779,9 @@ server <- function(input, output, session) {
     ####################################
     filename = function() {
       
+      # Require data to be available
+      req(finalAvgCombined$metricsFULL)
+
       # File name 
       paste("combined-average-metrics-", input$dataset, sep = "")
       
@@ -14761,6 +14792,9 @@ server <- function(input, output, session) {
     #############################
     content = function(file) {
       
+      # Require data to be available
+      req(finalAvgCombined$metricsFULL)
+
       # Saving the file
       write.csv(finalAvgCombined$metricsFULL, file, row.names = FALSE)
       
@@ -15455,6 +15489,9 @@ server <- function(input, output, session) {
     #####################
     filename = function(){
 
+      # Require data to be available
+      req(AvgMetricsOtherPlots$figures)
+
       paste("Average-Metrics-Figures.zip", sep = "")
 
     },
@@ -15463,6 +15500,9 @@ server <- function(input, output, session) {
     # Determining what should be in the folder #
     ############################################
     content = function(file){
+
+      # Require data to be available
+      req(AvgMetricsOtherPlots$figures)
 
       # Removing the message
       removeModal()
@@ -15675,6 +15715,16 @@ server <- function(input, output, session) {
   ###########################################
   output$winklerScoresOther <- renderDataTable({winklerScoresModelCompare$scores})
 
+  ####################################################################
+  # Dynamic UI for Winkler Scores (comparison) download buttons     #
+  ####################################################################
+  output$winklerCompBtn <- renderUI({
+    div(style = "display:flex; vertical-align: top",
+        div(style = "margin-right: 10px", downloadButton("downloadWinklerMetrics", "Download Winkler Scores")),
+        div(style = "margin-right: 10px", actionButton("filterWinklerOtherMetrics", "Filtering Options")),
+        div(checkboxInput("winklerOtherAvg", "See Avg. Winkler Scores"))
+    )
+  }) # End of renderUI for winklerCompBtn
 
 #------------------------------------------------------------------------------#
 # Downloading the Winkler Scores -----------------------------------------------
@@ -15693,6 +15743,9 @@ server <- function(input, output, session) {
     ####################################
     filename = function() {
 
+      # Require data to be available
+      req(winklerScoresModelCompare$scores)
+
       # File name
       paste("winkler-Scores-", input$dataset, sep = "")
 
@@ -15702,6 +15755,9 @@ server <- function(input, output, session) {
     # Function to save the file #
     #############################
     content = function(file) {
+
+      # Require data to be available
+      req(winklerScoresModelCompare$scores)
 
       # Saving the file
       write.csv(winklerScoresModelCompare$scores, file, row.names = FALSE)
@@ -15910,6 +15966,16 @@ server <- function(input, output, session) {
   ############################
   output$skillScoresOtherOUTPUT <- renderDataTable({finalSSCombinedOther$scores})
 
+  ####################################################################
+  # Dynamic UI for Skill Scores (comparison) download buttons      #
+  ####################################################################
+  output$ssCompBtn <- renderUI({
+    div(style = "display:flex; vertical-align: top",
+        div(style = "margin-right: 10px", downloadButton("downloadSSMetricsOther", "Download Skill Scores")),
+        div(style = "margin-right: 10px", actionButton("filterSkillScoresOtherMetrics", "Filtering Options")),
+        div(checkboxInput("seeAvgSSOther", "See Avg. Skill Scores"))
+    )
+  }) # End of renderUI for ssCompBtn
 
 #------------------------------------------------------------------------------#
 # Downloading the skill scores as a '.csv' -------------------------------------
@@ -15926,6 +15992,9 @@ server <- function(input, output, session) {
     ####################################
     filename = function() {
   
+      # Require data to be available
+      req(finalSSCombinedOther$scores)
+
       # File name
       paste("skill-scores-", input$dataset, sep = "")
   
@@ -15936,6 +16005,9 @@ server <- function(input, output, session) {
     #############################
     content = function(file) {
   
+      # Require data to be available
+      req(finalSSCombinedOther$scores)
+
       # Saving the file
       write.csv(finalSSCombinedOther$scores, file, row.names = FALSE)
   
